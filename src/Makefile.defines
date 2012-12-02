@@ -1,0 +1,44 @@
+#----------------------------------------------------------------------------------------------#
+#  Copyright (C) 2012 Daniel Bolaños - www.bltek.com - Boulder Language Technologies           #
+#                                                                                              #
+#  www.bavieca.org is the website of the Bavieca Speech Recognition Toolkit                    #
+#                                                                                              #
+#  Licensed under the Apache License, Version 2.0 (the "License");                             #
+#  you may not use this file except in compliance with the License.                            #
+#  You may obtain a copy of the License at                                                     #
+#                                                                                              #
+#          http://www.apache.org/licenses/LICENSE-2.0                                          #
+#                                                                                              #
+#  Unless required by applicable law or agreed to in writing, software                         #
+#  distributed under the License is distributed on an "AS IS" BASIS,                           #
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.                    #
+#  See the License for the specific language governing permissions and                         #
+#  limitations under the License.                                                              #
+# ---------------------------------------------------------------------------------------------#
+
+# ---------------------------------------
+# Arch and Operating System settings
+# ---------------------------------------
+
+MAKE = make --quiet -w
+ARCH := $(shell uname -m | sed s/' '//g)
+OS   := $(shell uname -s)
+
+# ---------------------------------------
+# Linux compile options
+# ---------------------------------------
+
+XCC          = g++
+CPPFLAGS     = -g -Wno-deprecated -msse3 -Wall -O2 -finline-functions
+AR	     = ar rs
+
+# ---------------------------------------
+# CBLAS and LAPACK includes/libraries
+# ---------------------------------------
+
+INCS_DIR_CBLAS = -I/home/CBLAS/include
+INCS_DIR_LAPACK = -I/home/CLAPACK-3.2.1/INCLUDE
+LIBS_DIR_CBLAS = -L/home/CBLAS/lib/ -L/home/BLAS/ 
+LIBS_DIR_LAPACK = -L/home/CLAPACK-3.2.1/ -L/home/CLAPACK-3.2.1/F2CLIBS
+LIB_CBLAS = -lcblas_LINUX -lblas_LINUX -lgfortran
+LIB_LAPACK = -llapack_LINUX -lblas_LINUX3 -lf2c 
