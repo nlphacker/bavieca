@@ -56,10 +56,10 @@ void HMMInitializer::computeGlobalDistribution(VMLFUtterance *vMLFUtterance, con
 		// read the feature vectors from the file
 		ostringstream ossFileFeatures;
 		ossFileFeatures << strFolderFeatures << PATH_SEPARATOR << (*it)->strFilePattern;
-		FeatureFile *featureFile = new FeatureFile(ossFileFeatures.str().c_str(),MODE_READ);
-		featureFile->load();
+		FeatureFile featureFile(ossFileFeatures.str().c_str(),MODE_READ);
+		featureFile.load();
 		int iFeatures;
-		float *fFeatures = featureFile->getFeatureVectors(&iFeatures);
+		float *fFeatures = featureFile.getFeatureVectors(&iFeatures);
 		
 		// update counters
 		for(int i = 0 ; i < iFeatures ; ++i) {
@@ -71,7 +71,6 @@ void HMMInitializer::computeGlobalDistribution(VMLFUtterance *vMLFUtterance, con
 		lVectors += iFeatures;
 		
 		delete [] fFeatures;
-		delete featureFile;	
 	}
 	if (lVectors == 0) {
 		BVC_ERROR << "no feature vectors found to compute the global distribution";

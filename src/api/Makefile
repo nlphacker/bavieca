@@ -15,8 +15,7 @@
 #  See the License for the specific language governing permissions and                         #
 #  limitations under the License.                                                              #
 # ---------------------------------------------------------------------------------------------#
-
- 
+  
 include ../Makefile.defines
 
 INC = -I../common/algebra -I../common/alignment -I../common/audio -I../common/base -I../common/decoding \

@@ -151,7 +151,7 @@ double DTEstimator::computeLearningConstant(Gaussian *gaussian, Accumulator *acc
 		dCase1 += fTau;
 	}
 	
-	// case 2: minimum value needed to make the covariance is positive definite
+	// case 2: minimum value needed to make the covariance positive definite
 	double dCase2 = dCase1/2.0;
 	
 	double dIncrement = dCase2*0.01;

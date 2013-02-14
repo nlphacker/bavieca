@@ -226,7 +226,10 @@ bool ContextModeling::clusterContextDependentUnits(MAccumulatorLogical &mAccumul
 				}
 				double dPercentIncrease = 100.0*((dLikelihoodRoot-dLikelihoodAfterClustering)/dLikelihoodRoot);
 				char strInformation[1024+1];
-				sprintf(strInformation,"%s(%d) occ: %12.2f, likelihood: %16.4f -> %16.4f (%5.2f%%) %d %s",m_phoneSet->getStrPhone(iBasePhone),iState,dOccupationRoot,dLikelihoodRoot,dLikelihoodAfterClustering,dPercentIncrease,iLeavesData,Accumulator::getContextModelingOrder(m_iContextModelingOrderWW));
+				sprintf(strInformation,"%s(%d) occ: %12.2f, likelihood: %16.4f -> %16.4f (%5.2f%%) %d %s",
+					m_phoneSet->getStrPhone(iBasePhone),iState,dOccupationRoot,dLikelihoodRoot,
+					dLikelihoodAfterClustering,dPercentIncrease,iLeavesData,
+					Accumulator::getContextModelingOrder(m_iContextModelingOrderWW));
 				BVC_INFORMATION << strInformation;
 			}
 		}

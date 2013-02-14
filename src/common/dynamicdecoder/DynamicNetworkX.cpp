@@ -59,7 +59,7 @@ void DynamicNetworkX::print(LexiconManager *lexiconManager) {
 	printf("# arcs:  %12d\n",m_iArcs);
 	printf("nodes ----------------------------------\n");
 	for(int i=0 ; i < m_iNodes ; ++i) {
-		if (m_nodes[i].bWordEnd == true) {
+		if (m_nodes[i].bWordEnd) {
 			printf("node [%d] %d (word-end)\n",i,m_nodes[i].iDepth);
 		} else {
 			printf("node [%d] %d\n",i,m_nodes[i].iDepth);

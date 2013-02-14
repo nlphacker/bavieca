@@ -16,52 +16,26 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-#include "FileInput.h"
-#include "IOBase.h"
-#include "Mappings.h"
+
+#ifndef CLIPPINGESTIMATOR_H
+#define CLIPPINGESTIMATOR_H
 
 namespace Bavieca {
 
-// contructor
-Mappings::Mappings(const char *strFile)
-{
-	m_strFile = strFile;
-}
+/**
+	@author daniel <dani.bolanos@gmail.com>
+*/
+class ClippingEstimator {
 
-// destructor
-Mappings::~Mappings() {
-
-	m_mMappings.clear();	
-}
-
-// load the mappings
-void Mappings::load() {
-
-	FileInput file(m_strFile.c_str(),false);
-	file.open();
+	public:
 	
-	string strLine;
-	while(std::getline(file.getStream(),strLine).good()) {
-		std::stringstream s(strLine);
-		string str1,str2;
-		IOBase::readString(s,str1);
-		IOBase::readString(s,str2);
-		m_mMappings.insert(map<string,string>::value_type(str1,str2));
-	}
-	
-	file.close();
-}
-
-// map a lexical unit if a mapping is defined 
-const char *Mappings::operator[](const char *str) {
-	map<string,string>::iterator it = m_mMappings.find(str);
-	if (it == m_mMappings.end()) {
-		return str;
-	} else {
-		return it->second.c_str();
-	}	
-}
+		// return the number of clipped samples
+		static int estimateClipping8(const char* cSamples, int iSamples);
+		
+		// return the number of clipped samples
+		static int estimateClipping16(const short* sSamples, int iSamples);
+};
 
 };	// end-of-namespace
 
-
+#endif

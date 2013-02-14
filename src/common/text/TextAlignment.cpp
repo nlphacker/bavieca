@@ -76,7 +76,7 @@ void TextAlignment::print(bool bDetailed, FILE *file) {
 	fprintf(file,"# deletions:         %6d\n",m_iAlignmentEvents[2]);
 	fprintf(file,"# insertions:        %6d\n",m_iAlignmentEvents[3]);
 	// actual alignment
-	if (bDetailed == true) {
+	if (bDetailed) {
 		fprintf(file,"# event         reference            hypothesis\n");
 		for(VTAElement::iterator it = m_vTAElement.begin() ; it != m_vTAElement.end() ; ++it) {
 			switch((*it)->iAlignmentEvent) {
@@ -126,40 +126,38 @@ bool TextAlignment::store(const char *strFile, bool bDetailed) {
 // return the alignment as a stringetCorrect
 char *TextAlignment::getStrAlignment() {
 
-	string strAlignment = "";
-	char strAux[1024];
+	ostringstream strAlignment;
 	
 	int i=0;
 	for(VTAElement::iterator it = m_vTAElement.begin() ; it != m_vTAElement.end() ; ++it,++i) {
 		if (i) {
-			strAlignment += "|";
+			strAlignment << "|";
 		}
 		switch((*it)->iAlignmentEvent) {
 			case TEXT_ALIGNMENT_EVENT_CORRECT: {
-				sprintf(strAux,"correct(%s,%s)",m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference),
-				m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis));
+				strAlignment << "correct(" << m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference) <<
+					"," << m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis) << ")";
 				break;
 			}
 			case TEXT_ALIGNMENT_EVENT_SUBSTITUTION: {
-				sprintf(strAux,"substitution(%s,%s)",m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference),
-				m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis));
+				strAlignment << "substitution(" << m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference) <<
+					"," << m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis) << ")";
 				break;
 			}
 			case TEXT_ALIGNMENT_EVENT_DELETION: {
-				sprintf(strAux,"deletion(%s)",m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference));
+				strAlignment << "deletion(" << m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference) << ")";
 				break;
 			}
 			case TEXT_ALIGNMENT_EVENT_INSERTION: {
-				sprintf(strAux,"insertion(%s)",m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis));
+				strAlignment << "insertion(" << m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis) << ")";
 				break;
 			}
 		}
-		strAlignment += strAux;
 	}	
 	
-	if (strAlignment.compare("") != 0) {
-		char *str = new char[strAlignment.length()+1];
-		strcpy(str,strAlignment.c_str());
+	if (strAlignment.str().compare("") != 0) {
+		char *str = new char[strAlignment.str().length()+1];
+		strcpy(str,strAlignment.str().c_str());
 		return str;
 	} else {
 		return NULL;

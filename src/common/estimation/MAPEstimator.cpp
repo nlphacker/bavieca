@@ -54,7 +54,7 @@ void MAPEstimator::estimateParameters(MAccumulatorPhysical &mAccumulator, float 
 			}
 		}
 		// is there data to update the HMM-state
-		if (bData == true) {
+		if (bData) {
 			estimateParameters(m_hmmStates[i],accumulators,fPriorKnowledgeWeight);
 		}
 		delete [] accumulators;

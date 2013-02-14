@@ -151,7 +151,7 @@ bool WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 			
 			// lattice generation
 			int iWGToken = -1;
-			if (m_bLatticeGeneration == true) {
+			if (m_bLatticeGeneration) {
 				assert(activeState.iWGToken != -1);
 				iWGToken = m_activeStateTable->newWGToken(activeState.iWGToken);
 				WGToken *wgToken = iWGToken+m_activeStateTable->m_wgTokens;
@@ -186,7 +186,7 @@ bool WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 				
 					// lattice generation
 					int iWGToken = -1;
-					if (m_bLatticeGeneration == true) {
+					if (m_bLatticeGeneration) {
 						assert(activeState.iWGToken != -1);
 						iWGToken = m_activeStateTable->newWGToken(activeState.iWGToken);
 						WGToken *wgToken = iWGToken+m_activeStateTable->m_wgTokens;
@@ -254,7 +254,7 @@ bool WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 							}
 							
 							// lattice generation
-							if (m_bLatticeGeneration == true) {
+							if (m_bLatticeGeneration) {
 								bExpanded = true;
 								iWGToken = m_activeStateTable->newWGToken(iWordSequence,
 									activeState.fScore+transition->fWeight+transitionAux->fWeight,iHistoryItem);
@@ -291,7 +291,7 @@ bool WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 							}
 						
 							// lattice generation
-							if (m_bLatticeGeneration == true) {
+							if (m_bLatticeGeneration) {
 								bExpanded = true;
 								iWGToken = m_activeStateTable->newWGToken(iWordSequence,
 									activeState.fScore+transition->fWeight+transitionAux->fWeight+fScore,iHistoryItem);
@@ -325,7 +325,7 @@ bool WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 					
 					// lattice generation
 					int iWGToken = -1;
-					if (m_bLatticeGeneration == true) {
+					if (m_bLatticeGeneration) {
 						assert(activeState.iWGToken != -1);
 						iWGToken = m_activeStateTable->newWGToken(activeState.iWGToken);
 						WGToken *wgToken = iWGToken+m_activeStateTable->m_wgTokens;
@@ -361,7 +361,7 @@ bool WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 							bFound = true;
 						}
 					}
-					assert(bFound == true);
+					assert(bFound);
 				}
 			
 				++activeState;

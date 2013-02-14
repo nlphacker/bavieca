@@ -39,85 +39,87 @@ using namespace Bavieca;
 // main for the HMM edition tool: "hmmeditor"
 int main(int argc, char *argv[]) {
 
-	// define command line parameters
-	CommandLineManager *m_commandLineManager = new CommandLineManager("hmmeditor",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
-	m_commandLineManager->defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-mod","input acoustic models",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-acc","accumulators",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-dbl","mixture doubling",PARAMETER_TYPE_BOOLEAN,true,NULL,"no");
-	m_commandLineManager->defineParameter("-inc","mixture increment",PARAMETER_TYPE_INTEGER,true);
-	m_commandLineManager->defineParameter("-crt","splitting criterion",PARAMETER_TYPE_STRING,true,"covariance|weight","covariance");
-	m_commandLineManager->defineParameter("-occ","minimum component occupation",PARAMETER_TYPE_FLOAT,true,NULL,"100.0");
-	m_commandLineManager->defineParameter("-wgh","minimum component weight",PARAMETER_TYPE_FLOAT,true,NULL,"0.00001");
-	m_commandLineManager->defineParameter("-eps","epsilon (mean perturbation)",PARAMETER_TYPE_FLOAT,true,NULL,"0.05");
-	m_commandLineManager->defineParameter("-mrg","merge components below minimum occ/wgh",PARAMETER_TYPE_BOOLEAN,true,NULL,"yes");	
-	m_commandLineManager->defineParameter("-cov","covariance flooring ratio",PARAMETER_TYPE_FLOAT,true,NULL,"0.05");	
-	m_commandLineManager->defineParameter("-out","output acoustic models",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-vrb","verbose",PARAMETER_TYPE_BOOLEAN,true,NULL,"no");	
+	try {
+
+		// define command line parameters
+		CommandLineManager commandLineManager("hmmeditor",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
+		commandLineManager.defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-mod","input acoustic models",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-acc","accumulators",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-dbl","mixture doubling",PARAMETER_TYPE_BOOLEAN,true,NULL,"no");
+		commandLineManager.defineParameter("-inc","mixture increment",PARAMETER_TYPE_INTEGER,true);
+		commandLineManager.defineParameter("-crt","splitting criterion",PARAMETER_TYPE_STRING,true,"covariance|weight","covariance");
+		commandLineManager.defineParameter("-occ","minimum component occupation",PARAMETER_TYPE_FLOAT,true,NULL,"100.0");
+		commandLineManager.defineParameter("-wgh","minimum component weight",PARAMETER_TYPE_FLOAT,true,NULL,"0.00001");
+		commandLineManager.defineParameter("-eps","epsilon (mean perturbation)",PARAMETER_TYPE_FLOAT,true,NULL,"0.05");
+		commandLineManager.defineParameter("-mrg","merge components below minimum occ/wgh",PARAMETER_TYPE_BOOLEAN,true,NULL,"yes");	
+		commandLineManager.defineParameter("-cov","covariance flooring ratio",PARAMETER_TYPE_FLOAT,true,NULL,"0.05");	
+		commandLineManager.defineParameter("-out","output acoustic models",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-vrb","verbose",PARAMETER_TYPE_BOOLEAN,true,NULL,"no");	
+		
+		// parse command line parameters
+		if (commandLineManager.parseParameters(argc,argv) == false) {
+			return -1;
+		}
+			
+		// get the parameters
+		const char *strFilePhoneSet = commandLineManager.getParameterValue("-pho");
+		const char *strFileModels = commandLineManager.getParameterValue("-mod");
+		const char *strFileAccList = commandLineManager.getParameterValue("-acc");	
+		bool bMixtureDoubling = CommandLineManager::str2bool(commandLineManager.getParameterValue("-dbl"));
+		int iMixtureIncrement = 0;
+		if (commandLineManager.isParameterSet("-inc") == true) {	
+			iMixtureIncrement = atoi(commandLineManager.getParameterValue("-inc"));
+		}
+		const char *strSplittingCriterion = commandLineManager.getParameterValue("-crt");
+		int iSplittingCriterion = GMMEditor::getSplittingCriterion(strSplittingCriterion);
+		float fMinimumComponentOccupation = atof(commandLineManager.getParameterValue("-occ"));
+		float fMinimumComponentWeight = atof(commandLineManager.getParameterValue("-wgh"));
+		float fEpsilon = atof(commandLineManager.getParameterValue("-eps"));
+		bool bMixtureMerging = CommandLineManager::str2bool(commandLineManager.getParameterValue("-mrg"));
+		float fCovarianceFlooringRatio = atof(commandLineManager.getStrParameterValue("-cov"));
+		const char *strFileModelsOutput = commandLineManager.getParameterValue("-out");
+		//bool bVerbose = CommandLineManager::str2bool(commandLineManager.getParameterValue("-vrb"));
+		
+		// load the phonetic symbol set
+		PhoneSet phoneSet(strFilePhoneSet);
+		phoneSet.load();
+		
+		// load the HMMs
+		HMMManager hmmManager(&phoneSet,HMM_PURPOSE_ESTIMATION);	
+		hmmManager.load(strFileModels);
+		
+		// load the accumulators
+		AccMetadata metadata;
+		MAccumulatorPhysical mAccumulatorPhysical;
+		Accumulator::loadAccumulatorList(strFileAccList,mAccumulatorPhysical,metadata);
+		
+		// create the GMM editor
+		GMMEditor gmmEditor(&hmmManager,&mAccumulatorPhysical);
+		gmmEditor.initialize();	
+		
+		// mixture merging
+		if (bMixtureMerging) {
+			gmmEditor.mixtureMerge(fMinimumComponentOccupation,fMinimumComponentWeight,fCovarianceFlooringRatio);
+		}	
+		// mixture doubling
+		if (bMixtureDoubling) {
+			gmmEditor.mixtureDouble(fMinimumComponentOccupation,fEpsilon);
+		}
+		// mixture increment
+		else {
+			gmmEditor.mixtureIncrement(iMixtureIncrement,iSplittingCriterion,false,
+				fMinimumComponentOccupation,fEpsilon);
+		}
+			
+		// store the models after the Gaussian merging process is done	
+		hmmManager.store(strFileModelsOutput);
 	
-	// parse command line parameters
-	if (m_commandLineManager->parseParameters(argc,argv) == false) {
+	} catch (ExceptionBase &e) {
+	
+		std::cerr << e.what() << std::endl;
 		return -1;
-	}
-		
-	// get the parameters
-	const char *m_strFilePhoneSet = m_commandLineManager->getParameterValue("-pho");
-	const char *m_strFileModels = m_commandLineManager->getParameterValue("-mod");
-	const char *m_strFileAccList = m_commandLineManager->getParameterValue("-acc");	
-	bool m_bMixtureDoubling = CommandLineManager::str2bool(m_commandLineManager->getParameterValue("-dbl"));
-	int m_iMixtureIncrement = 0;
-	if (m_commandLineManager->isParameterSet("-inc") == true) {	
-		m_iMixtureIncrement = atoi(m_commandLineManager->getParameterValue("-inc"));
-	}
-	const char *m_strSplittingCriterion = m_commandLineManager->getParameterValue("-crt");
-	int m_iSplittingCriterion = GMMEditor::getSplittingCriterion(m_strSplittingCriterion);
-	float m_fMinimumComponentOccupation = atof(m_commandLineManager->getParameterValue("-occ"));
-	float m_fMinimumComponentWeight = atof(m_commandLineManager->getParameterValue("-wgh"));
-	float m_fEpsilon = atof(m_commandLineManager->getParameterValue("-eps"));
-	bool m_bMixtureMerging = CommandLineManager::str2bool(m_commandLineManager->getParameterValue("-mrg"));
-	float m_fCovarianceFlooringRatio = atof(m_commandLineManager->getStrParameterValue("-cov"));
-	const char *m_strFileModelsOutput = m_commandLineManager->getParameterValue("-out");
-	//bool m_bVerbose = CommandLineManager::str2bool(m_commandLineManager->getParameterValue("-vrb"));
+	}	
 	
-	// load the phonetic symbol set
-	PhoneSet *m_phoneSet = new PhoneSet(m_strFilePhoneSet);
-	m_phoneSet->load();
-	
-	// load the HMMs
-	HMMManager *m_hmmManager = new HMMManager(m_phoneSet,HMM_PURPOSE_ESTIMATION);	
-	m_hmmManager->load(m_strFileModels);
-	
-	// load the accumulators
-	AccMetadata metadata;
-	MAccumulatorPhysical mAccumulatorPhysical;
-	Accumulator::loadAccumulatorList(m_strFileAccList,mAccumulatorPhysical,metadata);
-	
-	// create the GMM editor
-	GMMEditor *m_gmmEditor = new GMMEditor(m_hmmManager,&mAccumulatorPhysical);
-	m_gmmEditor->initialize();	
-	
-	// mixture merging ?
-	if (m_bMixtureMerging == true) {		
-		m_gmmEditor->mixtureMerge(m_fMinimumComponentOccupation,m_fMinimumComponentWeight,m_fCovarianceFlooringRatio);
-	}
-	
-	// mixture doubling
-	if (m_bMixtureDoubling == true) {
-		m_gmmEditor->mixtureDouble(m_fMinimumComponentOccupation,m_fEpsilon);
-	}
-	// mixture increment
-	else {
-		m_gmmEditor->mixtureIncrement(m_iMixtureIncrement,m_iSplittingCriterion,false,
-			m_fMinimumComponentOccupation,m_fEpsilon);
-	}
-		
-	// store the models after the Gaussian merging process is done	
-	m_hmmManager->store(m_strFileModelsOutput);
-		
-	// clean-up
-	//delete m_hmmManager;
-	delete m_phoneSet;
-	delete m_commandLineManager;	
-	
-	return -1;	
+	return 0;	
 }

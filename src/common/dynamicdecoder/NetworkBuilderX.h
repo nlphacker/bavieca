@@ -68,7 +68,7 @@ typedef struct _ArcTempX {
 	LexUnit *lexUnit;						// lexical unit
 	NodeTempX *nodeSource;				// prev node
 	NodeTempX *nodeDest;					// next node
-	int iLANode;								// index within the look-ahead tree (which is stored as an array)
+	int iLANode;							// index within the look-ahead tree (which is stored as an array)
 } ArcTempX;
 
 typedef vector<ArcTempX*> VArcTempX; 
@@ -425,7 +425,7 @@ class NetworkBuilderX {
 		// print a context (auxiliar function)
 		void print(unsigned char *iContext) {
 		
-			for(int i=0 ; iContext[i] != UCHAR_MAX ; ++i) {				
+			for(int i=0 ; iContext[i] != UCHAR_MAX ; ++i) {
 				if (iContext[i] == m_phoneSet->size()) {
 				   printf("<-> ");
 				} else {
@@ -448,7 +448,7 @@ class NetworkBuilderX {
 			printf("\n");
 		}
 		
-		// return whether two node are equivalent
+		// return whether two nodes are equivalent
 		inline bool equivalentNodes(NodeTempX *node1, NodeTempX *node2) {
 		
 			if (node1->iType != node2->iType) {

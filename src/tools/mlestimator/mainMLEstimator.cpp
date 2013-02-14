@@ -36,68 +36,70 @@ using namespace Bavieca;
 // main for the HMM estimation tool: "mlestimator"
 int main(int argc, char *argv[]) {
 
-	// (1) define command line parameters
-	CommandLineManager *m_commandLineManager = new CommandLineManager("mlestimator",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
-	m_commandLineManager->defineParameter("-pho","file containing the phonetic symbol set",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-mod","input acoustic models",PARAMETER_TYPE_FILE);
-	m_commandLineManager->defineParameter("-acc","input accumulator filelist",PARAMETER_TYPE_FILE);
-	m_commandLineManager->defineParameter("-cov","covariance flooring ratio",PARAMETER_TYPE_FLOAT,true,NULL,"0.05");
-	m_commandLineManager->defineParameter("-out","output acoustic models",PARAMETER_TYPE_FILE,false);	
+	try {
+
+		// (1) define command line parameters
+		CommandLineManager commandLineManager("mlestimator",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
+		commandLineManager.defineParameter("-pho","file containing the phonetic symbol set",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-mod","input acoustic models",PARAMETER_TYPE_FILE);
+		commandLineManager.defineParameter("-acc","input accumulator filelist",PARAMETER_TYPE_FILE);
+		commandLineManager.defineParameter("-cov","covariance flooring ratio",PARAMETER_TYPE_FLOAT,true,NULL,"0.05");
+		commandLineManager.defineParameter("-out","output acoustic models",PARAMETER_TYPE_FILE,false);	
+		
+		// parse the command line parameters
+		if (commandLineManager.parseParameters(argc,argv) == false) {
+			return -1;
+		}
+		
+		// get the parameters
+		const char *strFilePhoneSet = commandLineManager.getParameterValue("-pho");
+		const char *strFileModels = commandLineManager.getParameterValue("-mod");
+		const char *strFileAccList = commandLineManager.getParameterValue("-acc");
+		float fCovarianceFlooringRatio = atof(commandLineManager.getParameterValue("-cov"));
+		const char *strFileModelsOutput = commandLineManager.getParameterValue("-out");
+		
+		// load the phone set
+		PhoneSet phoneSet(strFilePhoneSet);
+		phoneSet.load();
+			
+		// load the HMMs
+		HMMManager hmmManager(&phoneSet,HMM_PURPOSE_ESTIMATION);	
+		hmmManager.load(strFileModels);
+		
+		// load the physical accumulators
+		AccMetadata metadata;
+		MAccumulatorPhysical mAccumulatorPhysical;
+		Accumulator::loadAccumulatorList(strFileAccList,mAccumulatorPhysical,metadata);
+		
+		hmmManager.initializeEstimation(ACCUMULATOR_TYPE_PHYSICAL,UCHAR_MAX,UCHAR_MAX);
+		
+		HMMManager *hmmManagerUpdate = &hmmManager;
+		if (mAccumulatorPhysical.begin()->second->getDimensionality() != hmmManager.getFeatureDimensionality()) {
+		
+			hmmManagerUpdate = new HMMManager(&phoneSet,HMM_PURPOSE_ESTIMATION);
+			hmmManagerUpdate->initializeModels(&hmmManager,
+				mAccumulatorPhysical.begin()->second->getDimensionality(),
+				mAccumulatorPhysical.begin()->second->getCovarianceModeling());
+			hmmManagerUpdate->initializeEstimation(ACCUMULATOR_TYPE_PHYSICAL,UCHAR_MAX,UCHAR_MAX);
+		}
+		
+		// estimate the HMM parameters
+		MLEstimator mlEstimator(hmmManagerUpdate);
+		mlEstimator.estimateParameters(mAccumulatorPhysical,true);
+		
+		// floor covariances
+		mlEstimator.floorCovariances(mAccumulatorPhysical,fCovarianceFlooringRatio);
+		
+		Accumulator::destroy(mAccumulatorPhysical);
+		
+		// create the output HMMs
+		hmmManagerUpdate->store(strFileModelsOutput);
+		
+	} catch (ExceptionBase &e) {
 	
-	// parse the command line parameters
-	if (m_commandLineManager->parseParameters(argc,argv) == false) {
+		std::cerr << e.what() << std::endl;
 		return -1;
-	}
-	
-	// get the parameters
-	const char *m_strFilePhoneSet = m_commandLineManager->getParameterValue("-pho");
-	const char *m_strFileModels = m_commandLineManager->getParameterValue("-mod");
-	const char *m_strFileAccList = m_commandLineManager->getParameterValue("-acc");
-	float m_fCovarianceFlooringRatio = atof(m_commandLineManager->getParameterValue("-cov"));
-	const char *m_strFileModelsOutput = m_commandLineManager->getParameterValue("-out");
-	
-   // load the phone set
-   PhoneSet *m_phoneSet = new PhoneSet(m_strFilePhoneSet);
-   m_phoneSet->load();
-   	
-	// load the HMMs
-	HMMManager *m_hmmManager = new HMMManager(m_phoneSet,HMM_PURPOSE_ESTIMATION);	
-	m_hmmManager->load(m_strFileModels);
-	
-	// load the physical accumulators
-	AccMetadata metadata;
-	MAccumulatorPhysical mAccumulatorPhysical;
-	Accumulator::loadAccumulatorList(m_strFileAccList,mAccumulatorPhysical,metadata);
-	
-	m_hmmManager->initializeEstimation(ACCUMULATOR_TYPE_PHYSICAL,UCHAR_MAX,UCHAR_MAX);
-	
-	HMMManager *m_hmmManagerUpdate = m_hmmManager;
-	if (mAccumulatorPhysical.begin()->second->getDimensionality() != m_hmmManager->getFeatureDimensionality()) {
-	
-		m_hmmManagerUpdate = new HMMManager(m_phoneSet,HMM_PURPOSE_ESTIMATION);
-		m_hmmManagerUpdate->initializeModels(m_hmmManager,
-			mAccumulatorPhysical.begin()->second->getDimensionality(),
-			mAccumulatorPhysical.begin()->second->getCovarianceModeling());
-		m_hmmManagerUpdate->initializeEstimation(ACCUMULATOR_TYPE_PHYSICAL,UCHAR_MAX,UCHAR_MAX);
-	}
-	
-	// estimate the HMM parameters
-	MLEstimator *m_mlEstimator = new MLEstimator(m_hmmManagerUpdate);
-	m_mlEstimator->estimateParameters(mAccumulatorPhysical,true);
-	
-	// floor covariances
-	m_mlEstimator->floorCovariances(mAccumulatorPhysical,m_fCovarianceFlooringRatio);
-	
-	Accumulator::destroy(mAccumulatorPhysical);
-	
-	// create the output HMMs
-	m_hmmManagerUpdate->store(m_strFileModelsOutput);
-	
-	// clean-up
-	delete m_mlEstimator;
-	delete m_hmmManager;
-	delete m_phoneSet;
-	delete m_commandLineManager;
+	}	
 	
 	return 0;
 }

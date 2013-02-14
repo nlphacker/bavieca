@@ -75,7 +75,7 @@ DynamicNetworkX *NetworkBuilderX::build() {
    
    assert(iContextSizeWW == iContextSizeCW);
    
-   // this ensures that the netwrok is built right for context-independent models
+   // this ensures that the network is built right for context-independent models
    if (iContextSizeWW == 0) {
 	   iContextSizeWW = iContextSizeCW = 1;
    }   
@@ -168,35 +168,36 @@ DynamicNetworkX *NetworkBuilderX::build() {
    		mContextRight.insert(MContextBool::value_type(copyContext(iContextRight,iContextSizeCW),true));	
    	}
    	
-   	// (1.3) word-end
-   	// context padding
-   	for(int i=0 ; i < iContextSizeWW+1-iPhonesWW ; ++i) {
+   	// (1.3) word-ends (needed to create the FO-nodes)
+		// context padding
+		for(int i=0 ; i < iContextSizeWW+1-iPhonesWW ; ++i) {
 			iContextEnd[i] = iBasePhones; 
-   	}
-   	// actual context
-   	for(int i=0 ; i < iPhonesWW ; ++i) {
-			iContextEnd[iContextSizeWW+1-iPhonesWW+i] = (*it)->vPhones[(iPhones-iPhonesWW)+i]; 
-   	}
-   	iContextEnd[iContextSizeWW+1] = UCHAR_MAX;
-   	if (mContextEnd.find(iContextEnd) == mContextEnd.end()) {	
-			memcpy(iContextEndPartial,iContextEnd+1,sizeof(unsigned char)*iContextSizeWW);
-   		iContextEndPartial[iContextSizeWW] = UCHAR_MAX;
-   		//print(iContextEndPartial);
-   		//print(iContextLeft);
-   		NodeTempX *nodeFO = newNodeTempX(NODE_TYPE_FO,m_iDepthFO);
-		MContextV::iterator jt = mContextEndV.find(iContextEndPartial);
-		if (jt == mContextEndV.end()) {
-			mContextEndV[copyContext(iContextEndPartial,iContextSizeWW)].push_back(pair<unsigned char*,NodeTempX*>
-			(copyContext(iContextEnd,iContextSizeWW+1),nodeFO));
-		} else {
-			jt->second.push_back(pair<unsigned char*,NodeTempX*>(copyContext(iContextEnd,iContextSizeWW+1),nodeFO));
 		}
-   		//mContextEndV[copyContext(iContextEndPartial,iContextSizeWW)].push_back(pair<unsigned char*,NodeTempX*>
-   		//	(copyContext(iContextEnd,iContextSizeWW+1),nodeFO));
-   		mContextEnd.insert(MContextNode::value_type(copyContext(iContextEnd,iContextSizeWW+1),nodeFO));
-   	}
-   	
-   	// (1.4) word-beginning (needed to create the MI-nodes)
+		// actual context
+		for(int i=0 ; i < iPhonesWW ; ++i) {
+			iContextEnd[iContextSizeWW+1-iPhonesWW+i] = (*it)->vPhones[(iPhones-iPhonesWW)+i]; 
+		}
+		iContextEnd[iContextSizeWW+1] = UCHAR_MAX;
+		if (mContextEnd.find(iContextEnd) == mContextEnd.end()) {	
+			memcpy(iContextEndPartial,iContextEnd+1,sizeof(unsigned char)*iContextSizeWW);
+			iContextEndPartial[iContextSizeWW] = UCHAR_MAX;
+			//print(iContextEndPartial);
+			//print(iContextLeft);
+			// no FO-node is needed for monophone lexical units
+			NodeTempX *nodeFO = newNodeTempX(NODE_TYPE_FO,m_iDepthFO);
+			MContextV::iterator jt = mContextEndV.find(iContextEndPartial);
+			if (jt == mContextEndV.end()) {
+				mContextEndV[copyContext(iContextEndPartial,iContextSizeWW)].push_back(pair<unsigned char*,NodeTempX*>
+				(copyContext(iContextEnd,iContextSizeWW+1),nodeFO));
+			} else {
+				jt->second.push_back(pair<unsigned char*,NodeTempX*>(copyContext(iContextEnd,iContextSizeWW+1),nodeFO));
+			}
+			//mContextEndV[copyContext(iContextEndPartial,iContextSizeWW)].push_back(pair<unsigned char*,NodeTempX*>
+			//	(copyContext(iContextEnd,iContextSizeWW+1),nodeFO));
+			mContextEnd.insert(MContextNode::value_type(copyContext(iContextEnd,iContextSizeWW+1),nodeFO));
+		}
+		
+		// (1.4) word-beginning (needed to create the MI-nodes)
 		// context padding
 		for(int i=iPhonesWW ; i < iContextSizeWW+1 ; ++i) {
 			iContextBeg[i] = iBasePhones; 
@@ -209,6 +210,7 @@ DynamicNetworkX *NetworkBuilderX::build() {
 		if (mContextBeg.find(iContextBeg) == mContextBeg.end()) {
 			memcpy(iContextBegPartial,iContextBeg,sizeof(unsigned char)*iContextSizeWW);
 			iContextBegPartial[iContextSizeWW] = UCHAR_MAX;
+			// no MI-node is needed for monophone lexical units
 			NodeTempX *nodeMI = newNodeTempX(NODE_TYPE_MI,m_iDepthMI);
 			MContextV::iterator jt = mContextBegV.find(iContextBegPartial);
 			if (jt == mContextBegV.end()) {
@@ -253,7 +255,7 @@ DynamicNetworkX *NetworkBuilderX::build() {
 	unsigned char *iPhoneRight = new unsigned char[iContextSizeWW];	
 	
 	// create the head network
-	for(MContextV::iterator it = mContextBegV.begin() ; it != mContextBegV.end() ; ++it) {		
+	for(MContextV::iterator it = mContextBegV.begin() ; it != mContextBegV.end() ; ++it) {
 	
 		// keep the MI-nodes
 		VNodeTempX vNodeTempMI;
@@ -470,13 +472,9 @@ DynamicNetworkX *NetworkBuilderX::build() {
 	
 	// keep surviving FO-nodes
 	for(unsigned int i=0 ; i < mContextEnd.size() ; ++i) {
-		int iMerged = foNodeMergeInfo[i].iMerged;
-		// (a) FO-node was not merged: do nothing
-		if (iMerged == -1) {
-		} 
 		// (b) FO-node was merged: point to the one that will be kept
-		else {
-			iMerged = i;
+		if (foNodeMergeInfo[i].iMerged != -1) {
+			int iMerged = foNodeMergeInfo[i].iMerged;
 			while(foNodeMergeInfo[iMerged].iMerged != -1) {
 				iMerged = foNodeMergeInfo[iMerged].iMerged;
 			}
@@ -818,6 +816,7 @@ DynamicNetworkX *NetworkBuilderX::build() {
    
    printf("monophones: %f12.4\n",(dTimeEndMonophones-dTimeBeginMonophones)/1000.0);
    
+   // checks
    int iIgnoredMI = 0;
    int iIgnoredFO = 0;
 
@@ -826,6 +825,8 @@ DynamicNetworkX *NetworkBuilderX::build() {
 		NodeTempX *nodeFO = it->second;
 		if (nodeFO->lArcPrev.empty() && nodeFO->lArcNext.empty()) {
 			++iIgnoredFO;
+			// remobe the FO-node (it should have never been created!!)
+			deleteNodeTempX(nodeFO);
 		} else {
 			assert(nodeFO->lArcPrev.empty() == false);
 			assert(nodeFO->lArcNext.empty() == false);
@@ -836,6 +837,8 @@ DynamicNetworkX *NetworkBuilderX::build() {
 		NodeTempX *nodeMI = it->second;
 		if (nodeMI->lArcPrev.empty() && nodeMI->lArcNext.empty()) {
 			++iIgnoredMI;
+			// remobe the MI-node (it should have never been created!!)
+			deleteNodeTempX(nodeMI);
 		} else {
 			assert(nodeMI->lArcPrev.empty() == false);
 			assert(nodeMI->lArcNext.empty() == false);
@@ -853,28 +856,34 @@ DynamicNetworkX *NetworkBuilderX::build() {
    cout << "FI-nodes: " << mNodesFI.size() << endl;
    cout << "MI-nodes: " << mContextBeg.size() << endl;
    cout << "FO-nodes: " << mContextEnd.size() << endl;
-   print();
    //exit(-1);
    
-   printf("merging forward:\n");
-   mergeForward();
+   // Forward-merge
+   print();
    mergeForward();
    //print();
-   //exit(-1);
-   printf("pushing word labels:\n");
+   mergeForward();
+   //print();
+	
+	// Word-label pushing
    pushWordLabels();
-   printf("merging backward:\n");
+   //print();
+   
+   // Backward-merge
+   // note: two passes are typically necessary and enough, some FI-nodes merged in the first pass 
+   //       enable merging of NULL-nodes in the second pass
    mergeBackward(); 
+   //print();
    mergeBackward(); 
-   print();
-   //exit(-1);
-   printf("removing FI-nodes:\n");
+   //print();
+   
+   // FI removal (FI-nodes, which were used to build the network are no longer necessary)
   	removeFINodes();
-   print();
+   //print(); 
    mergeForward();
    mergeBackward();
    print();
-   
+      
    // build the language model look-ahead tree (needed to compute look-ahead scores)
    m_iLANodes = -1;
    m_iLATree = buildLMLookAheadTree(&m_iLANodes);
@@ -957,7 +966,7 @@ void NetworkBuilderX::pushWordLabels() {
 			continue;
 		}
 		// only word arcs
-		if ((bWordArcs == false) || (bOtherArcs == true)) {
+		if ((bWordArcs == false) || (bOtherArcs)) {
 			continue;
 		}
 		// all word arcs should point to the same destination node
@@ -1118,6 +1127,7 @@ DynamicNetworkX *NetworkBuilderX::compact() {
 	// fill the structures
 	int iNode = 0;
 	int iArc = 0;
+	int iFOSeen = 0;
 	for(VNodeTempX::iterator it = vNodesAll.begin() ; it != vNodesAll.end() ; ++it) {
 		DNode *nodeAux;
 		int iArcBase = -1;
@@ -1132,6 +1142,9 @@ DynamicNetworkX *NetworkBuilderX::compact() {
 			iArcBase = iFirstArc[iNodeCreated[(*it)->iNode]];
 		}
 		// map the node-type appropiately
+		if ((*it)->iType == NODE_TYPE_FO){
+			++iFOSeen;
+		}
 		switch((*it)->iType) {
 			case NODE_TYPE_FI: 
 			case NODE_TYPE_MI: 
@@ -1216,20 +1229,20 @@ DynamicNetworkX *NetworkBuilderX::compact() {
 // print network stats
 void NetworkBuilderX::print() {
 
-	printf("-- temporal network stats ---------------\n");
-	printf("# nodes:       %6d\n",m_iNodesTemp);
-	printf(" -root-nodes   %6d\n",m_iNodesTempRoot);
-	printf(" -FI-nodes:    %6d\n",m_iNodesTempFI);
-	printf(" -MI-nodes:    %6d\n",m_iNodesTempMI);
-	printf(" -FO-nodes:    %6d\n",m_iNodesTempFO);
-	printf(" -hmm-nodes:   %6d\n",m_iNodesTempHMM);
-	printf(" -word-nodes:  %6d\n",m_iNodesTempWord);
-	printf(" -null-nodes:  %6d\n",m_iNodesTempNull);
-	printf("-----------------------------------------\n");
-	printf("# arcs:        %6d\n",m_iArcsTemp);
-	printf(" -null-arcs:   %6d\n",m_iArcsNull);
-	printf(" -word-arcs:   %6d\n",m_iArcsWord);
-	printf("-----------------------------------------\n");
+	cout << "-- temporal network stats ---------------" << endl;
+	cout << "# nodes:       " << setw(6) << m_iNodesTemp << endl;
+	cout << " -root-nodes   " << setw(6) << m_iNodesTempRoot << endl;
+	cout << " -FI-nodes:    " << setw(6) << m_iNodesTempFI << endl;
+	cout << " -MI-nodes:    " << setw(6) << m_iNodesTempMI << endl;
+	cout << " -FO-nodes:    " << setw(6) << m_iNodesTempFO << endl;
+	cout << " -hmm-nodes:   " << setw(6) << m_iNodesTempHMM << endl;
+	cout << " -word-nodes:  " << setw(6) << m_iNodesTempWord << endl;
+	cout << " -null-nodes:  " << setw(6) << m_iNodesTempNull << endl;
+	cout << "-----------------------------------------" << endl;
+	cout << "# arcs:        " << setw(6) << m_iArcsTemp << endl;
+	cout << " -null-arcs:   " << setw(6) << m_iArcsNull << endl;
+	cout << " -word-arcs:   " << setw(6) << m_iArcsWord << endl;
+	cout << "-----------------------------------------" << endl;
 }
 
 // merge nodes forward
@@ -1253,7 +1266,7 @@ void NetworkBuilderX::mergeForward() {
 		lNodes.push_back((*it)->nodeDest);
 		iNodeState[(*it)->nodeDest->iNode] = TEMPNODE_STATE_QUEUED;
 	}	
-	cout << "total: " << m_nodeTempRoot->lArcNext.size() << endl;
+	//cout << "total: " << m_nodeTempRoot->lArcNext.size() << endl;
 	map<int,bool> mSeen;
 	
 	//lNodes.push_back(m_nodeTempRoot);
@@ -1323,7 +1336,7 @@ void NetworkBuilderX::mergeForward() {
 						iNodeState[(*it)->nodeDest->iNode] = TEMPNODE_STATE_UNSEEN;
 					}	
 					//assert((*jt)->nodeDest->bWordEnd == (*it)->nodeDest->bWordEnd);
-					if ((*jt)->nodeDest->bWordEnd == true) {
+					if ((*jt)->nodeDest->bWordEnd) {
 						(*it)->nodeDest->bWordEnd = true;
 					}
 					deleteNodeTempX((*jt)->nodeDest);
@@ -1353,15 +1366,11 @@ void NetworkBuilderX::mergeForward() {
 					break;
 				}
 			}
-			if (bReady || ((*it)->nodeDest->iType == NODE_TYPE_FI)) {
+			if (bReady /*|| ((*it)->nodeDest->iType == NODE_TYPE_FI)*/) {
 				lNodes.push_back((*it)->nodeDest);
 				iNodeState[(*it)->nodeDest->iNode] = TEMPNODE_STATE_QUEUED;
 			}
 		}
-		
-		/*if (iNodesProcessed % 100 == 0) {
-			printf("queue: %12d nodes processed: %12d merged: %12d\n",lNodes.size(),iNodesProcessed,iNodesMerged);
-		}*/
 	}	
 	
 	delete [] iNodeState;
@@ -1373,9 +1382,8 @@ void NetworkBuilderX::mergeForward() {
 	cout << "# nodes processed: " << setw(12) << iNodesProcessed << endl;
 	cout << "# nodes merged:    " << setw(12) << iNodesMerged << endl;
 	cout << "# arcs merged:     " << setw(12) << iArcsMerged << endl;
-	cout << "processing time:   " << setw(12) << dTimeSeconds << " seconds" << endl;
-	
-	cout << "fi seen: " << mSeen.size() << endl;
+	cout << "processing time:   " << setw(12) << dTimeSeconds << " seconds" << endl;	
+	//cout << "fi seen:           " << setw(12) << mSeen.size() << endl;
 }
 
 
@@ -1387,7 +1395,7 @@ void NetworkBuilderX::removeMINodes(MContextNode &mContextBeg) {
 		NodeTempX *nodeMI = it->second;
 		
 		// remove links to the MI-node
-		assert(nodeMI->lArcNext.empty() == true);
+		assert(nodeMI->lArcNext.empty());
 		
 		for(LArcTempX::iterator jt = nodeMI->lArcPrev.begin() ; jt != nodeMI->lArcPrev.end() ; ++jt) {
 			bool bFound = false;
@@ -1401,7 +1409,7 @@ void NetworkBuilderX::removeMINodes(MContextNode &mContextBeg) {
 					++kt;
 				}	
 			}
-			assert(bFound == true);	
+			assert(bFound);	
 		}
 				
 		deleteNodeTempX(nodeMI);
@@ -1442,7 +1450,7 @@ void NetworkBuilderX::removeFINodes() {
 					++kt;
 				}
 			}
-			assert(bFound == true);	
+			assert(bFound);	
 			vNodeDest.push_back((*jt)->nodeDest);
 			ArcTempX *arcToDelete = (*jt);
 			jt = nodeFI->lArcNext.erase(jt);
@@ -1462,7 +1470,7 @@ void NetworkBuilderX::removeFINodes() {
 					++kt;
 				}	
 			}
-			assert(bFound == true);	
+			assert(bFound);	
 			vNodeSource.push_back((*jt)->nodeSource);
 			ArcTempX *arcToDelete = (*jt);
 			jt = nodeFI->lArcPrev.erase(jt);
@@ -1647,7 +1655,7 @@ void NetworkBuilderX::mergeBackward() {
 					break;
 				}
 			}
-			if (bReady == true) {
+			if (bReady) {
 				lNodes.push_back((*it)->nodeSource);
 				iNodeState[(*it)->nodeSource->iNode] = TEMPNODE_STATE_QUEUED;
 			}
@@ -1779,7 +1787,7 @@ void NetworkBuilderX::mergeBackwardMI(VNodeTempX &vNodeTempMI, NodeMergeInfo *fi
 					break;
 				}
 			}
-			if (bReady == true) {
+			if (bReady) {
 				lNodes.push_back((*it)->nodeSource);
 				iNodeState[(*it)->nodeSource->iNode] = TEMPNODE_STATE_QUEUED;
 			}
@@ -1911,7 +1919,7 @@ void NetworkBuilderX::mergeBackwardFI(VNodeTempX &vNodeTempFI, NodeMergeInfo *fo
 					break;
 				}
 			}
-			if (bReady == true) {
+			if (bReady) {
 				lNodes.push_back((*it)->nodeSource);
 				iNodeState[(*it)->nodeSource->iNode] = TEMPNODE_STATE_QUEUED;
 			}
@@ -2041,7 +2049,7 @@ void NetworkBuilderX::mergeBackwardWordNodes(VNodeTempX &vNodeWord) {
 					break;
 				}
 			}
-			if (bReady == true) {
+			if (bReady) {
 				lNodes.push_back((*it)->nodeSource);
 				iNodeState[(*it)->nodeSource->iNode] = TEMPNODE_STATE_QUEUED;
 			}

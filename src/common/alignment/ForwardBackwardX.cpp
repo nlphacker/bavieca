@@ -85,14 +85,14 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 	int iEdges = -1;
 	FBNodeHMM *nodeInitial = NULL;
 	FBNodeHMM *nodeFinal = NULL;
-	HMMGraph *hmmGraph = new HMMGraph(m_phoneSet,m_lexiconManager,m_hmmManagerAlignment,m_hmmManagerAccumulation,bMultiplePronunciations,vLexUnitOptional);
+	HMMGraph *hmmGraph = new HMMGraph(m_phoneSet,m_lexiconManager,m_hmmManagerAlignment,
+		m_hmmManagerAccumulation,bMultiplePronunciations,vLexUnitOptional);
 	FBNodeHMM **nodes = hmmGraph->create(vLexUnitTranscription,&iNodes,&iEdges,&nodeInitial,&nodeFinal);
+	delete hmmGraph;
 	if (nodes == NULL) {
-		delete hmmGraph;
 		*strReturnCode = FB_RETURN_CODE_UNABLE_TO_CREATE_HMM_GRAPH;
 		return NULL;
 	}
-	delete hmmGraph;
 
 	assert(nodeInitial->iDistanceEnd % NUMBER_HMM_STATES == 0);
 	
@@ -155,7 +155,7 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 	
 	// single gaussian estimation (state-occupation, accumulate statistics in the logical HMM-accumulator)
 	double dOccupationTotal = 0.0;
-	if (bSingleGaussian == true) {
+	if (bSingleGaussian) {
 	
 		FBEdgeHMM **edgeActiveCurrent = new FBEdgeHMM*[iEdges];
 		FBEdgeHMM **edgeActiveNext = new FBEdgeHMM*[iEdges];
@@ -181,7 +181,7 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 			for(int i = 0 ; i < iActiveCurrent ; ++i) {
 				int s = edgeActiveCurrent[i]->iEdge;
 				FBTrellisNode *nodeTrellis = &trellis[t*iEdges+s];
-				if ((nodeTrellis->dForward == -FLT_MAX) || (nodeTrellis->dBackward == -FLT_MAX)) {
+				if ((nodeTrellis->dForward == -DBL_MAX) || (nodeTrellis->dBackward == -DBL_MAX)) {
 					continue;
 				}
 				double dOccLikelihood = nodeTrellis->dForward+nodeTrellis->dBackward-dLikelihoodUtterance;
@@ -254,26 +254,26 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 			for(int i = 0 ; i < iActiveCurrent ; ++i) {
 				int s = edgeActiveCurrent[i]->iEdge;
 				FBTrellisNode *nodeTrellis = &trellis[t*iEdges+s];
-				if ((nodeTrellis->dForward == -FLT_MAX) || (nodeTrellis->dBackward == -FLT_MAX)) {
+				if ((nodeTrellis->dForward == -DBL_MAX) || (nodeTrellis->dBackward == -DBL_MAX)) {
 					continue;
 				}
-				double fOccupationLikelihood = 0.0;	
+				double dOccupationLikelihood = 0.0;	
 				// add forward score of predecessor edges and previous time frame (for t=0 the log(fwd score) is 0.0)
 				if (t > 0) {
-					fOccupationLikelihood = -FLT_MAX;
+					dOccupationLikelihood = -DBL_MAX;
 					// same edge
-					if (trellis[(t-1)*iEdges+edgeActiveCurrent[i]->iEdge].dForward != -FLT_MAX) {
-						fOccupationLikelihood = Numeric::logAddition(fOccupationLikelihood,trellis[(t-1)*iEdges+edgeActiveCurrent[i]->iEdge].dForward);
+					if (trellis[(t-1)*iEdges+edgeActiveCurrent[i]->iEdge].dForward != -DBL_MAX) {
+						dOccupationLikelihood = Numeric::logAddition(dOccupationLikelihood,trellis[(t-1)*iEdges+edgeActiveCurrent[i]->iEdge].dForward);
 					}
 					// predecessor edges
 					for(FBEdgeHMM *edge = edgeActiveCurrent[i]->nodePrev->edgePrev ; edge != NULL ; edge = edge->edgeNext) {
-						if (trellis[(t-1)*iEdges+edge->iEdge].dForward != -FLT_MAX) {
-							fOccupationLikelihood = Numeric::logAddition(fOccupationLikelihood,trellis[(t-1)*iEdges+edge->iEdge].dForward);	
+						if (trellis[(t-1)*iEdges+edge->iEdge].dForward != -DBL_MAX) {
+							dOccupationLikelihood = Numeric::logAddition(dOccupationLikelihood,trellis[(t-1)*iEdges+edge->iEdge].dForward);	
 						}
 					}
-					assert(fOccupationLikelihood != -FLT_MAX);
+					assert(dOccupationLikelihood != -DBL_MAX);
 				}	
-				fOccupationLikelihood += nodeTrellis->dBackward-dLikelihoodUtterance;
+				dOccupationLikelihood += nodeTrellis->dBackward-dLikelihoodUtterance;
 				
 				double dOccupationProb = exp(nodeTrellis->dForward+nodeTrellis->dBackward-dLikelihoodUtterance);
 				StateOcc *stateOcc = Alignment::newStateOcc(edgeActiveCurrent[i]->hmmStateEstimation->getId(),
@@ -284,7 +284,7 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 				double dGaussianAux = 0.0;
 				for(int g = 0 ; g < edgeActiveCurrent[i]->hmmStateEstimation->getMixture().getNumberComponents() ; ++g) {
 					
-					double dOccLikGaussian = edgeActiveCurrent[i]->hmmStateEstimation->computeEmissionProbabilityGaussian(g,fFeatureVectorAlignment,t) + fOccupationLikelihood + log(edgeActiveCurrent[i]->hmmStateEstimation->getMixture()(g)->weight());	
+					double dOccLikGaussian = edgeActiveCurrent[i]->hmmStateEstimation->computeEmissionProbabilityGaussian(g,fFeatureVectorAlignment,t) + dOccupationLikelihood + log(edgeActiveCurrent[i]->hmmStateEstimation->getMixture()(g)->weight());	
 					
 					double dOccProbability = exp(dOccLikGaussian);
 					assert(finite(dOccProbability));
@@ -377,11 +377,11 @@ void ForwardBackwardX::print(FBTrellisNode *node, int iRows, int iColumns) {
 				fScore = -100000.0000;
 			}
 			double dForward = node[i*iColumns+j].dForward;
-			if (dForward == -FLT_MAX) {
+			if (dForward == -DBL_MAX) {
 				dForward = -100000.0000;
 			}
 			double dBackward = node[i*iColumns+j].dBackward;
-			if (dBackward == -FLT_MAX) {
+			if (dBackward == -DBL_MAX) {
 				dBackward = -100000.0000;
 			}	
 			//printf("%12.4f  ",node[i*iColumns+j].fScore);
@@ -407,8 +407,8 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 	
 	for(int i=0 ; i < iFeatures*iEdges ; ++i) {
 		trellis[i].fScore = -FLT_MAX;
-		trellis[i].dForward = -FLT_MAX;
-		trellis[i].dBackward = -FLT_MAX;
+		trellis[i].dForward = -DBL_MAX;
+		trellis[i].dBackward = -DBL_MAX;
 	}
 
 	// active states
@@ -453,10 +453,10 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 			FBTrellisNode *nodeTrellis = &trellis[t*iEdges+s];
 			// accumulate probability mass from next time-frame
 			// (1) same node
-			nodeTrellis->dBackward = -FLT_MAX;
+			nodeTrellis->dBackward = -DBL_MAX;
 			if (iFeatures-2-t >= edgeActiveCurrent[i]->nodeNext->iDistanceEnd) {
 				FBTrellisNode *nodeSame = &trellis[(t+1)*iEdges+s];
-				if (nodeSame->dBackward != -FLT_MAX) {
+				if (nodeSame->dBackward != -DBL_MAX) {
 					nodeSame->fScore = edgeActiveCurrent[i]->hmmStateEstimation->computeEmissionProbability(fFeatureVector,t+1);
 					nodeTrellis->dBackward = nodeSame->dBackward + nodeSame->fScore;
 				}
@@ -465,7 +465,7 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 			for(FBEdgeHMM *edge = edgeActiveCurrent[i]->nodeNext->edgeNext ; edge != NULL ; edge = edge->edgePrev) {
 				if (iFeatures-2-t >= edge->nodeNext->iDistanceEnd) {
 					FBTrellisNode *nodeNext = &trellis[(t+1)*iEdges+edge->iEdge];
-					if (nodeNext->dBackward != -FLT_MAX) {
+					if (nodeNext->dBackward != -DBL_MAX) {
 						nodeNext->fScore = edge->hmmStateEstimation->computeEmissionProbability(fFeatureVector,t+1);
 						nodeTrellis->dBackward = Numeric::logAddition(nodeTrellis->dBackward,nodeNext->dBackward+nodeNext->fScore);
 					}
@@ -474,7 +474,7 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 		}
 		// (b) beam pruning
 		// - get the best scoring node
-		double dBestScore = -FLT_MAX;
+		double dBestScore = -DBL_MAX;
 		for(int i = 0 ; i < iActiveCurrent ; ++i) {
 			if (trellis[t*iEdges+edgeActiveCurrent[i]->iEdge].dBackward > dBestScore) {
 				dBestScore = trellis[t*iEdges+edgeActiveCurrent[i]->iEdge].dBackward;
@@ -482,13 +482,13 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 		}	
 		// - compute the threshold (minimum backward value for a node not to be pruned)
 		double dThreshold = dBestScore - fBeamBackward;
-		assert(dThreshold > -FLT_MAX);
+		assert(dThreshold > -DBL_MAX);
 		// (c) determine active states for previous time frame
 		iActiveNext = 0;
 		for(int i=0 ; i<iActiveCurrent ; ++i) {
 			// actual pruning	
 			if (trellis[t*iEdges+edgeActiveCurrent[i]->iEdge].dBackward < dThreshold) {
-				trellis[t*iEdges+edgeActiveCurrent[i]->iEdge].dBackward = -FLT_MAX;
+				trellis[t*iEdges+edgeActiveCurrent[i]->iEdge].dBackward = -DBL_MAX;
 				continue;
 			}
 			// self-loop
@@ -531,13 +531,13 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 	
 	// get the utterance likelihood from the initial edges
 	// HACK: this is not an exact method to compute the utterance likelihood, although it should be good enough
-	double dLikelihoodUtterance = -FLT_MAX;
+	double dLikelihoodUtterance = -DBL_MAX;
 	for(FBEdgeHMM *edge = nodeInitial->edgeNext ; edge != NULL ; edge = edge->edgePrev) {
-		if (trellis[edge->iEdge].dBackward != -FLT_MAX) {
+		if (trellis[edge->iEdge].dBackward != -DBL_MAX) {
 			dLikelihoodUtterance = Numeric::logAddition(dLikelihoodUtterance,trellis[edge->iEdge].dBackward+trellis[edge->iEdge].fScore);
 		}
 	}
-	assert(dLikelihoodUtterance != -FLT_MAX);
+	assert(dLikelihoodUtterance != -DBL_MAX);
 	double dForwardThreshold = dLikelihoodUtterance + fBeamForward;	
 	
 	// reset the emission probability computation (to avoid using cached computations that are outdated)
@@ -587,30 +587,30 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 		for(int i = 0 ; i < iActiveCurrent ; ++i) {		
 			int s = edgeActiveCurrent[i]->iEdge;
 			FBTrellisNode *nodeTrellis = &trellis[t*iEdges+s];
-			if (nodeTrellis->dBackward == -FLT_MAX) {
+			if (nodeTrellis->dBackward == -DBL_MAX) {
 				continue;
 			}	
 			// accumulate probability mass from previous time-frame
-			nodeTrellis->dForward = -FLT_MAX;
+			nodeTrellis->dForward = -DBL_MAX;
 			// (1) same node	
 			if (t > edgeActiveCurrent[i]->nodePrev->iDistanceStart) {
-				if (trellis[(t-1)*iEdges+s].dForward != -FLT_MAX) {
+				if (trellis[(t-1)*iEdges+s].dForward != -DBL_MAX) {
 					nodeTrellis->dForward = trellis[(t-1)*iEdges+s].dForward;	
 				}
 			}
 			// (2) previous nodes
 			for(FBEdgeHMM *edge = edgeActiveCurrent[i]->nodePrev->edgePrev ; edge != NULL ; edge = edge->edgeNext) {
 				if (t > edge->nodePrev->iDistanceStart) {
-					if (trellis[(t-1)*iEdges+edge->iEdge].dForward != -FLT_MAX) {
+					if (trellis[(t-1)*iEdges+edge->iEdge].dForward != -DBL_MAX) {
 						nodeTrellis->dForward = Numeric::logAddition(trellis[(t-1)*iEdges+edge->iEdge].dForward,nodeTrellis->dForward);
 					}
 				}
 			}
-			if (nodeTrellis->dForward != -FLT_MAX) {	
+			if (nodeTrellis->dForward != -DBL_MAX) {	
 				assert(nodeTrellis->fScore != -FLT_MAX);
 				nodeTrellis->dForward += nodeTrellis->fScore;
 				if (nodeTrellis->dForward+nodeTrellis->dBackward < dForwardThreshold) {
-					nodeTrellis->dForward = -FLT_MAX;
+					nodeTrellis->dForward = -DBL_MAX;
 				}
 			}
 		}
@@ -618,7 +618,7 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 		iActiveNext = 0;
 		for(int i=0 ; i<iActiveCurrent ; ++i) {
 			// actual pruning	
-			if (trellis[t*iEdges+edgeActiveCurrent[i]->iEdge].dForward == -FLT_MAX) {
+			if (trellis[t*iEdges+edgeActiveCurrent[i]->iEdge].dForward == -DBL_MAX) {
 				continue;
 			}		
 			// self-loop
@@ -688,7 +688,7 @@ FBTrellisNode *ForwardBackwardX::newTrellis(int iFeatures, int iEdges, const cha
 		}
 		// if caching is enabled and the new trellis it not too large, cache it 
 		// note: not caching large trellis prevents a more efficient use of the main memory
-		if ((m_bTrellisCache == true) && (iTrellisSizeBytes <= m_iTrellisCacheMaxSizeBytes)) {	
+		if ((m_bTrellisCache) && (iTrellisSizeBytes <= m_iTrellisCacheMaxSizeBytes)) {	
 			// empty the cache if necessary
 			if (m_trellisCache != NULL) {
 				delete [] m_trellisCache;
@@ -722,7 +722,7 @@ void ForwardBackwardX::countUnusedPositions(FBTrellisNode *trellis, int iFeature
 
 	for(int i=0 ; i < iFeatures ; ++i) {
 		for(int j=0 ; j < iNodes ; ++j) {
-			if ((trellis[i*iNodes+j].dForward == -FLT_MAX) && (trellis[i*iNodes+j].dBackward == -FLT_MAX)) {
+			if ((trellis[i*iNodes+j].dForward == -DBL_MAX) && (trellis[i*iNodes+j].dBackward == -DBL_MAX)) {
 				++iUnused;
 			}
 		}

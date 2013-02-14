@@ -56,7 +56,7 @@ void MLEstimator::estimateParameters(MAccumulatorPhysical &mAccumulator,
 			}
 		}
 		// is there data to update the HMM-state
-		if (bData == true) {
+		if (bData) {
 			estimateParameters(m_hmmStates[i],accumulators,bUpdateCovariance);
 		}
 		delete [] accumulators;
@@ -95,7 +95,7 @@ void MLEstimator::estimateParameters(HMMState *hmmState, Accumulator **accumulat
 		gaussian->mean().mul((float)(1.0/accumulator->getOccupation()),accumulator->getObservation());
 		
 		// covariance
-		if (bUpdateCovariance == true) {
+		if (bUpdateCovariance) {
 			// diagonal
 			if (iCovarianceModeling == COVARIANCE_MODELLING_TYPE_DIAGONAL) {
 				gaussian->covarianceDiag().mul((float)(1.0/accumulator->getOccupation()),accumulator->getObservationSquareDiag());

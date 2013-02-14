@@ -27,7 +27,7 @@
 // author, version and date
 #define SYSTEM_AUTHOR       "Daniel Bolanos"
 #define SYSTEM_VERSION      "0014"
-#define SYSTEM_DATE         "July 1st 2012" 
+#define SYSTEM_DATE         "July 1st 2010" 
 
 #define SYSTEM_VERSION_FIELD_WIDTH	  	8	
 

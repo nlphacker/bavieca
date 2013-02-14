@@ -451,7 +451,7 @@ void LexiconManager::print(bool bPrintLexUnits) {
 	printf(" ## lexical units (standard): %8d \n",m_iLexicalUnitsStandard);
 	printf(" ## lexical units (filler):   %8d\n",m_iLexicalUnitsFiller); 
 	printf(" alt. pronunciation ratio:   %8.2f\n",((float)m_iLexicalUnitsStandard)/((float)m_iLexicalUnitsUnique));
-	if (bPrintLexUnits == true) {
+	if (bPrintLexUnits) {
 		for(VLexUnit::iterator it = m_lexicon.begin() ; it != m_lexicon.end() ; ++it) {
 			const char *str = LexiconManager::getStrLexUnit((*it)->iLexUnit);	
 			printf("%10d[%10d]: %s(%d)",(*it)->iLexUnit,(*it)->iLexUnitPron,str,(*it)->iPronunciation);
@@ -800,7 +800,7 @@ bool LexiconManager::store(const char *strFile) {
 	
    for(VLexUnitX::iterator it = m_lexiconX.begin() ; it != m_lexiconX.end() ; ++it) {
    	for(VLexUnit::iterator jt = (*it)->vLexUnitPronunciations.begin() ; jt != (*it)->vLexUnitPronunciations.end() ; ++jt) {
-			if ((isSentenceDelimiter(*jt) == true) || (isUnknown(*jt))) {
+			if ((isSentenceDelimiter(*jt)) || (isUnknown(*jt))) {
 				continue;
 			}
    		getStrLexUnitPronunciation(*jt,strLexUnitPronunciation);

@@ -30,98 +30,98 @@ using namespace Bavieca;
 // main function
 int main(int argc, char *argv[]) {
 
-	// (1) define command line parameters
-	CommandLineManager *m_commandLineManager = new CommandLineManager("vtlestimator",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
-	m_commandLineManager->defineParameter("-cfg","feature configuration",PARAMETER_TYPE_FILE,false);		
-	m_commandLineManager->defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-mod","acoustic models",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-lex","lexicon",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-bat","batch file containing pairs (rawFile stateAlignmentFile)",
-		PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-for","alignment file format",PARAMETER_TYPE_STRING,false,"binary|text");	
-	m_commandLineManager->defineParameter("-out","file to store pairs (rawFile warpFactor)",PARAMETER_TYPE_FILE);
-	m_commandLineManager->defineParameter("-fil","list of filler phones that will be ignored",PARAMETER_TYPE_FILE,true);
-	m_commandLineManager->defineParameter("-floor","warp factor floor",
-		PARAMETER_TYPE_FLOAT,true,"[0.75|0.99]","0.80");
-	m_commandLineManager->defineParameter("-ceiling","warp factor ceiling",
-		PARAMETER_TYPE_FLOAT,true,"[1.01|1.25]","1.20");
-	m_commandLineManager->defineParameter("-step","warp factor increment between tests",
-		PARAMETER_TYPE_FLOAT,true,"[0.01|0.05]","0.02");
-	m_commandLineManager->defineParameter("-ali","whether to realign data for each warp factor",
-		PARAMETER_TYPE_BOOLEAN,true,"yes|no","no");	
-	m_commandLineManager->defineParameter("-nrm","cepstral normalization mode",
-		PARAMETER_TYPE_STRING,true,"none|utterance|session","utterance");	
-	m_commandLineManager->defineParameter("-met","cepstral normalization method",
-		PARAMETER_TYPE_STRING,true,"none|CMN|CMVN","CMN");	
+	try {
+
+		// (1) define command line parameters
+		CommandLineManager commandLineManager("vtlestimator",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
+		commandLineManager.defineParameter("-cfg","feature configuration",PARAMETER_TYPE_FILE,false);		
+		commandLineManager.defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-mod","acoustic models",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-lex","lexicon",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-bat","batch file containing pairs (rawFile stateAlignmentFile)",
+			PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-for","alignment file format",PARAMETER_TYPE_STRING,false,"binary|text");	
+		commandLineManager.defineParameter("-out","file to store pairs (rawFile warpFactor)",PARAMETER_TYPE_FILE);
+		commandLineManager.defineParameter("-fil","list of filler phones that will be ignored",PARAMETER_TYPE_FILE,true);
+		commandLineManager.defineParameter("-floor","warp factor floor",
+			PARAMETER_TYPE_FLOAT,true,"[0.75|0.99]","0.80");
+		commandLineManager.defineParameter("-ceiling","warp factor ceiling",
+			PARAMETER_TYPE_FLOAT,true,"[1.01|1.25]","1.20");
+		commandLineManager.defineParameter("-step","warp factor increment between tests",
+			PARAMETER_TYPE_FLOAT,true,"[0.01|0.05]","0.02");
+		commandLineManager.defineParameter("-ali","whether to realign data for each warp factor",
+			PARAMETER_TYPE_BOOLEAN,true,"yes|no","no");	
+		commandLineManager.defineParameter("-nrm","cepstral normalization mode",
+			PARAMETER_TYPE_STRING,true,"none|utterance|session","utterance");	
+		commandLineManager.defineParameter("-met","cepstral normalization method",
+			PARAMETER_TYPE_STRING,true,"none|CMN|CMVN","CMN");	
+		
+		// parse the command line parameters
+		if (commandLineManager.parseParameters(argc,argv) == false) {
+			return -1;
+		}
+		
+		// load the configuration file
+		const char *strFileConfiguration = commandLineManager.getParameterValue("-cfg");
+		ConfigurationFeatures configurationFeatures(strFileConfiguration);
+		configurationFeatures.load();
+		
+		// load the phone set
+		PhoneSet phoneSet(commandLineManager.getParameterValue("-pho"));
+		phoneSet.load();
+		
+		// load the acoustic models
+		HMMManager hmmManager(&phoneSet,HMM_PURPOSE_EVALUATION);
+		hmmManager.load(commandLineManager.getParameterValue("-mod"));
+		hmmManager.initializeDecoding();	
+		
+		// load the lexicon file
+		LexiconManager lexiconManager(commandLineManager.getParameterValue("-lex"),&phoneSet);
+		lexiconManager.load();
+		
+		// get command line parameters
+		const char *strAlignmentFormat = commandLineManager.getParameterValue("-for");
+		unsigned char iAlignmentFormat;
+		if (strcmp(strAlignmentFormat,"binary") == 0) {
+			iAlignmentFormat = FILE_FORMAT_BINARY;
+		} else {
+			assert(strcmp(strAlignmentFormat,"text") == 0);
+			iAlignmentFormat = FILE_FORMAT_TEXT;
+		}
+		float fWarpFactorFloor = commandLineManager.getFloatParameterValue("-floor");
+		float fWarpFactorCeiling = commandLineManager.getFloatParameterValue("-ceiling");
+		float fWarpFactorStep = commandLineManager.getFloatParameterValue("-step");
+		const char *strFileFillerPhones = NULL;
+		if (commandLineManager.isParameterSet("-fil")) {
+			strFileFillerPhones = commandLineManager.getParameterValue("-fil");
+		}
+		bool bRealignData = commandLineManager.getBoolParameterValue("-ali");
+		int iCepstralNormalizationMode = 
+			FeatureExtractor::getNormalizationMode(commandLineManager.getParameterValue("-nrm"));	
+		int iCepstralNormalizationMethod = 
+			FeatureExtractor::getNormalizationMethod(commandLineManager.getParameterValue("-met"));
+		
+		// get the output file (it is optional)
+		const char *strOutputFile = NULL;
+		if (commandLineManager.isParameterSet("-out")) {
+			strOutputFile = commandLineManager.getParameterValue("-out");
+		}
+		
+		// estimate the warp factor
+		VTLEstimator vtlnManager(&configurationFeatures,&hmmManager,&phoneSet,
+			&lexiconManager,strFileFillerPhones,fWarpFactorFloor,fWarpFactorCeiling,fWarpFactorStep,
+			bRealignData,iCepstralNormalizationMode,iCepstralNormalizationMethod);
+		
+		float fLikelihoodGain = -FLT_MAX;
+		float fWarpFactor;
+		vtlnManager.estimateWarpFactor(commandLineManager.getParameterValue("-bat"),
+			iAlignmentFormat,strOutputFile,fLikelihoodGain,fWarpFactor);
+		
+	} catch (ExceptionBase &e) {
 	
-	// parse the command line parameters
-	if (m_commandLineManager->parseParameters(argc,argv) == false) {
+		std::cerr << e.what() << std::endl;
 		return -1;
 	}
-	
-	// load the configuration file
-	const char *m_strFileConfiguration = m_commandLineManager->getParameterValue("-cfg");
-	ConfigurationFeatures *m_configurationFeatures = new ConfigurationFeatures(m_strFileConfiguration);
-	m_configurationFeatures->load();
-	
-   // load the phone set
-   PhoneSet *m_phoneSet = new PhoneSet(m_commandLineManager->getParameterValue("-pho"));
-   m_phoneSet->load();
-   
-	// load the acoustic models
-	HMMManager *m_hmmManager = new HMMManager(m_phoneSet,HMM_PURPOSE_EVALUATION);
-	m_hmmManager->load(m_commandLineManager->getParameterValue("-mod"));
-	m_hmmManager->initializeDecoding();	
-	
-	// load the lexicon file
-	LexiconManager *m_lexiconManager = new LexiconManager(m_commandLineManager->getParameterValue("-lex"),m_phoneSet);
-	m_lexiconManager->load();
-	
-	// get command line parameters
-	const char *m_strAlignmentFormat = m_commandLineManager->getParameterValue("-for");
-	unsigned char m_iAlignmentFormat;
-	if (strcmp(m_strAlignmentFormat,"binary") == 0) {
-		m_iAlignmentFormat = FILE_FORMAT_BINARY;
-	} else {
-		assert(strcmp(m_strAlignmentFormat,"text") == 0);
-		m_iAlignmentFormat = FILE_FORMAT_TEXT;
-	}
-	float m_fWarpFactorFloor = m_commandLineManager->getFloatParameterValue("-floor");
-	float m_fWarpFactorCeiling = m_commandLineManager->getFloatParameterValue("-ceiling");
-	float m_fWarpFactorStep = m_commandLineManager->getFloatParameterValue("-step");
-	const char *m_strFileFillerPhones = NULL;
-	if (m_commandLineManager->isParameterSet("-fil")) {
-		m_strFileFillerPhones = m_commandLineManager->getParameterValue("-fil");
-	}
-	bool m_bRealignData = m_commandLineManager->getBoolParameterValue("-ali");
-	int m_iCepstralNormalizationMode = 
-		FeatureExtractor::getNormalizationMode(m_commandLineManager->getParameterValue("-nrm"));	
-	int m_iCepstralNormalizationMethod = 
-		FeatureExtractor::getNormalizationMethod(m_commandLineManager->getParameterValue("-met"));
-	
-	// get the output file (it is optional)
-	const char *m_strOutputFile = NULL;
-	if (m_commandLineManager->isParameterSet("-out")) {
-		m_strOutputFile = m_commandLineManager->getParameterValue("-out");
-	}
-	
-	// estimate the warp factor
-	VTLEstimator *m_vtlnManager = new VTLEstimator(m_configurationFeatures,m_hmmManager,m_phoneSet,
-		m_lexiconManager,m_strFileFillerPhones,m_fWarpFactorFloor,m_fWarpFactorCeiling,m_fWarpFactorStep,
-		m_bRealignData,m_iCepstralNormalizationMode,m_iCepstralNormalizationMethod);
-	
-	float m_fLikelihoodGain = -FLT_MAX;
-	float m_fWarpFactor;
-	m_vtlnManager->estimateWarpFactor(m_commandLineManager->getParameterValue("-bat"),
-		m_iAlignmentFormat,m_strOutputFile,m_fLikelihoodGain,m_fWarpFactor);
-	
-	// clean-up
-	delete m_vtlnManager;
-	delete m_lexiconManager;
-	delete m_hmmManager;
-	delete m_configurationFeatures;
-	delete m_phoneSet;
-	delete m_commandLineManager;
  
 	return 0; 
 }

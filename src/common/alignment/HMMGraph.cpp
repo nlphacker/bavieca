@@ -50,7 +50,7 @@ FBNodeHMM **HMMGraph::create(VLexUnit &vLexUnitTranscription, int *iNodes, int *
 	
 	//double dTimeBegin = TimeUtils::getTimeMilliseconds();	
 	
-	if (vLexUnitTranscription.empty() == true) {
+	if (vLexUnitTranscription.empty()) {
 		return NULL;
 	}
 	
@@ -58,7 +58,7 @@ FBNodeHMM **HMMGraph::create(VLexUnit &vLexUnitTranscription, int *iNodes, int *
 	FBNodeLexUnit *nodeLexUnitInitial = NULL;
 	int iNodesLexUnit = -1;
 	// multiple pronunciations
-	if (m_bMultiplePronunciations == true) {
+	if (m_bMultiplePronunciations) {
 		VLexUnitX vLexUnitX;
 		m_lexiconManager->map(vLexUnitTranscription,vLexUnitX);
 		nodeLexUnitInitial = create(vLexUnitX,m_vLexUnitOptional,&iNodesLexUnit);
@@ -78,7 +78,7 @@ FBNodeHMM **HMMGraph::create(VLexUnit &vLexUnitTranscription, int *iNodes, int *
 	//destroy(nodePhoneInitial,iNodesPhone);
 	
 	// (3) propagate context across the graph (if needed)
-	if (m_hmmManagerUpdate->areAccumulatorsLogical() == true) {
+	if (m_hmmManagerUpdate->areAccumulatorsLogical()) {
 		m_iContextSizeWW = m_hmmManagerUpdate->getContextSizeAccumulators();
 		m_iContextSizeCW = m_hmmManagerUpdate->getContextSizeAccumulatorsCW();
 		m_iPhoneContextPadding = m_phoneSet->size();
@@ -152,7 +152,7 @@ FBNodeHMM **HMMGraph::create(VLexUnit &vLexUnitTranscription, int *iNodes, int *
 //   do not appear already on the transcription)
 FBNodeLexUnit *HMMGraph::create(VLexUnit &vLexUnitTranscription, VLexUnit &vLexUnitOptional, int *iNodes) {
 
-	if (vLexUnitTranscription.empty() == true) {
+	if (vLexUnitTranscription.empty()) {
 		return NULL;
 	}
 
@@ -207,7 +207,7 @@ FBNodeLexUnit *HMMGraph::create(VLexUnit &vLexUnitTranscription, VLexUnit &vLexU
 //   do not appear already on the transcription)
 FBNodeLexUnit *HMMGraph::create(VLexUnitX &vLexUnitTranscription, VLexUnit &vLexUnitOptional, int *iNodes) {
 
-	if (vLexUnitTranscription.empty() == true) {
+	if (vLexUnitTranscription.empty()) {
 		return NULL;
 	}
 
@@ -496,7 +496,7 @@ void HMMGraph::propagateContext(FBNodePhone *nodeInitial, int iNodesOriginal, in
 	// (2) right context
 	
 	assert(nodeFinal != NULL);
-	assert(lEdge.empty() == true);
+	assert(lEdge.empty());
 	
  	// create a fake edge to make the algorithm simpler
 	edgeFake = new FBEdgePhone;
@@ -990,9 +990,9 @@ FBNodeHMM **HMMGraph::compact(FBNodeHMM *nodeInitial, int iNodes, int *iNodesAft
 			bool bMerged = false;
 			for(FBEdgeHMM *edge2 = nodeAux->edgeNext ; edge2 != edge1 ; edge2 = edge2->edgePrev) {
 				//if (edge1->hmmState == edge2->hmmState) {	
-				if (equal(edge1,edge2) == true) {	
+				if (equal(edge1,edge2)) {	
 					// check that destination nodes have the same predecessor edges
-					if (samePredecessors(edge1->nodeNext,edge2->nodeNext) == true) {
+					if (samePredecessors(edge1->nodeNext,edge2->nodeNext)) {
 						bMerged = true;
 						// non-shared destination node: remove edge and node and transfer successor edges
 						if (edge1->nodeNext != edge2->nodeNext) {
@@ -1027,7 +1027,7 @@ FBNodeHMM **HMMGraph::compact(FBNodeHMM *nodeInitial, int iNodes, int *iNodesAft
 										break;
 									}
 								}
-								assert(bFound == true);
+								assert(bFound);
 								++iEdgesDeleted;
 							}	
 							break;
@@ -1044,7 +1044,7 @@ FBNodeHMM **HMMGraph::compact(FBNodeHMM *nodeInitial, int iNodes, int *iNodesAft
 									break;
 								}
 							}	
-							assert(bFound == true);
+							assert(bFound);
 							// disconnect the edge from the source node
 							bFound = false;
 							for(FBEdgeHMM **edge3 = &(edge1->nodeNext->edgePrev) ; *edge3 != NULL ; edge3 = &((*edge3)->edgeNext)) {
@@ -1054,7 +1054,7 @@ FBNodeHMM **HMMGraph::compact(FBNodeHMM *nodeInitial, int iNodes, int *iNodesAft
 									break;
 								}
 							}	
-							assert(bFound == true);		
+							assert(bFound);		
 							// go to the next outgoing edge of the node being processed
 							FBEdgeHMM *edgeToDelete = edge1;	
 							edge1 = edge1->edgePrev;
@@ -1078,7 +1078,7 @@ FBNodeHMM **HMMGraph::compact(FBNodeHMM *nodeInitial, int iNodes, int *iNodesAft
 	}
 	
 	assert(nodeFinal != NULL);
-	assert(lNode.empty() == true);
+	assert(lNode.empty());
 	
 	// set all the nodes as "not visited"
 	for(int i=0 ; i < iNodes ; ++i) {
@@ -1116,9 +1116,9 @@ FBNodeHMM **HMMGraph::compact(FBNodeHMM *nodeInitial, int iNodes, int *iNodesAft
 			bool bMerged = false;
 			for(FBEdgeHMM *edge2 = nodeAux->edgePrev ; edge2 != edge1 ; edge2 = edge2->edgeNext) {
 				//if (edge1->hmmState == edge2->hmmState) {	
-				if (equal(edge1,edge2) == true) {	
+				if (equal(edge1,edge2)) {	
 					// check that destination nodes have the same successor edges
-					if (sameSuccessors(edge1->nodePrev,edge2->nodePrev) == true) {
+					if (sameSuccessors(edge1->nodePrev,edge2->nodePrev)) {
 						assert(edge1->nodePrev != edge2->nodePrev);
 						bMerged = true;
 						//printf("(b) merging happens!!\n");
@@ -1152,7 +1152,7 @@ FBNodeHMM **HMMGraph::compact(FBNodeHMM *nodeInitial, int iNodes, int *iNodesAft
 									break;
 								}
 							}
-							assert(bFound == true);
+							assert(bFound);
 							++iEdgesDeleted;
 						}
 						break;
@@ -1233,7 +1233,7 @@ bool HMMGraph::samePredecessors(FBNodeHMM *node1, FBNodeHMM *node2) {
 		bool bFound = false;
 		for(FBEdgeHMM *edge2 = node2->edgePrev ; edge2 != NULL ; edge2 = edge2->edgeNext) {
 			//if ((edge1->hmmState == edge2->hmmState) && (edge1->nodePrev == edge2->nodePrev)) {
-			if ((equal(edge1,edge2) == true) && (edge1->nodePrev == edge2->nodePrev)) {
+			if ((equal(edge1,edge2)) && (edge1->nodePrev == edge2->nodePrev)) {
 				bFound = true;
 				break;
 			}
@@ -1266,7 +1266,7 @@ bool HMMGraph::sameSuccessors(FBNodeHMM *node1, FBNodeHMM *node2) {
 		bool bFound = false;
 		for(FBEdgeHMM *edge2 = node2->edgeNext ; edge2 != NULL ; edge2 = edge2->edgePrev) {
 			//if ((edge1->hmmState == edge2->hmmState) && (edge1->nodeNext == edge2->nodeNext)) {
-			if ((equal(edge1,edge2) == true) && (edge1->nodeNext == edge2->nodeNext)) {
+			if ((equal(edge1,edge2)) && (edge1->nodeNext == edge2->nodeNext)) {
 				bFound = true;
 				break;
 			}
@@ -1428,7 +1428,7 @@ void HMMGraph::computeDistances(FBNodeHMM **nodes, FBNodeHMM *nodeInitial,
 	nodeInitial->iDistanceStart = 0;	
 	iNodeState[nodeInitial->iNode] = NODE_STATE_QUEUED;
 	
-	assert(vNodes.empty() == true);
+	assert(vNodes.empty());
 	vNodes.push_back(nodeInitial);
 	while(vNodes.empty() == false) {
 		

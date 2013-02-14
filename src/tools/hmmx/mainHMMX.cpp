@@ -41,76 +41,75 @@ using namespace Bavieca;
 // main for the tool "hmmx"
 int main(int argc, char *argv[])
 {	
-	// (1) define command line parameters
-	CommandLineManager *m_commandLineManager = new CommandLineManager("hmmx",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
-	m_commandLineManager->defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-tra","model transform",PARAMETER_TYPE_FILE,true);
-	m_commandLineManager->defineParameter("-rgt","regression-tree",PARAMETER_TYPE_FILE,true);
-	m_commandLineManager->defineParameter("-in","inout acoustic models",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-out","output acoustic models",PARAMETER_TYPE_FILE,false);
+	try {
+
+		// (1) define command line parameters
+		CommandLineManager commandLineManager("hmmx",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
+		commandLineManager.defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-tra","model transform",PARAMETER_TYPE_FILE,true);
+		commandLineManager.defineParameter("-rgt","regression-tree",PARAMETER_TYPE_FILE,true);
+		commandLineManager.defineParameter("-in","inout acoustic models",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-out","output acoustic models",PARAMETER_TYPE_FILE,false);
+		
+		// (2) process command line parameters
+		if (commandLineManager.parseParameters(argc,argv) == false) {
+			return -1;
+		}
+		
+		// load parameters
+		const char *strFilePhoneSet = commandLineManager.getParameterValue("-pho");
+		const char *strFileTransform = commandLineManager.getParameterValue("-tra");
+		const char *strFileRegressionTree = commandLineManager.getParameterValue("-rgt");
+		const char *strFileModelsInput = commandLineManager.getParameterValue("-in");
+		const char *strFileModelsOutput = commandLineManager.getParameterValue("-out");
+		
+		// load the phone set
+		PhoneSet phoneSet(strFilePhoneSet);
+		phoneSet.load();
+		
+		// regression tree based transform?	
+		if (strFileRegressionTree != NULL) {
+		
+			// load the acoustic models
+			HMMManager hmmManager(&phoneSet,HMM_PURPOSE_EVALUATION);
+			hmmManager.load(strFileModelsInput);
+			hmmManager.initializeDecoding();	
+				
+			// load the regression tree
+			RegressionTree regressionTree(&hmmManager);
+			regressionTree.load(strFileRegressionTree);
+			
+			// load the transforms
+			regressionTree.loadTransforms(strFileTransform);
+			
+			// apply the transforms
+			regressionTree.applyTransforms();
+			
+			// store the output acoustic models to disk
+			hmmManager.store(strFileModelsOutput);
+		}
+		// regular model transform
+		else {
+		
+			// load the input acoustic models
+			HMMManager hmmManager(&phoneSet,HMM_PURPOSE_ESTIMATION);
+			hmmManager.load(strFileModelsInput);
+			
+			// load the transformation
+			Transform transform;
+			transform.load(strFileTransform);
+			
+			// apply the actual transformation
+			HLDAEstimator::applyTransform(transform.getTransform(),&hmmManager);
+		
+			// store the output acoustic models to disk
+			hmmManager.store(strFileModelsOutput);
+		}		
+	} catch (ExceptionBase &e) {
 	
-	// (2) process command line parameters
-	if (m_commandLineManager->parseParameters(argc,argv) == false) {
+		std::cerr << e.what() << std::endl;
 		return -1;
 	}
-	
-	// load parameters
-	const char *m_strFilePhoneSet = m_commandLineManager->getParameterValue("-pho");
-	const char *m_strFileTransform = m_commandLineManager->getParameterValue("-tra");
-	const char *m_strFileRegressionTree = m_commandLineManager->getParameterValue("-rgt");
-	const char *m_strFileModelsInput = m_commandLineManager->getParameterValue("-in");
-	const char *m_strFileModelsOutput = m_commandLineManager->getParameterValue("-out");
-	
-	// load the phone set
-	PhoneSet *m_phoneSet = new PhoneSet(m_strFilePhoneSet);
-	m_phoneSet->load();
-	
-	HMMManager *m_hmmManager = NULL;
-		
-	// regression tree based transform?	
-	if (m_strFileRegressionTree != NULL) {
-	
-		// load the acoustic models
-		m_hmmManager = new HMMManager(m_phoneSet,HMM_PURPOSE_EVALUATION);
-		m_hmmManager->load(m_strFileModelsInput);
-		m_hmmManager->initializeDecoding();	
-			
-		// load the regression tree
-		RegressionTree *m_regressionTree = new RegressionTree(m_hmmManager);
-		m_regressionTree->load(m_strFileRegressionTree);
-		
-		// load the transforms
-		m_regressionTree->loadTransforms(m_strFileTransform);
-		
-		// apply the transforms
-		m_regressionTree->applyTransforms();
-		
-		delete m_regressionTree;
-	}
-	// regular model transform
-	else {
-	
-		// load the input acoustic models
-		m_hmmManager = new HMMManager(m_phoneSet,HMM_PURPOSE_ESTIMATION);
-		m_hmmManager->load(m_strFileModelsInput);
-		
-		// load the transformation
-		Transform *m_transform = new Transform();
-		m_transform->load(m_strFileTransform);
-		
-		// apply the actual transformation
-		HLDAEstimator::applyTransform(m_transform->getTransform(),m_hmmManager);
-	
-		delete m_transform;	
-	}
-	
-	// store the output acoustic models to disk
-	m_hmmManager->store(m_strFileModelsOutput);
-	
-	// clean-up	
-	delete m_hmmManager;
-	delete m_phoneSet;
-	delete m_commandLineManager;	
 	
 	return 0;
 }

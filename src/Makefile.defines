@@ -36,9 +36,11 @@ AR	     = ar rs
 # CBLAS and LAPACK includes/libraries
 # ---------------------------------------
 
-INCS_DIR_CBLAS = -I/home/CBLAS/include
-INCS_DIR_LAPACK = -I/home/CLAPACK-3.2.1/INCLUDE
-LIBS_DIR_CBLAS = -L/home/CBLAS/lib/ -L/home/BLAS/ 
-LIBS_DIR_LAPACK = -L/home/CLAPACK-3.2.1/ -L/home/CLAPACK-3.2.1/F2CLIBS
+BASE = /home
+
+INCS_DIR_CBLAS = -I$(BASE)/CBLAS/include
+INCS_DIR_LAPACK = -I$(BASE)/CLAPACK-3.2.1/INCLUDE
+LIBS_DIR_CBLAS = -L$(BASE)/CBLAS/lib/ -L$(BASE)/BLAS/ 
+LIBS_DIR_LAPACK = -L$(BASE)/CLAPACK-3.2.1/ -L$(BASE)/CLAPACK-3.2.1/F2CLIBS
 LIB_CBLAS = -lcblas_LINUX -lblas_LINUX -lgfortran
 LIB_LAPACK = -llapack_LINUX -lblas_LINUX3 -lf2c 

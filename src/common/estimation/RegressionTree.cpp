@@ -134,7 +134,7 @@ void RegressionTree::build(int iBaseClasses, unsigned char iClusteringMethod, un
 	m_nodeRoot->right = NULL;
 	m_nodeRoot->matrixObservationTranspose = NULL;	
 	m_nodeRoot->transform = NULL;
-	assert(lLeafNode.empty() == true);
+	assert(lLeafNode.empty());
 	lLeafNode.push_back(m_nodeRoot);
 	
 	// split a cluster at each iteration until the desired number of clusters is reached
@@ -217,7 +217,7 @@ void RegressionTree::build(int iBaseClasses, unsigned char iClusteringMethod, un
 				// split the cluster using EM-clustering (2 classes) 
 				clusterToSplit = *it;
 				jt = it;
-				if (expectationMaximizationClustering(clusterToSplit,iMinimumComponentsCluster) == true) {
+				if (expectationMaximizationClustering(clusterToSplit,iMinimumComponentsCluster)) {
 					assert((clusterToSplit->left->vGaussian.size() > iMinimumComponentsCluster) && 
 						(clusterToSplit->right->vGaussian.size() > iMinimumComponentsCluster));
 					bSplitSuccessful = true;

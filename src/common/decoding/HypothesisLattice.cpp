@@ -429,7 +429,7 @@ void HypothesisLattice::loadBinaryFormat(const char *strFile) {
 		// value 
 		IOBase::readString(file.getStream(),&strValue);
 		// check that is not multiple defined
-		if (isProperty(strProperty) == true) {
+		if (isProperty(strProperty)) {
 			BVC_ERROR << "lattice property \"" << strProperty <<  "\" defined multiple times";
 		}
 		setProperty(strProperty,strValue);
@@ -625,7 +625,7 @@ void HypothesisLattice::check() {
 	}
 
 	// (1) check that the lattice is connected (right to left)
-	assert(vLNode.empty() == true);
+	assert(vLNode.empty());
 
 	// mark all the nodes as not-visited
 	for(int i=0 ; i<m_iNodes ; ++i) {
@@ -1018,7 +1018,7 @@ void HypothesisLattice::forward(LEdge *edge) {
 		if (edgePred->bTouched == false) {
 			forward(edgePred);	
 		} 
-		assert(edgePred->bTouched == true);
+		assert(edgePred->bTouched);
 		assert(edgePred->dScoreForward != -FLT_MAX);	
 		
 		// accumulate forward probabilities
@@ -1052,7 +1052,7 @@ void HypothesisLattice::backward(LEdge *edge) {
 		if (edgeSucc->bTouched == false) {
 			backward(edgeSucc);	
 		}
-		assert(edgeSucc->bTouched == true);
+		assert(edgeSucc->bTouched);
 		assert(edgeSucc->dScoreBackward != -FLT_MAX);
 		
 		// accumulate backward probabilities
@@ -1202,7 +1202,7 @@ void HypothesisLattice::computeConfidenceScore(unsigned char iConfidenceMeasure)
 					// two nodes have only frames in common if they overlap somewhere
 					if ((edge != edgeAux) && overlap(edge,edgeAux)) {	
 						for(int i=edge->iFrameStart ; i <= edge->iFrameEnd ; ++i) {
-							if (spanTimeFrame(edgeAux,i) == true) {
+							if (spanTimeFrame(edgeAux,i)) {
 								fFrameScoreMax[i-edge->iFrameStart] += edgeAux->fPP; 
 							}
 						}
@@ -1263,7 +1263,7 @@ LatticeDepth *HypothesisLattice::computeDepth(bool bIgnoreNonWords) {
 		LexUnit *lexUnit = m_ledges[i]->lexUnit;
 		if (bIgnoreNonWords == false) {
 			latticeDepth->iFramesEdges += (m_ledges[i]->iFrameEnd-m_ledges[i]->iFrameStart+1);
-		} else if (m_lexiconManager->isStandard(lexUnit) == true) {
+		} else if (m_lexiconManager->isStandard(lexUnit)) {
 			latticeDepth->iFramesEdges += (m_ledges[i]->iFrameEnd-m_ledges[i]->iFrameStart+1);
 		}	
 	}
@@ -1588,13 +1588,13 @@ void HypothesisLattice::hmmMarking(HMMManager *hmmManager) {
 LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings *mappings) {
 
 	// make sure reference is not empty
-	if (vLexUnitReference.empty() == true) {
+	if (vLexUnitReference.empty()) {
 		return NULL;
 	}
 	
 	// make sure none of the lexical units in the reference are fillers
 	for(VLexUnit::iterator it = vLexUnitReference.begin() ; it != vLexUnitReference.end() ; ++it) {
-		if (m_lexiconManager->isFiller(*it) == true) {
+		if (m_lexiconManager->isFiller(*it)) {
 			return NULL;
 		}
 	}
@@ -1602,7 +1602,7 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 	// count the number of OOV words
 	int iOOV = 0;
 	for(VLexUnit::iterator it = vLexUnitReference.begin() ; it != vLexUnitReference.end() ; ++it) {
-		if (m_lexiconManager->isUnknown(*it) == true) {
+		if (m_lexiconManager->isUnknown(*it)) {
 			++iOOV;
 		}
 	}	
@@ -1676,7 +1676,7 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 						// insertion
 						activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_INSERTION);
 						// skip
-						if (m_lexiconManager->isFiller(edge->lexUnit) == true) {
+						if (m_lexiconManager->isFiller(edge->lexUnit)) {
 							activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_SKIP);
 						}
 					}
@@ -1697,9 +1697,9 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 						}
 						// apply mappings to hypothesis and reference word
 						else {
-							const char *strHyp = mappings->mapWord(m_lexiconManager->getStrLexUnit(edge->lexUnit->iLexUnit));
-							const char *strRef = mappings->mapWord(m_lexiconManager->getStrLexUnit(
-								vLexUnitReference[m_tokenCurrent[i].iReference+1]->iLexUnit));
+							const char *strHyp = (*mappings)[m_lexiconManager->getStrLexUnit(edge->lexUnit->iLexUnit) ];
+							const char *strRef = (*mappings)[m_lexiconManager->getStrLexUnit(
+								vLexUnitReference[m_tokenCurrent[i].iReference+1]->iLexUnit)];
 							if (strcmp(strHyp,strRef) != 0) {
 								activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_SUBSTITUTION);
 							} else {
@@ -1868,7 +1868,7 @@ void HypothesisLattice::historyItemGarbageCollection() {
 		
 		for(int iHistoryItem = m_tokenCurrent[i].iHistoryItem ; iHistoryItem != -1 ; iHistoryItem = (m_historyItems+iHistoryItem)->iPrev) {
 			LWERHistoryItem *historyItem = m_historyItems+iHistoryItem;
-			if (historyItem->bUsed == true) {
+			if (historyItem->bUsed) {
 				break;
 			}
 			historyItem->bUsed = true;
@@ -1881,7 +1881,7 @@ void HypothesisLattice::historyItemGarbageCollection() {
 		
 		for(int iHistoryItem = m_tokenNext[i].iHistoryItem ; iHistoryItem != -1 ; iHistoryItem = (m_historyItems+iHistoryItem)->iPrev) {
 			LWERHistoryItem *historyItem = m_historyItems+iHistoryItem;
-			if (historyItem->bUsed == true) {
+			if (historyItem->bUsed) {
 				break;
 			}
 			historyItem->bUsed = true;
@@ -1893,7 +1893,7 @@ void HypothesisLattice::historyItemGarbageCollection() {
 	if (m_tokenBest.node != NULL) {
 		for(int iHistoryItem = m_tokenBest.iHistoryItem ; iHistoryItem != -1 ; iHistoryItem = (m_historyItems+iHistoryItem)->iPrev) {
 			LWERHistoryItem *historyItem = m_historyItems+iHistoryItem;
-			if (historyItem->bUsed == true) {
+			if (historyItem->bUsed) {
 				break;
 			}
 			historyItem->bUsed = true;
@@ -2071,7 +2071,7 @@ BestPath *HypothesisLattice::getBestPath() {
 	do {
 		LEdge *edgeBest = NULL;
 		for(LEdge *edge = node->edgeNext ; edge != NULL ; edge = edge->edgePrev) {
-			if (edge->bBestPath == true) {
+			if (edge->bBestPath) {
 				edgeBest = edge;
 				break;
 			}
@@ -2102,7 +2102,7 @@ VLPhoneAlignment *HypothesisLattice::getBestPathAlignment() {
 	do {
 		LEdge *edgeBest = NULL;
 		for(LEdge *edge = node->edgeNext ; edge != NULL ; edge = edge->edgePrev) {
-			if (edge->bBestPath == true) {
+			if (edge->bBestPath) {
 				edgeBest = edge;
 				break;
 			}

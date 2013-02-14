@@ -66,6 +66,15 @@ WFSAcceptor *WFSABuilder::buildWordInternal2() {
 	unsigned char iContextSize = m_hmmManager->getContextSizeHMM();
 	assert(iContextSize == 0);
 	
+	/*for(int i=0 ; i < 21000000 ; ++i) {
+		State *stateAux = new State;
+		stateAux->vTransition.push_back(new Transition);
+	}*/
+	/*for(int i=0 ; i < 21000000 ; ++i) {
+		State2 *stateAux = new State2;
+		stateAux->transitions = new Transition2[1];	
+	}*/
+	//exit(-1);
 	// (1) create the language model graph
 	unsigned int iStatesG = 0;
 	unsigned int iTransitionsG = 0;
@@ -283,7 +292,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal2() {
 									bFound = true;
 								}	
 							}
-							assert(bFound == true);
+							assert(bFound);
 						}
 						assert((*jt)->state != NULL);
 						// weight pushing
@@ -349,7 +358,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal2() {
 		}
 		
 		// insert all the waiting states in the final graph (if any)
-		if (bLexUnitTransitions == true) {
+		if (bLexUnitTransitions) {
 			assert(stateWaiting[iTreeDepth-1] == NULL);
 			assert(stateWaiting[0] != NULL);							// the root always has to be in the buffer	
 			for(int i=iTreeDepth-2 ; i >= 0 ; --i) {
@@ -400,7 +409,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal2() {
 			// sanity check
 			for(int i=0 ; i < (int)iTreeDepth-1 ; ++i) {
 				assert(stateWaiting[i] == NULL);
-				assert(transitionInsertion[i].empty() == true);
+				assert(transitionInsertion[i].empty());
 			}
 		}	
 		
@@ -413,7 +422,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal2() {
 	}
 	// sanity check
 	for(unsigned int i=0 ; i < iStatesG ; ++i) {
-		assert(bStateProcessed[i] == true);
+		assert(bStateProcessed[i]);
 	}
 	delete [] bStateProcessed;
 	delete [] stateWaiting;
@@ -437,7 +446,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal2() {
 	for(unsigned int i=0 ; i < iStateIdFinal ; ++i) {
 		bStateProcessed[i] = false;
 	}
-	assert(lState.empty() == true);
+	assert(lState.empty());
 	lState.push_back(stateRootG);
 	bStateProcessed[stateRootG->iId] = true;
 	++iStatesProcessed;
@@ -461,7 +470,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal2() {
 		}	
 	}
 	for(unsigned int i=0 ; i < iStateIdFinal ; ++i) {
-		assert(bStateProcessed[i] == true);
+		assert(bStateProcessed[i]);
 	}
 	delete [] bStateProcessed;
 	printf("transitions: %u seen, %u created, %u removed\n",iTransitionsSeen,iTransitionsCreated,iTransitionsRemovedFromG);
@@ -1104,7 +1113,7 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 			if (bStateProcessed[i] == false) {
 				printf("not seen: %u\n",i);
 			}
-			//assert(bStateProcessed[i] == true);
+			//assert(bStateProcessed[i]);
 		}	
 		assert(iStatesSeen == iStatesCreated);
 		assert(iTransitionSeen == iTransitionsCreated);
@@ -1241,7 +1250,7 @@ unsigned char **WFSABuilder::getLeftContextGNodes(State *states, unsigned int iS
 		// only transfer the context when all the incoming epsilon transitions are processed
 		if (iEpsilonTransitions[aux.first] == 0) {
 			for(unsigned int j = 0 ; j < m_phoneSet->size() ; ++j) {
-				if (bLeftContext[aux.first][j] == true) {
+				if (bLeftContext[aux.first][j]) {
 					bLeftContext[aux.second->state->iId][j] = true;
 				}
 			}
@@ -1259,7 +1268,7 @@ unsigned char **WFSABuilder::getLeftContextGNodes(State *states, unsigned int iS
 		}
 		int iElements = 0;
 		for(unsigned int j = 0 ; j < m_phoneSet->size() ; ++j) {
-			if (bLeftContext[i][j] == true) {
+			if (bLeftContext[i][j]) {
 				++iElements;
 			}
 		}
@@ -1278,7 +1287,7 @@ unsigned char **WFSABuilder::getLeftContextGNodes(State *states, unsigned int iS
 		// get the array size
 		unsigned char iSize = 0;
 		for(unsigned int j = 0 ; j < m_phoneSet->size() ; ++j) {
-			if (bLeftContext[i][j] == true) {
+			if (bLeftContext[i][j]) {
 				++iSize;
 			}
 		}
@@ -1287,7 +1296,7 @@ unsigned char **WFSABuilder::getLeftContextGNodes(State *states, unsigned int iS
 		iMemoryUsed2 += (iSize+1)*sizeof(unsigned char);
 		unsigned char iOffset = 0;
 		for(unsigned int j = 0 ; j < m_phoneSet->size() ; ++j) {
-			if (bLeftContext[i][j] == true) {
+			if (bLeftContext[i][j]) {
 				iLeftContext[i][iOffset++] = j;
 			}
 		}
@@ -1470,10 +1479,10 @@ LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, 
    unsigned char iLeftContexts = 0;
    unsigned char iRightContexts = 0;
    for(unsigned char i = 0 ; i< m_phoneSet->size() ; ++i) {
-  		if (bPhoneRight[i] == true) {
+  		if (bPhoneRight[i]) {
   			iLeftContexts++;
   		}
-  		if (bPhoneLeft[i] == true) {
+  		if (bPhoneLeft[i]) {
   			iRightContexts++;
   		}
   	}
@@ -1481,6 +1490,13 @@ LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, 
 	// (2) create a lexicon prefix tree for each possible left context
 	
 	State **stateLeaf = new State*[m_phoneSet->size()];
+	
+	
+	//*iRightContextGroups = new unsigned char*[MAX_RIGHT_CONTEXT_GROUPS];
+	//for(unsigned int i=0 ; i < MAX_RIGHT_CONTEXT_GROUPS ; ++i) {
+	//	(*iRightContextGroups)[i] = NULL;
+	//}
+	//*iGroups = 0;
 	
    // allocate memory for the array of trees
 	LexiconTree **lexiconTree = new LexiconTree*[m_phoneSet->size()]; 
@@ -1599,6 +1615,10 @@ LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, 
 								continue;
 							}
 							
+							/*if ((*jt == m_lexiconManager->getLexUnitPronunciation("A")) && (i == m_phoneSet->getPhoneIndex("AY"))) {
+								printf("next phone: %s counter %d\n",m_phoneSet->getStrPhone(iPhoneNext),++iCounter);
+							}*/
+							
 							state = stateCommon;
 							assert(iPhoneNext <= m_phoneSet->size());
 								
@@ -1642,6 +1662,10 @@ LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, 
 				for(unsigned char j = 0 ; j < m_phoneSet->size() ; ++j) {
 					if (stateLeaf[j] != NULL) {
 					
+						//if ((*jt == m_lexiconManager->getLexUnitPronunciation("A")) && (i == m_phoneSet->getPhoneIndex("AY"))) {
+						//	printf("looking group for: %s\n",m_phoneSet->getStrPhone(j));
+						//}
+					
 						// create the subset to check
 						unsigned char iOffset = 0;
 						iRightContextSubset[iOffset++] = j; 
@@ -1649,6 +1673,9 @@ LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, 
 							if (stateLeaf[j] == stateLeaf[k]) {
 								stateLeaf[k] = NULL;
 								iRightContextSubset[iOffset++] = k; 
+								//if ((*jt == m_lexiconManager->getLexUnitPronunciation("A")) && (i == m_phoneSet->getPhoneIndex("AY"))) {
+								//	printf("%s same state\n",m_phoneSet->getStrPhone(k));
+								//}
 							}
 						}
 						unsigned char iSubsetElements = iOffset;
@@ -1670,26 +1697,62 @@ LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, 
 									break;
 								}
 							}
-							if (bEqual == true) {
+							if (bEqual) {
 								break;
 							}	
 						}
 						
+						
+						/*for( ; k < MAX_RIGHT_CONTEXT_GROUPS ; ++k) {	
+							if ((*iRightContextGroups)[k] == NULL) {
+								break;
+							}
+							bFound = true;
+							unsigned char l = 0;
+							for( ; l < m_phoneSet->size() ; ++l) {
+								if ((*iRightContextGroups)[k][l] != iRightContextSubset[l]) {
+									bFound = false;
+									break;
+								}	
+								if ((*iRightContextGroups)[k][l] == UCHAR_MAX) {
+									assert(iRightContextSubset[l] == UCHAR_MAX);
+									assert(l > 0);
+									break;
+								}
+							}
+							if (bFound) {
+								break;
+							}	
+						}*/
 						// create it
 						if (bEqual == false) {
+							//assert(k < MAX_RIGHT_CONTEXT_GROUPS);
+							//(*iRightContextGroups)[k] = new unsigned char[iSubsetElements+1];
 							vRightContextGroups.push_back(new unsigned char[iSubsetElements+1]);
+							//printf("new subset(%d): %d elements:",*iGroups,iSubsetElements);
 							for(unsigned char l = 0 ; l < iSubsetElements+1 ; ++l) {	// copy the UCHAR_MAX too
+								//(*iRightContextGroups)[k][l] = iRightContextSubset[l];
 								vRightContextGroups[k][l] = iRightContextSubset[l];
+								//if (l < iSubsetElements) {
+									//printf(" %s",m_phoneSet->getStrPhone((*iRightContextGroups)[k][l]));
+								//}
 							}
-
+							//++*iGroups;
+							//printf("\n");
 						} else {
+							//printf("reused subset: %d elements\n",iSubsetElements);
 						}
 						// keep the lexical unit along with the group index
 						leafRightContext.stateLeaf = stateLeaf[j];
 						leafRightContext.iRightContextGroup = k;
 						vLeafRightContext.push_back(leafRightContext);
+						
+						//if ((*jt == m_lexiconManager->getLexUnitPronunciation("A")) && (i == m_phoneSet->getPhoneIndex("AY"))) {
+						//	printf("using group: %u\n",k);
+						//}
 					}
 				}	
+				//printf("done\n");
 				
 				double dTimeEndSubsets = TimeUtils::getTimeMilliseconds();
 				dTimeSubsets += (dTimeEndSubsets-dTimeBeginSubsets);
@@ -1703,6 +1766,9 @@ LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, 
 				for(VLeafRightContext::iterator kt = vLeafRightContext.begin() ; kt != vLeafRightContext.end() ; ++kt, ++j) {
 					lexiconTree[i]->leafRightContext[(*jt)->iLexUnitPron][j].stateLeaf = kt->stateLeaf;
 					lexiconTree[i]->leafRightContext[(*jt)->iLexUnitPron][j].iRightContextGroup = kt->iRightContextGroup;
+						//if ((*jt == m_lexiconManager->getLexUnitPronunciation("A")) && (i == m_phoneSet->getPhoneIndex("AY"))) {
+						//	printf("final group: %d\n",kt->iRightContextGroup);
+						//}
 				}
 				vLeafRightContext.clear();
 				
@@ -1722,6 +1788,10 @@ LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, 
 		// number the nodes of the tree in a post-order fashion
 		iStateId = 0;
 		preOrderNumbering(stateRoot,&iStateId);
+		
+		//double dTimeEndTree = TimeUtils::getTimeMilliseconds();
+		//printf("%s tree building time: %.2f seconds, subsets: %.2f\n",m_phoneSet->getStrPhone(i),(dTimeEndTree-dTimeBeginTree)/1000.0,(dTimeSubsets/1000.0));	
+		
 	}
 	
 	// get the maximum tree depth (all the trees have the same depth so use the first one)
@@ -1837,6 +1907,7 @@ void WFSABuilder::equalizeInput(State *stateInitial, unsigned int iStates, unsig
 				// if the symbol does not match create a new state (unless it was just created, the transducer might not be deterministic)
 				if ((*it)->iSymbol != iStateSymbol[(*it)->state->iId]) {	
 					State *stateNext = newState(iStateId++,NULL,NULL);
+					//iStateSymbol[(*it)->state->iId] = (*it)->iSymbol;
 					iStateSymbol[iStateId] = (*it)->iSymbol;
 					++iStatesCreated;
 					// replicate outgoing transitions in the original state
@@ -1852,7 +1923,7 @@ void WFSABuilder::equalizeInput(State *stateInitial, unsigned int iStates, unsig
 							bChanged = true;
 						}
 					}
-					assert(bChanged == true);
+					assert(bChanged);
 					// insert the created state in the queue
 					vStates.push_back(stateNext);
 					bStateSeen[stateNext->iId] = true;
@@ -1874,10 +1945,15 @@ void WFSABuilder::equalizeInput(State *stateInitial, unsigned int iStates, unsig
 	
 	assert(iStatesSeen == (iStates+iStatesCreated));
 	
-	assert(vStates.empty() == true);
+	//printf("# seen states: %d\n",iStatesSeen);
+	//printf("# added states: %d\n",iStatesCreated);
+	//printf("# added transitions: %d\n",iTransitionsCreated);
+	
+	assert(vStates.empty());
 		
 	float fStatesIncrease = 100*((float)(iStatesCreated)/((float)iStatesOriginal));
 	float fTransitionsIncrease = 100*((float)(iTransitionsCreated)/((float)iTransitionsOriginal));
+	//printf("Increase: #states: %.2f%%  #transitions: %.2f%%\n",fStatesIncrease,fTransitionsIncrease);
 	
 	// sanity check: make sure all states are reachable by only one kind of input symbol
 	
@@ -1942,10 +2018,15 @@ void WFSABuilder::equalizeInput(State *stateInitial, unsigned int iStates, unsig
 	delete [] bStateSeen;
 	delete [] iStateSymbol;	
 	
+	//printf("# seen states: %d\n",iStatesSeen);
+	//printf("# seen transitions: %u\n",iTransitionsSeen);
+	
 	*iStatesFinal = iStates+iStatesCreated;
 	*iTransitionsFinal = iTransitions+iTransitionsCreated;
 	
-	assert(vStates.empty() == true);
+	assert(vStates.empty());
+	
+	//double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	
 	printf("-- input equalization ----------------------\n");
 	printf(" # states original:      %9u\n",iStatesOriginal);
@@ -2002,9 +2083,10 @@ WFSAcceptor *WFSABuilder::optimize(State *stateInitial, unsigned int iStates, un
 		vStatePair.pop_back();
 		
 		// is a final state? (only if destination state == NULL)
-		if (statePair.state->vTransition.empty() == true) {
+		if (statePair.state->vTransition.empty()) {
 			// create a transition to keep the weight
 			(*statePair.stateX)->iSymbol = FAKE_TRANSITION;
+			//(*statePair.stateX)->fWeight = (- m_mStateWeightFinal[statePair.state]);
 			(*statePair.stateX)->fWeight = 0.0;
 			(*statePair.stateX)->state = NULL;
 			continue;
@@ -2028,7 +2110,12 @@ WFSAcceptor *WFSABuilder::optimize(State *stateInitial, unsigned int iStates, un
 				}
 				int iLexUnit = (int)(*it)->iSymbol & LEX_UNIT_TRANSITION_COMPLEMENT;
 				assert(iLexUnit < m_iLexUnitsTotal);
-				transitionNextAvailableBase->iSymbol = (*it)->iSymbol;
+				// replace the start and end of sentence lexical unit by an epsilon 
+				/*if ((iLexUnit == m_lexiconManager->m_lexUnitBegSentence->iLexUnit) || (iLexUnit == m_lexiconManager->m_lexUnitEndSentence->iLexUnit)) {
+					transitionNextAvailableBase->iSymbol = EPSILON_TRANSITION;
+				} else {*/
+					transitionNextAvailableBase->iSymbol = (*it)->iSymbol;
+				//}
 			}
 			// leaf transition (HMM-state)
 			else {
@@ -2039,20 +2126,26 @@ WFSAcceptor *WFSABuilder::optimize(State *stateInitial, unsigned int iStates, un
 			transitionNextAvailableBase->fWeight = (*it)->fWeight;
 			
 			// is the destination state already seen?
+			//MStateStateX::iterator jt = mStateSeen.find((*it)->state);
+			//if (jt == mStateSeen.end()) {
 			if (stateX[(*it)->state->iId] == NULL) {
 			
 				// add the state to the queue
 				StatePair statePairAux;
 				statePairAux.state = (*it)->state;
 				statePairAux.stateX = stateNextAvailable;
+				//(*(statePairAux.stateX))->iSymbol = 12345;
 				vStatePair.push_back(statePairAux);	
 				// destination state
 				transitionNextAvailableBase->state = stateNextAvailable;
 				*stateNextAvailable = transitionNextAvailable;
+				//mStateSeen.insert(MStateStateX::value_type((*it)->state,stateNextAvailable));
 				stateX[(*it)->state->iId] = stateNextAvailable;
 				++stateNextAvailable;
 				transitionNextAvailable += max((int)((*it)->state->vTransition.size()),1);		// we will create a fake transition for each final state
 			} else {
+				// destination state
+				//transitionNextAvailableBase->state = jt->second;	
 				transitionNextAvailableBase->state = stateX[(*it)->state->iId];
 			}
 			++transitionNextAvailableBase;
@@ -2064,7 +2157,13 @@ WFSAcceptor *WFSABuilder::optimize(State *stateInitial, unsigned int iStates, un
 	states[iStates] = transitionNextAvailable;
 	
 	// sanity checks
+	//printf("transitions seen: %d\n",iTransitionsSeen);
+	//int iAux2 = mStateSeen.size();
+	//printf("%u %u\n",mStateSeen.size(),iStates);
+	//assert(mStateSeen.size() == iStates);
+	//printf("%u %u\n",stateNextAvailable-states,iStates);
 	assert(stateNextAvailable-states == (int)iStates);
+	//printf("%u %u\n",transitionNextAvailable-transitions,iTransitions+1);
 	assert(transitionNextAvailable-transitions == (int)iTransitions+1);	
 	
 	for(unsigned int i=0; i < iTransitions+1 ; ++i) {
@@ -2073,6 +2172,51 @@ WFSAcceptor *WFSABuilder::optimize(State *stateInitial, unsigned int iStates, un
 				(transitions[i].iSymbol == FAKE_TRANSITION) || 
 				(transitions[i].iSymbol & LEX_UNIT_TRANSITION));
 	}
+	/*
+	// traverse the whole machine
+	VStateX vStateX;
+	MStateX mStateX;
+	
+	vStateX.push_back(&states[0]);
+	mStateX.insert(MStateX::value_type(&states[0],false));
+	unsigned int iFinalStatesFound = 0;
+	unsigned int iStatesSeen = 0;
+	
+	while(vStateX.empty() == false) {
+	
+		StateX *stateX = vStateX.back();
+		vStateX.pop_back();
+		++iStatesSeen;
+	
+		TransitionX *transition =  *stateX;
+		TransitionX *transitionEnd = *(stateX+1);
+	
+		while(transition != transitionEnd) {
+		
+			if (transition->state == NULL) {
+				++iFinalStatesFound;
+				++transition;
+				continue;
+			}
+		
+			if (mStateX.find(transition->state) == mStateX.end()) {
+				vStateX.push_back(transition->state);
+				bool bLexUnitInput = false;
+				if (transition->iSymbol & LEX_UNIT_TRANSITION) {
+					bLexUnitInput = true;
+					assert(mStateX[stateX] == false);
+				} else {
+					//printf("%u\n",transition->iInput);
+				}
+				mStateX.insert(MStateX::value_type(transition->state,bLexUnitInput));
+			} 
+			
+			++transition;
+		}
+	}
+	
+	printf("# states visited in optimized acceptor: %d (%u final states found)\n",mStateX.size(),iFinalStatesFound);
+	*/
 	// the initial state is the first state
 	StateX *stateInitialOptimized = &states[0];	
 	
@@ -2297,7 +2441,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal() {
 									bFound = true;
 								}	
 							}
-							assert(bFound == true);
+							assert(bFound);
 						}
 						assert((*jt)->state != NULL);
 					}
@@ -2366,7 +2510,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal() {
 		}
 		
 		// insert all the waiting states in the final graph (if any)
-		if (bLexUnitTransitions == true) {
+		if (bLexUnitTransitions) {
 			//assert(stateWaiting[iTreeDepth-1] == NULL);
 			assert(stateWaiting[0] != NULL);							// the root always has to be in the buffer	
 			for(int i=iTreeDepth-1 ; i >= 0 ; --i) {
@@ -2424,7 +2568,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal() {
 			// sanity check
 			for(unsigned int i=0 ; i < iTreeDepth-1 ; ++i) {
 				assert(stateWaiting[i] == NULL);
-				assert(transitionInsertion[i].empty() == true);
+				assert(transitionInsertion[i].empty());
 			}
 		}	
 		
@@ -2439,7 +2583,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal() {
 	}
 	// sanity check
 	for(unsigned int i=0 ; i < iStatesG ; ++i) {
-		assert(bStateProcessed[i] == true);
+		assert(bStateProcessed[i]);
 	}
 	delete [] bStateProcessed;
 	delete [] stateWaiting;
@@ -2462,7 +2606,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal() {
 	for(unsigned int i=0 ; i < iStateIdFinal ; ++i) {
 		bStateProcessed[i] = false;
 	}
-	assert(lState.empty() == true);
+	assert(lState.empty());
 	lState.push_back(stateRootG);
 	bStateProcessed[stateRootG->iId] = true;
 	++iStatesProcessed;
@@ -2486,7 +2630,7 @@ WFSAcceptor *WFSABuilder::buildWordInternal() {
 		}	
 	}
 	for(unsigned int i=0 ; i < iStateIdFinal ; ++i) {
-		assert(bStateProcessed[i] == true);
+		assert(bStateProcessed[i]);
 	}
 	delete [] bStateProcessed;
 	printf("transitions: %u seen, %u created, %u removed\n",iTransitionsSeen,iTransitionsCreated,iTransitionsRemovedFromG);
@@ -2533,6 +2677,8 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 	// (2) build the lexical trees (one tree per possible left context)
 	double dTimeBeginL = TimeUtils::getTimeMilliseconds();
 	unsigned int iTreeDepth = 0;	
+	//unsigned char **iRightContextGroups = NULL;
+	//unsigned int iGroups = 0;
 	vector<unsigned char*> vRightContextGroups;
 	LexiconTree **lexiconTree = buildCrossWordLexiconTrees(&iTreeDepth,vRightContextGroups);
 	if (lexiconTree == NULL) {
@@ -2556,6 +2702,8 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 	MGStateLRoot mGStateLRoot;
 
 	// maps a leaf in the unconnected graph to its right context
+	//MLeafTransitionRightContext mLeafRightContextTemp;
+	//MLeafTransitionVRightContext mLeafRightContext;
 	VTransition vTransitionLexUnit;
 	
 	// (1) traverse G and apply incremental composition to each state
@@ -2607,6 +2755,9 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 			// process the state	in G by processing all the transitions that come from it
 			bool bLexUnitTransitions = false;		// whether actual lexical unit transitions (transitions that are actual words) are seen
 			
+			//printf("G state to be processed (%x) has: %d transitions\n",stateGFrom,stateGFrom->vTransition.size());
+			//printf("processing left context: %s\n",m_phoneSet->getStrPhone(l));
+			
 			// (3.1) for each lexical-unit transition coming from the state, find the corresponding leaves in the lexical tree
 			for(VTransition::iterator it = stateGFrom->vTransition.begin() ; it != stateGFrom->vTransition.end() ; ++it) {
 			
@@ -2622,6 +2773,9 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 				} 
 				// beginning/end of sentence: keep it in the final tree
 				else if ((int)(*it)->iSymbol == (m_lexiconManager->m_lexUnitEndSentence->iLexUnit|LEX_UNIT_TRANSITION)) {
+					//printf("end of sentence transition!\n");
+					//printf("error: unexpected %s was processed\n",m_lexiconManager->getStrLexUnit((*it)->iSymbol));
+					//exit(-1);
 					transitionFinal = *it;
 				}	
 				// non-epsilon transition: put leaves from each pronunciation of the lexical unit in the queue
@@ -2635,6 +2789,9 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 						// get the lex unit leaves in the left-context lexical tree
 						unsigned char iLeaves = lexiconTree[iLeftPhone]->iLeafRightContext[(*jt)->iLexUnitPron];
 						LeafRightContext *leafRightContext = lexiconTree[iLeftPhone]->leafRightContext[(*jt)->iLexUnitPron];
+						/*if (*jt == m_lexiconManager->getLexUnit("<UHM>",0)) {
+							bool bStop = 0;
+						}	*/
 						
 						for(unsigned int iLeaf = 0 ; iLeaf < iLeaves ; ++iLeaf) {
 							LeafToProcess *leaf = new LeafToProcess;
@@ -2646,12 +2803,53 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 							leaf->fWeight = (*it)->fWeight;
 							lLeafToProcess.push_back(leaf);	
 						}
+						/*++iLeavesQueued;
+						if (iLeavesQueued % 1000 == 0) {
+							printf("leaves queued: %d\n",iLeavesQueued);
+						}*/
+						
+						// sanity check
+						/*bool *bAux = new bool[m_phoneSet->size()];
+						for(int i=0 ; i < m_phoneSet->size() ; ++i) {
+							bAux[i] = false;
+						}
+						for(LLeafToProcess::iterator kt = lLeafToProcess.begin() ; kt != lLeafToProcess.end() ; ++kt) {
+							unsigned char *iRightContextGroup = iRightContextGroups[(*kt)->iRightContextGroup];
+							for(unsigned int i=0 ; iRightContextGroup[i] != UCHAR_MAX ; ++i) {
+								bAux[iRightContextGroup[i]] = true;
+							}
+						}*/
+						/*int iCounter = 0;
+						for(int i=0 ; i < m_phoneSet->size() ; ++i) {
+							if (bAux[i]) {
+								++iCounter;
+							}
+						}
+						if (iCounter != 43) {
+							m_lexiconManager->printLexUnit(*jt);						
+							printf("error: counter: %d expected: 43\n",iCounter);
+							printf("left phone: %s\n",m_phoneSet->getStrPhone(iLeftPhone));
+							for(LLeafToProcess::iterator kt = lLeafToProcess.begin() ; kt != lLeafToProcess.end() ; ++kt) {
+								printf("leaf group: %d\n",(*kt)->iRightContextGroup);
+							}
+						} else {
+							//m_lexiconManager->printLexUnit(*jt);
+						}*/
+						
+						
+						
+						//m_lexiconManager->printLexUnit(*jt);
 					}
+					//delete *it;
 				}	
 			}
 			
 			// sort leaves in the queue by state number
 			lLeafToProcess.sort(WFSABuilder::compareStateNumber);
+			
+			//printf("processing leaves...\n");
+			
+			//printf("leaves: %d (G transitions: %d, alternative pron: xxx)\n",lLeafToProcess.size(),stateGFrom->vTransition.size());
 		
 			// process leaves in the queue
 			while(lLeafToProcess.empty() == false) {
@@ -2659,12 +2857,18 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 				LeafToProcess *leaf = lLeafToProcess.front();
 				lLeafToProcess.pop_front();
 				
+				//m_lexiconManager->printLexUnit(leaf->lexUnit);
+				//printf("%d leaf: %x\n",leaf->lexUnit->iLexUnitPron,leaf->stateLeaf);
+				
 				int iHMMStates = leaf->iHMMStates;
 				State *state = leaf->stateLeaf;		// this state goes to the lexical unit transition
 				unsigned int iSymbol = ((unsigned int)leaf->lexUnit->iLexUnitPron)|LEX_UNIT_TRANSITION;
 				
 				// process states from the one that goes to the lexical unit transition to the one that goes to the first HMM
 				for(int i=iHMMStates; i >= 0 ; --i) {
+				
+					//printf(" %x\n",state);
+					//printStateTransitions(state);
 				
 					// empty position: insert the state into the buffer
 					if (stateWaiting[i] == NULL) {
@@ -2679,6 +2883,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 							transitionInsertion[i].back()->state = leaf->stateGTo;
 							assert(transitionInsertion[i].back()->iSymbol & LEX_UNIT_TRANSITION);
 							transitionInsertion[i].back()->iRightContextGroup = leaf->iRightContextGroup;
+							//mLeafRightContextTemp.insert(MLeafTransitionRightContext::value_type(transitionInsertion[i].back(),leaf->iRightContextGroup));
 						}
 					}
 					// different state: move the original state along with its transitions to the final tree
@@ -2751,7 +2956,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 										bFound = true;
 									}	
 								}
-								assert(bFound == true);
+								assert(bFound);
 							}
 							assert((*jt)->state != NULL);
 						}
@@ -2809,6 +3014,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 							transitionInsertion[i].back()->state = leaf->stateGTo;
 							assert(transitionInsertion[i].back()->iSymbol & LEX_UNIT_TRANSITION);
 							transitionInsertion[i].back()->iRightContextGroup = leaf->iRightContextGroup;
+							//mLeafRightContextTemp.insert(MLeafTransitionRightContext::value_type(transitionInsertion[i].back(),leaf->iRightContextGroup));
 						}
 					} 
 					// equal state: stop the right to left traversal
@@ -2824,6 +3030,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 							transitionInsertion[i].back()->state = leaf->stateGTo;
 							assert(transitionInsertion[i].back()->iSymbol & LEX_UNIT_TRANSITION);
 							transitionInsertion[i].back()->iRightContextGroup = leaf->iRightContextGroup;
+							//mLeafRightContextTemp.insert(MLeafTransitionRightContext::value_type(transitionInsertion[i].back(),leaf->iRightContextGroup));
 						}
 						break;
 					}
@@ -2843,7 +3050,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 			}
 			
 			// insert all the waiting states in the final graph (if any)
-			if (bLexUnitTransitions == true) {
+			if (bLexUnitTransitions) {
 				//assert(stateWaiting[iTreeDepth-1] == NULL);
 				assert(stateWaiting[0] != NULL);							// the root always has to be in the buffer	
 				for(int i=iTreeDepth-1 ; i >= 0 ; --i) {
@@ -2893,12 +3100,14 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 										vTransitionLexUnit.push_back(*gt);
 									}
 								}
+								//mStateState.insert(MStateState::value_type(stateFinal,stateFinal));
 							}	
 							if (i > 0) {
 								assert(transitionInsertion[i-1].back()->state == NULL);
 								transitionInsertion[i-1].back()->state = stateFinal;
 								transitionInsertion[i-1].back()->fWeight = fWeightRest;
 							}
+							//printStateTransitions(stateFinal);
 							stateWaiting[i] = NULL;
 							transitionInsertion[i].clear();
 							--i;
@@ -2909,9 +3118,12 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 				// sanity check
 				for(unsigned int i=0 ; i < iTreeDepth-1 ; ++i) {
 					assert(stateWaiting[i] == NULL);
-					assert(transitionInsertion[i].empty() == true);
+					assert(transitionInsertion[i].empty());
 				}
-			}			
+			}	
+			
+			//printStateTransitions(stateRootL);
+			//int iStop = 0;
 		}
 		
 		// process the epsilon transition (if any)
@@ -2936,7 +3148,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 						break;
 					}
 				}
-				assert(bFound == true);
+				assert(bFound);
 				// epsilon transition: from an auxiliar L root to an auxiliar L root
 				Transition *transitionAux = newTransition(EPSILON_TRANSITION,transitionEpsilon->fWeight,jt->second);
 				++iTransitionsAuxiliarEpsilon;
@@ -2968,8 +3180,13 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 		iStatesProcessed++;
 		
 		if (iStatesProcessed % 100 == 0) {
+			//printf("reused: %u (states: %u transitions: %u)\n",iStatesReused,iStatesCreated,iTransitionsCreated);
 			printf("G states: %u (states: %u transitions: %u)\n",iStatesProcessed,iStatesCreated,iTransitionsCreated);
 		}
+		
+		//printStateTransitions(stateGFrom);
+		//printf("G node processed! (%u states processed, %u transitions processed)\n",iStatesProcessed,iTransitionsProcessed);
+		//printf("(%u states created, %u transitions created)\n",iStatesCreated,iTransitionsCreated);
 		
 		// remove the original transitions
 		for(VTransition::iterator it = stateGFrom->vTransition.begin() ; it != stateGFrom->vTransition.end() ; ++it) {
@@ -2980,7 +3197,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 	delete [] stateWaiting;
 	delete [] transitionInsertion;
 	
-	// TODO  remove lexical units that come from states in G except <s>,</s> and epsilon ones
+	// TODO TODO TODO TODO TODO TODO remove lexical units that come from states in G except <s>,</s> and epsilon ones
 	
 	// destroy all the lexical trees
 	for(unsigned char iLeftContext = 0 ; iLeftContext < m_phoneSet->size() ; ++iLeftContext) {	
@@ -3042,7 +3259,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 	for(map<unsigned int,bool*>::iterator it = mLexUnitGroupMembers.begin() ; it != mLexUnitGroupMembers.end() ; ++it) {
 		unsigned int iCounter = 0;
 		for(unsigned int i=0 ; i < m_phoneSet->size() ; ++i) {
-			if (it->second[i] == true) {
+			if (it->second[i]) {
 				++iCounter;
 			}
 		}		
@@ -3054,11 +3271,13 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 			m_lexiconManager->print(m_lexiconManager->getLexUnitPron(it->first));		
 		}
 		delete [] it->second;
+		//assert(iCounter == iCounterReference);
 	}
 	
 	// remove auxiliar L root nodes from the map of final nodes
 	for(MGStateLRoot::iterator it = mGStateLRoot.begin() ; it != mGStateLRoot.end() ; ++it) {
 		MStateState::iterator jt = mStateState.find(it->second);
+		//assert(jt != mStateState.end());
 		// note that there are duplicated values in the map and they can only be removed once
 		if (jt != mStateState.end()) {
 			assert(0);
@@ -3083,6 +3302,8 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 		unsigned char iLeftContextAux = lexUnit->vPhones.back();
 		State *stateGTo = transitionLexUnit->state;
 		bPhones2[iLeftContextAux] = true;
+		
+		//printf("%-20s %u\n",m_lexiconManager->getStrLexUnitPron(lexUnit->iLexUnitPron),(*it)->iRightContextGroup);
 			
 		// get the right contexts of the leaf HMMs
 		
@@ -3113,9 +3334,11 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 		
 		// put the auxiliar root state in the stack
 		vStateStack.push_back(stateRootL);
+		//printf("L inserted: %x\n",stateRootL);
 		
 		// add to the stack states coming from an epsilon transition
 		if (bIgnoreEpsilon == false) {	
+			//printf("looking for epsilon in: %x\n",stateRootL);
 			bool bInserted;
 			do {
 				bInserted = false;
@@ -3136,8 +3359,9 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 								break;
 							}
 						}
-						assert(bFound == true);	
-				
+						assert(bFound);	
+						//printf("epsilon and then </s>: %x %x\n",stateHead,(*jt)->state);
+					
 						vStateStack.push_back((*jt)->state);
 						vWeight.push_back((*jt)->fWeight);
 						bInserted = true;
@@ -3146,7 +3370,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 					}
 				}
 				assert(iFound <= 1);
-			} while(bInserted == true);
+			} while(bInserted);
 			
 			// the first state in the stack (the one inserted the latest) has no epsilon transitions
 		}
@@ -3158,10 +3382,12 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 		int iTransitionsToEpsilon = 0;
 		
 		// connect one by one states in the stack
+		//printf("(%d) processing elements in the queue, %d elements\n",iProcessing++,vStateStack.size());
 		while(vStateStack.empty() == false) {
 		
 			State *stateRootLAux = vStateStack.back();
 			vStateStack.pop_back();
+			//printf("rootL: %x\n",stateRootLAux);
 		
 			// replace the destination state in G by a new state in the final graph
 			// the lexical unit transition goes to this state and this state goes to the first HMM-state leaves of the next subtree 
@@ -3196,7 +3422,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 					// get the phone associated to the HMM-state
 					unsigned char iPhone = m_hmmManager->getPhoneticSymbolFromHMMStateDecoding((*kt)->iSymbol);
 					// check if the phone falls within the group
-					if (bPhoneGroup[iPhone] == true) {
+					if (bPhoneGroup[iPhone]) {
 						// replicate the transition (the original cannot be reused since needs to remain unchanged for further processing)
 						Transition *transitionLink = newTransition((*kt)->iSymbol,(*kt)->fWeight,(*kt)->state);
 						stateLink->vTransition.push_back(transitionLink);
@@ -3206,8 +3432,8 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 					}
 				}
 			}
-			assert((bConnected == true) || (bEpsilon == true) || (bFinal == true));
-			assert((bFinal == true) || (bEpsilon == true));
+			assert(bConnected || bEpsilon || bFinal);
+			assert(bFinal || bEpsilon);
 			
 			// add the epsilon transition if needed
 			if (stateTo != NULL) {
@@ -3242,6 +3468,9 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 				stateLink = ft->second;	
 				bStateToReused = true;
 			} else {
+				/*for(VTransition::iterator gt = stateLink->vTransition.begin() ; gt != stateLink->vTransition.end() ; ++gt) {
+					assert(((*gt)->iSymbol & LEX_UNIT_TRANSITION) == 0);
+				}	*/
 				assert(stateLink->iId < iStateIdFinal);
 				mStateState.insert(MStateState::value_type(stateLink,stateLink));
 				bStateToReused = false;
@@ -3252,7 +3481,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 			fWeightTo = fWeightRest;
 			iLeavesConnected++;	
 		}
-		assert(vWeight.empty() == true);
+		assert(vWeight.empty());
 		if (iTransitionsToFinal < 1) {
 			printf("bad: %d %d\n",iTransitionsToFinal,iTransitionsToEpsilon);
 		} else {
@@ -3261,12 +3490,40 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 		assert(iTransitionsToFinal >= 1);
 		
 		transitionLexUnit->state = stateTo;
-		transitionLexUnit->fWeight += fWeightTo;			// this is what makes global minimization needed		
+		transitionLexUnit->fWeight += fWeightTo;			// this is what makes global minimization needed
+		
+		// connect the state that replaces the G state to the final state if not already connected
+		/*if (stateFinalG != NULL) {
+			if (bStateToReused == false) {	
+				// connect to the final state in G if necessary
+				bool bGoesToFinal = false;
+				bool bConnected = false;
+				for(VTransition::iterator jt = stateGTo->vTransition.begin() ; jt != stateGTo->vTransition.end() ; ++jt) {
+					if ((*jt)->state == stateFinalG) {	
+						// sanity check
+						for(VTransition::iterator kt = stateTo->vTransition.begin() ; kt != stateTo->vTransition.end() ; ++kt) {
+							assert((*kt)->state != stateFinalGDefinitive);
+						}
+						// connect the state to the final state	
+						assert((*jt)->iSymbol & LEX_UNIT_TRANSITION);
+						int iLexUnitPron = (*jt)->iSymbol & LEX_UNIT_TRANSITION_COMPLEMENT;
+						assert(iLexUnitPron == m_lexiconManager->m_lexUnitEndSentence->iLexUnit);
+						Transition *transitionFinal = newTransition((*jt)->iSymbol,(*jt)->fWeight,stateFinalGDefinitive);
+						stateTo->vTransition.push_back(transitionFinal);
+						++iTransitionsCreated;
+						++iLinks;
+						bConnected = true;
+						break;
+					}
+				}
+				assert(bConnected == true);
+			}
+		}*/
 	}
 	delete [] bPhoneGroup;
 	delete [] bFirstPhoneFillerSil;
 	
-	assert(stateFinalGDefinitive->vTransition.empty() == true);
+	assert(stateFinalGDefinitive->vTransition.empty());
 	
 	// destroy the right context groups
 	for(vector<unsigned char*>::iterator it = vRightContextGroups.begin() ; it != vRightContextGroups.end() ; ++it) {
@@ -3275,7 +3532,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 	
 	// (2.1) connect the root node of the final graph to all the starting transitions
 	MStateBool mStateBoolSeen;		// multiple entries in mGStateLRoot may have the same value
-	assert(vStateStack.empty() == true);
+	assert(vStateStack.empty());
 	for(unsigned char i=0 ; i<m_phoneSet->size() ; ++i) {
 		MGStateLRoot::iterator it = mGStateLRoot.find(pair<State*,unsigned char>(stateRootG,i));
 		if (it != mGStateLRoot.end()) {
@@ -3303,7 +3560,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 						}
 					}
 					assert(iFound <= 1);
-				} while(bInserted == true);
+				} while(bInserted);
 				
 				// the first state in the stack (the one inserted the latter) has no epsilon transitions
 				
@@ -3356,7 +3613,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 							bConnected = true;	
 						}
 					}
-					assert((bConnected == true) || (bEpsilon == true) || (bFinal == true));
+					assert(bConnected || bEpsilon || bFinal);
 					
 					// add the epsilon transition if needed
 					if (stateTo != NULL) {
@@ -3374,15 +3631,43 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 					
 					// try to reuse a state
 					
-	
+					// apply weight pushing
+					//float fWeightRest = 0.0;	
+					
 					if (vStateStack.empty() == false) {
-						// try to reuse a state						
+					
+						//fWeightRest = applyWeightPushing(stateLink);
+					
+						// try to reuse a state
+						
 						stateTo = stateLink;	
+						//fWeightTo = fWeightRest;	
 					}
 					assert(stateLink->iId < iStateIdFinal);
 				}
-				assert(vWeight.empty() == true);			
-	
+				assert(vWeight.empty());
+				
+				/*for(VTransition::iterator jt = stateRootL->vTransition.begin() ; jt != stateRootL->vTransition.end() ; ++jt) {
+					if ((*jt)->iSymbol < LEX_UNIT_TRANSITION) {
+						Transition *transitionStart = newTransition((*jt)->iSymbol,(*jt)->fWeight,(*jt)->state);
+						stateRoot->vTransition.push_back(transitionStart);
+						++iTransitionsCreated;
+					} else {
+						assert((*jt)->iSymbol == EPSILON_TRANSITION);
+						// this transition goes to an auxiliar L root
+						if (mStateBoolSeen.find((*jt)->state) == mStateBoolSeen.end()) {
+							State *stateRootL2 = (*jt)->state;
+							for(VTransition::iterator lt = stateRootL2->vTransition.begin() ; lt != stateRootL2->vTransition.end() ; ++lt) {
+								assert((*lt)->iSymbol < LEX_UNIT_TRANSITION);
+								Transition *transitionStart2 = newTransition((*lt)->iSymbol,(*lt)->fWeight+(*jt)->fWeight,(*lt)->state);
+								stateRoot->vTransition.push_back(transitionStart2);
+								++iTransitionsCreated;	
+							}
+							mStateBoolSeen.insert(MStateBool::value_type(stateRootL2,true));
+						}
+					}
+				}*/
+				
 				mStateBoolSeen.insert(MStateBool::value_type(it->second,true));
 			} 
 		}
@@ -3396,13 +3681,31 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 	unsigned int iTrue = 0;
 	unsigned int iTrue2 = 0;
 	for(int i=0 ; i< 100 ; ++i) {
-		if (bPhones[i] == true) {
+		if (bPhones[i]) {
 			++iTrue;
 		}
-		if (bPhones2[i] == true) {
+		if (bPhones2[i]) {
 			++iTrue2;
 		}
 	}
+	
+	// there can be duplicated values and they must be freed just once
+	/*MStateBool mStateRemoved;
+	for(MGStateLRoot::iterator it = mGStateLRoot.begin() ; it != mGStateLRoot.end() ; ++it) {
+		if (mStateRemoved.find(it->second) == mStateRemoved.end()) {
+			for(VTransition::iterator jt = it->second->vTransition.begin() ; jt != it->second->vTransition.end() ; ++jt) {	
+				--iTransitionsCreated;
+				delete *jt;
+			}
+			it->second->vTransition.clear();
+			delete it->second;
+			//--iStatesCreated;   not needed since it is a temporal state
+			mStateRemoved.insert(MStateBool::value_type(it->second,true));
+		}
+	}
+	mGStateLRoot.clear();*/
+			
+	//exit(-1);
 	
 	// sanity checks: 
 	// (1) make sure there are not unconnected states
@@ -3445,7 +3748,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 		if (bStateSeen[i] == false) {
 			printf("state not seen: %d\n",i);
 		}
-		//assert(bStateSeen[i] == true);
+		//assert(bStateSeen[i]);
 	}
 	delete [] bStateSeen;
 	assert(iStatesCreated == iStatesSeen);
@@ -3458,7 +3761,9 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 	unsigned int iTransitionsTotal = iTransitionsCreated;
 	float fNetworkSize = iStatesTotal*sizeof(StateX)+iTransitionsTotal*sizeof(TransitionX);
 	printf("total states: %u, total transitions: %u\n",iStatesTotal,iTransitionsTotal);
-	printf("Expected network size: %f MB\n",fNetworkSize/(1024.0*1024.0));	
+	printf("Expected network size: %f MB\n",fNetworkSize/(1024.0*1024.0));
+	
+	//exit(-1);
 	
 	// (4) global minimization (includes global weight pushing)
 	/*float fWeightInitial = 0;
@@ -3552,7 +3857,7 @@ void WFSABuilder::globalWeightPushing(State *stateInitial, State *stateFinal, in
 		fStateWeightFinal[i] = -FLT_MAX;
 	}
 	
-	assert(vState.empty() == true);
+	assert(vState.empty());
 	vState.push_back(stateFinal);
 	iStateStatus[stateFinal->iId] = STATE_STATUS_QUEUED;
 	fStateWeightFinal[stateFinal->iId] = 0.0;
@@ -3603,7 +3908,7 @@ void WFSABuilder::globalWeightPushing(State *stateInitial, State *stateFinal, in
 	int iTransitions = 0;
 	int iTransitionsUpdated = 0;
 	
-	assert(vState.empty() == true);
+	assert(vState.empty());
 	vState.push_back(stateInitial);
 	while(vState.empty() == false) {
 	

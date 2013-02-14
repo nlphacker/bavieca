@@ -37,102 +37,101 @@ float *applyTransform(Transform *transform, float *fFeatures, int iFeatures, int
 // main for the feature transformation tool: "paramX"
 int main(int argc, char *argv[]) {
 
-	// (1) define command line parameters
-	CommandLineManager *m_commandLineManager = new CommandLineManager("paramx",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
-	m_commandLineManager->defineParameter("-cfg","feature configuration",PARAMETER_TYPE_FILE,false);	
-	m_commandLineManager->defineParameter("-tra","feature transformation",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-bat","batch file containing pairs (feaIn feaOut)",
-		PARAMETER_TYPE_FILE,true);	
-	m_commandLineManager->defineParameter("-in","input feature vectors",PARAMETER_TYPE_FILE,true);
-	m_commandLineManager->defineParameter("-out","output feature vectors",PARAMETER_TYPE_FILE,true);
-	
-	// parse the parameters
-	if (m_commandLineManager->parseParameters(argc,argv) == false) {
-		return -1;
-	}
-	
-	// load the parameters
-	const char *strFileConfiguration = m_commandLineManager->getParameterValue("-cfg");
-	const char *strFileTransform = m_commandLineManager->getParameterValue("-tra");
-	const char *strFileBatch = m_commandLineManager->getParameterValue("-bat");	
-	const char *strFileInput = m_commandLineManager->getParameterValue("-in");
-	const char *strFileOutput = m_commandLineManager->getParameterValue("-out");
-	
-	// load the feature configuration
-	ConfigurationFeatures *m_configurationFeatures = new ConfigurationFeatures(strFileConfiguration);
-	m_configurationFeatures->load();
+	try {
+
+		// (1) define command line parameters
+		CommandLineManager commandLineManager("paramx",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
+		commandLineManager.defineParameter("-cfg","feature configuration",PARAMETER_TYPE_FILE,false);	
+		commandLineManager.defineParameter("-tra","feature transformation",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-bat","batch file containing pairs (feaIn feaOut)",
+			PARAMETER_TYPE_FILE,true);	
+		commandLineManager.defineParameter("-in","input feature vectors",PARAMETER_TYPE_FILE,true);
+		commandLineManager.defineParameter("-out","output feature vectors",PARAMETER_TYPE_FILE,true);
 		
-	// load the transformation
-	Transform *transform = new Transform();
-	transform->load(strFileTransform);
-	//transform->print(true);	
-	
-	// single feature file
-	if (strFileBatch == NULL) {
-	
-		// load the features
-		int iDimensionality = atoi(m_configurationFeatures->getStrParameterValue("cepstralCoefficients"))+1;
-		FeatureFile *featureFile = new FeatureFile(strFileInput,MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,iDimensionality);
-		featureFile->load();
-		
-		int iFeatures = -1;
-		float *fFeatures = featureFile->getFeatureVectors(&iFeatures);	
-	
-		// apply the transformation		
-		int iDimensionalityX = -1;
-		float *fFeaturesX = applyTransform(transform,fFeatures,iFeatures,iDimensionality,iDimensionalityX);
-		if (fFeaturesX == NULL) {
-			printf("Error: unable to apply the transform\n");
+		// parse the parameters
+		if (commandLineManager.parseParameters(argc,argv) == false) {
 			return -1;
 		}
 		
-		// create the transformed feature file
-		FeatureFile *featureFileX = new FeatureFile(strFileOutput,MODE_WRITE,FORMAT_FEATURES_FILE_DEFAULT,iDimensionalityX);
-		featureFileX->store(fFeaturesX,iFeatures);
+		// load the parameters
+		const char *strFileConfiguration = commandLineManager.getParameterValue("-cfg");
+		const char *strFileTransform = commandLineManager.getParameterValue("-tra");
+		const char *strFileBatch = commandLineManager.getParameterValue("-bat");	
+		const char *strFileInput = commandLineManager.getParameterValue("-in");
+		const char *strFileOutput = commandLineManager.getParameterValue("-out");
 		
-		delete [] fFeatures;
-		delete [] fFeaturesX;
-		delete featureFile;
-		delete featureFileX;
-	} 
-	// batch mode
-	else {	
-	
-		BatchFile *batchFile = new BatchFile(strFileBatch,"featuresIn|featuresOut");
-		batchFile->load();
-		for(unsigned int i=0 ; i < batchFile->size() ; ++i) {
+		// load the feature configuration
+		ConfigurationFeatures configurationFeatures(strFileConfiguration);
+		configurationFeatures.load();
 			
+		// load the transformation
+		Transform transform;
+		transform.load(strFileTransform);
+		//transform->print(true);	
+		
+		// single feature file
+		if (strFileBatch == NULL) {
+		
 			// load the features
-			int iDimensionality = atoi(m_configurationFeatures->getStrParameterValue("cepstralCoefficients"))+1;
-			FeatureFile *featureFile = new FeatureFile(batchFile->getField(i,"featuresIn"),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,iDimensionality);
-			featureFile->load();
+			int iDimensionality = atoi(configurationFeatures.getStrParameterValue("cepstralCoefficients"))+1;
+			FeatureFile featureFile(strFileInput,MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,iDimensionality);
+			featureFile.load();
 			
 			int iFeatures = -1;
-			float *fFeatures = featureFile->getFeatureVectors(&iFeatures);	
+			float *fFeatures = featureFile.getFeatureVectors(&iFeatures);	
 		
 			// apply the transformation		
 			int iDimensionalityX = -1;
-			float *fFeaturesX = applyTransform(transform,fFeatures,iFeatures,iDimensionality,iDimensionalityX);
-			if (fFeaturesX == NULL) {
-				printf("Error: unable to apply the transform\n");
-				return -1;
+			float *fFeaturesX = applyTransform(&transform,fFeatures,iFeatures,iDimensionality,iDimensionalityX);
+			if (!fFeaturesX) {
+				BVC_ERROR << "unable to apply the transform";
 			}
 			
 			// create the transformed feature file
-			FeatureFile *featureFileX = new FeatureFile(batchFile->getField(i,"featuresOut"),MODE_WRITE,FORMAT_FEATURES_FILE_DEFAULT,iDimensionalityX);
-			featureFileX->store(fFeaturesX,iFeatures);
+			FeatureFile featureFileX(strFileOutput,MODE_WRITE,FORMAT_FEATURES_FILE_DEFAULT,iDimensionalityX);
+			featureFileX.store(fFeaturesX,iFeatures);
 			
 			delete [] fFeatures;
 			delete [] fFeaturesX;
-			delete featureFile;
-			delete featureFileX;
-		}	
-		delete batchFile;	
-	}
+		} 
+		// batch mode
+		else {	
+		
+			BatchFile batchFile(strFileBatch,"featuresIn|featuresOut");
+			batchFile.load();
+			for(unsigned int i=0 ; i < batchFile.size() ; ++i) {
+				
+				// load the features
+				int iDimensionality = atoi(configurationFeatures.getStrParameterValue("cepstralCoefficients"))+1;
+				FeatureFile featureFile(batchFile.getField(i,"featuresIn"),MODE_READ,
+					FORMAT_FEATURES_FILE_DEFAULT,iDimensionality);
+				featureFile.load();
+				
+				int iFeatures = -1;
+				float *fFeatures = featureFile.getFeatureVectors(&iFeatures);	
+			
+				// apply the transformation		
+				int iDimensionalityX = -1;
+				float *fFeaturesX = applyTransform(&transform,fFeatures,iFeatures,iDimensionality,iDimensionalityX);
+				if (!fFeaturesX) {
+					BVC_ERROR << "unable to apply the transform";
+				}
+				
+				// create the transformed feature file
+				FeatureFile featureFileX(batchFile.getField(i,"featuresOut"),MODE_WRITE,
+					FORMAT_FEATURES_FILE_DEFAULT,iDimensionalityX);
+				featureFileX.store(fFeaturesX,iFeatures);
+				
+				delete [] fFeatures;
+				delete [] fFeaturesX;
+			}	
+		}
 	
-	// clean-up 
-	delete transform;
-	delete m_configurationFeatures;
+	} catch (ExceptionBase &e) {
+	
+		std::cerr << e.what() << std::endl;
+		return -1;
+	}	
 			
 	return 0;	
 }

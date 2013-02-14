@@ -16,52 +16,82 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-#include "FileInput.h"
-#include "IOBase.h"
-#include "Mappings.h"
+
+#include "ClippingEstimator.h"
+#include <limits.h>
 
 namespace Bavieca {
 
-// contructor
-Mappings::Mappings(const char *strFile)
-{
-	m_strFile = strFile;
-}
+// return the number of clipped samples (8 bits sample)
+int ClippingEstimator::estimateClipping8(const char* cSamples, int iSamples) {
 
-// destructor
-Mappings::~Mappings() {
-
-	m_mMappings.clear();	
-}
-
-// load the mappings
-void Mappings::load() {
-
-	FileInput file(m_strFile.c_str(),false);
-	file.open();
+	int iSamplesClipped = 0;
+	int iMax = 0;
+	int iMin = 0;
 	
-	string strLine;
-	while(std::getline(file.getStream(),strLine).good()) {
-		std::stringstream s(strLine);
-		string str1,str2;
-		IOBase::readString(s,str1);
-		IOBase::readString(s,str2);
-		m_mMappings.insert(map<string,string>::value_type(str1,str2));
+	for(int i=0 ; i<iSamples ; ++i) {
+		if (cSamples[i] == CHAR_MAX) {
+			++iMax;
+			if (iMax == 2) {
+				iSamplesClipped+=2;
+			} else {
+				iSamplesClipped++;
+			}
+			iMin = 0;	
+		}
+		else if (cSamples[i] == CHAR_MIN) {
+			++iMin;
+			if (iMin == 2) {
+				iSamplesClipped+=2;
+			} else {
+				iSamplesClipped++;
+			}	
+			iMax = 0;
+		} else {
+			iMax = 0;
+			iMin = 0; 
+		}
+	}
+
+	return iSamplesClipped;
+}
+
+// return the number of clipped samples (16 bits sample)
+int ClippingEstimator::estimateClipping16(const short* sSamples, int iSamples) {
+
+	int iSamplesClipped = 0;
+	int iSamplesClippedMax = 0;
+	int iSamplesClippedMin = 0;
+	int iMax = 0;
+	int iMin = 0;
+	
+	for(int i=0 ; i<iSamples ; ++i) {
+		if (sSamples[i] == SHRT_MAX) {
+			++iMax;
+			if (iMax == 2) {
+				iSamplesClipped += 2;
+			} else if (iMax > 2) {
+				iSamplesClippedMax++;
+				iSamplesClipped++;
+			}
+			iMin = 0;	
+		}
+		else if (sSamples[i] == SHRT_MIN) {
+			++iMin;
+			if (iMin == 2) {
+				iSamplesClipped += 2;
+			} else if (iMin > 2) {
+				iSamplesClippedMin++;
+				iSamplesClipped++;
+			}	
+			iMax = 0;
+		} else {
+			iMax = 0;
+			iMin = 0; 
+		}
 	}
 	
-	file.close();
-}
-
-// map a lexical unit if a mapping is defined 
-const char *Mappings::operator[](const char *str) {
-	map<string,string>::iterator it = m_mMappings.find(str);
-	if (it == m_mMappings.end()) {
-		return str;
-	} else {
-		return it->second.c_str();
-	}	
+	return iSamplesClipped;
 }
 
 };	// end-of-namespace
-
-

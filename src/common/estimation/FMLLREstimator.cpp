@@ -174,22 +174,21 @@ void FMLLREstimator::feedAdaptationData(const char *strBatchFile, const char *st
 		// load the alignment
 		Alignment *alignment = NULL;
 		if (strcmp(strAlignmentFormat,"text") == 0) {
-			AlignmentFile *alignmentFile = new AlignmentFile(m_phoneSet);	
-			VPhoneAlignment *vPhoneAlignment = alignmentFile->load(batchFile.getField(i,"alignment"));
+			AlignmentFile alignmentFile(m_phoneSet);	
+			VPhoneAlignment *vPhoneAlignment = alignmentFile.load(batchFile.getField(i,"alignment"));
 			assert(vPhoneAlignment);
 			alignment = AlignmentFile::toAlignment(m_phoneSet,m_hmmManager,vPhoneAlignment);
 			AlignmentFile::destroyPhoneAlignment(vPhoneAlignment);
-			delete alignmentFile;
 		} else {
 			alignment = Alignment::load(batchFile.getField(i,"alignment"),NULL);
 			assert(alignment);	
 		}
 		
 		// load the feature vectors
-		FeatureFile *featureFile = new FeatureFile(batchFile.getField(i,"features"),MODE_READ);
-		featureFile->load();
+		FeatureFile featureFile(batchFile.getField(i,"features"),MODE_READ);
+		featureFile.load();
 		int iFeatureVectors = -1;
-		float *fFeatures = featureFile->getFeatureVectors(&iFeatureVectors);
+		float *fFeatures = featureFile.getFeatureVectors(&iFeatureVectors);
 		
 		// load and apply the transform
 		/*Transform *transform = new Transform();
@@ -216,7 +215,6 @@ void FMLLREstimator::feedAdaptationData(const char *strBatchFile, const char *st
 		
 		// clean-up
 		delete alignment;
-		delete featureFile;
 		delete [] fFeatures;		
 	}
 	if (bVerbose) {

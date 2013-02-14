@@ -43,14 +43,14 @@ ReferenceAlignment *ReferenceAligner::align(BestPath *bestPath, ReferenceText *r
 	LBestPathElement *lBestPathElement = bestPath->getBestPathElements();
 	VBestPathElement hypothesis;
 	for(LBestPathElement::iterator it = lBestPathElement->begin() ; it != lBestPathElement->end() ; ++it) {
-		if (m_lexiconManager->isStandard((*it)->lexUnit->iLexUnit) == true) {
+		if (m_lexiconManager->isStandard((*it)->lexUnit->iLexUnit)) {
 			hypothesis.push_back(*it);	
 			//printf("%s\n",m_lexiconManager->getStrLexUnit((*it)->lexUnit->iLexUnit));
 		}		
 	}
    
    // if there are no elements in the reference return error
-   if (referenceText->empty() == true) {
+   if (referenceText->empty()) {
       return NULL;
    }
  

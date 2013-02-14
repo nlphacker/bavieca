@@ -36,6 +36,9 @@ all: createDirectories aligner contextclustering dtaccumulator dtestimator dynam
 clean: 
 	rm -rf $(OBJ_DIR)
 	rm -rf $(BIN_DIR)
+	rm -rf ../../obj
+	rm -rf ../../lib
+	rm -rf ../../bin
 
 createDirectories: 
 	(mkdir -p $(OBJ_DIR))

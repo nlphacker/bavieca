@@ -1,9 +1,22 @@
-/*----------------------------------------------------------------------------*
- * HMM-based Automatic Speech Recognition System                              *
- *                                                                            *
- * Daniel Bolanos                                                             *
- * Boulder Language Technologies / University of Colorado, 2009-2010          *
- *----------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------------------------*
+ * Copyright (C) 2012 Daniel Bolaños - www.bltek.com - Boulder Language Technologies           *
+ *                                                                                             *
+ * www.bavieca.org is the website of the Bavieca Speech Recognition Toolkit                    *
+ *                                                                                             *
+ * Licensed under the Apache License, Version 2.0 (the "License");                             *
+ * you may not use this file except in compliance with the License.                            *
+ * You may obtain a copy of the License at                                                     *
+ *                                                                                             *
+ *         http://www.apache.org/licenses/LICENSE-2.0                                          *
+ *                                                                                             *
+ * Unless required by applicable law or agreed to in writing, software                         *
+ * distributed under the License is distributed on an "AS IS" BASIS,                           *
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.                    *
+ * See the License for the specific language governing permissions and                         *
+ * limitations under the License.                                                              *
+ *---------------------------------------------------------------------------------------------*/
+
+
 #include "AudioFile.h"
 #include "BatchFile.h"
 #include "ExceptionBase.h"
@@ -71,16 +84,16 @@ FeatureExtractor::FeatureExtractor(ConfigurationFeatures *configurationFeatures,
 // destructor
 FeatureExtractor::~FeatureExtractor()
 {
-	if (m_fCenterFrequencyMel != NULL) {
+	if (m_fCenterFrequencyMel) {
 		delete [] m_fCenterFrequencyMel;
 	}
-	if (m_iFFTPointBin != NULL) {
+	if (m_iFFTPointBin) {
 		delete [] m_iFFTPointBin;
 	}
-	if (m_fFFTPointGain != NULL) {
-		delete [] m_fFFTPointGain;
+	if (m_fFFTPointGain) {
+		delete [] m_fFFTPointGain; 
 	}
-	if (m_fCepstralBuffer != NULL) {
+	if (m_fCepstralBuffer) {
 		delete [] m_fCepstralBuffer;
 	}
 	if (m_sSamplesUsefulPrev) {
@@ -120,7 +133,7 @@ void FeatureExtractor::initialize() {
 	// stream mode feature extraction (might not be used)
 	m_sSamplesUsefulPrev = new short[m_iSamplesFrame];
 	m_iSamplesUsefulPrev = 0;
-	m_iSamplesStream = 0;		
+	m_iSamplesStream = 0;	
 }
 
 // build the filter bank (it takes into account the warp factor)
@@ -232,7 +245,7 @@ bool FeatureExtractor::extractFeaturesBatch(const char *strFileBatch, bool bHalt
 		delete [] vUtteranceData[iUtterance].samples.sSamples;
 		delete [] vUtteranceData[iUtterance].features.fFeatures;
 	}	
-
+		
 	return true;
 }
 
@@ -308,8 +321,7 @@ void FeatureExtractor::extractFeaturesSession(VUtteranceData &vUtteranceData, bo
 				if (bHaltOnFailure) {
 					BVC_ERROR << "unable to compute derivatives";					
 				} else {
-					BVC_WARNING << "unable to compute derivatives";		
-					it->features.iFeatures = 0;
+					BVC_WARNING << "unable to compute derivatives";					
 				}
 			}
 			
@@ -416,18 +428,20 @@ float *FeatureExtractor::extractStaticFeatures(short *sSamples, int iSamples, in
 // extract MFCC features (only the static coefficients)
 float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int iSamples, int *iFeatures) {
 
-	// (1) make a copy of the samples so they do not get modified
-	short *sSamples = new short[iSamples];
-	memcpy(sSamples,sSamplesOriginal,iSamples*sizeof(short));
+	// make a copy of the samples so they do not get modified
+	double *dSamples = new double[iSamples];
+	for(int i=0 ; i < iSamples ; ++i) {
+		dSamples[i] = (double)sSamplesOriginal[i];
+	}	
 
 	// (2) remove the DC mean
 	if (m_bDCRemoval) {
-		removeDC(sSamples,iSamples);
+		removeDC(dSamples,iSamples);
 	}
 	
 	// (3) pre-emphasis
 	if (m_bPreemphasis) {
-		applyPreemphasis(sSamples,iSamples);
+		applyPreemphasis(dSamples,iSamples);
 	}
 	
 	// check that the number of frames is positive, otherwise there are not enough samples available
@@ -443,7 +457,7 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 	*iFeatures = iFrames;	
 
 	// allocate memory for the Fast Fourier Transform output (there has to be room for the real and the imaginary part)
-	double *dFFT = new double[2*m_iFFTPoints+2];
+	double *dFFT = new double[2*m_iFFTPoints];
 	double *dFFTMagnitude = new double[m_iFFTPoints];
 	
 	// allocate memory for the bins
@@ -453,25 +467,29 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 	double *dSamplesFrame = new double[m_iSamplesFrame];
 	
 	// process each window
-	for(int i = 0 ; i < iFrames ; ++i) {
+	for(int i = 0 ; i < iFrames ; ++i) {	
 	
 		for(int j=0 ; j < m_iSamplesFrame ; ++j) {
-			dSamplesFrame[j] = (double)sSamples[(i*m_iSamplesSkip)+j];
-		}
+			dSamplesFrame[j] = dSamples[(i*m_iSamplesSkip)+j];
+		}	
 	
-		// do window tapering if needed
+		// make sure sample values do not go beyond limits
+		setLimits(dSamplesFrame,m_iSamplesFrame);
+	
+		// apply window tapering if needed
 		applyWindowTapering(dSamplesFrame,m_iSamplesFrame);
 		
 		// compute the frame energy
 		double dFrameEnergy = computeLogEnergy(dSamplesFrame,m_iSamplesFrame);
 		
 		// apply the Fourier transform and get the frequencies
+		assert(m_iSamplesFrame <= m_iFFTPoints+2);
 		for(int j = 0 ; j < m_iSamplesFrame ; ++j) {
 			dFFT[j] = dSamplesFrame[j]; 
 		}
 		for(int j = m_iSamplesFrame ; j < m_iFFTPoints+2 ; ++j) {
 			dFFT[j] = 0.0; 
-		}	
+		}
 		Numeric::fft(dFFT,m_iFFTPoints);
 		
 		// compute the magnitude from the real and imaginary parts
@@ -479,7 +497,7 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 		for(int j = 2 ; j < m_iFFTPoints/2 ; ++j, iIndex+=2) {
 			double dReal = dFFT[iIndex];
 			double dImaginary = dFFT[iIndex+1];
-			dFFTMagnitude[j] = (float)sqrt(dReal*dReal+dImaginary*dImaginary);
+			dFFTMagnitude[j] = sqrt(dReal*dReal+dImaginary*dImaginary);
 		}
 		
 		// apply the bank of filters
@@ -488,12 +506,12 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 		}
 		for(int j=2 ; j < m_iFFTPoints/2 ; ++j) {
 			int iBin = m_iFFTPointBin[j];
-			float fValue = m_fFFTPointGain[j]*dFFTMagnitude[j];
+			double dValue = m_fFFTPointGain[j]*dFFTMagnitude[j];
 			if (iBin > 0) {
-				dBins[iBin] += fValue;
+				dBins[iBin] += dValue;
 			}
 			if (iBin < m_iFilterbankFilters) {
-				dBins[iBin+1] += dFFTMagnitude[j]-fValue;
+				dBins[iBin+1] += dFFTMagnitude[j]-dValue;
 			}	
 		}
 		
@@ -515,7 +533,7 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 				dAux += dBins[k]*cos((PI_NUMBER*j*(((float)k)-0.5))/((float)m_iFilterbankFilters));
 			}
 			dAux *= sqrt(2.0/((float)m_iFilterbankFilters));
-			fMFCCAux[j-1] = dAux;
+			fMFCCAux[j-1] = (float)dAux;
 		}
 		fMFCCAux[m_iCepstralCoefficients] = dFrameEnergy;
 	}
@@ -560,7 +578,7 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 	for(int i=1 ; i<iFrames ; i++) {	
 		fMaxFrameEnergy = max(fMFCC[i*m_iCoefficients+m_iCepstralCoefficients], fMaxFrameEnergy);
 		fMinFrameEnergy = min(fMFCC[i*m_iCoefficients+m_iCepstralCoefficients], fMinFrameEnergy);	
-	}		
+	}
 	
    for(int i=0 ; i<iFrames ; i++){
       fMFCC[i*m_iCoefficients+m_iCepstralCoefficients] += 1.0f - fMaxFrameEnergy;
@@ -574,7 +592,7 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 	delete [] dFFT;
 	delete [] dFFTMagnitude;
 	delete [] dSamplesFrame;
-	delete [] sSamples;
+	delete [] dSamples;
 
 	return fMFCC;
 }
@@ -585,57 +603,62 @@ float *FeatureExtractor::extractStaticFeaturesPLP(short *sSamples, int iSamples,
 	return NULL;
 }
 
+// set limits to the sample values
+void FeatureExtractor::setLimits(double *dSamples, int iSamples) {
 
-// remove the DC-mean
-void FeatureExtractor::removeDC(short *sSamples, int iSamples) {
+	for(int i=0 ; i < iSamples ; ++i) {
+		if (dSamples[i] > SHRT_MAX) {
+			dSamples[i] = SHRT_MAX;
+		} else if (dSamples[i] < SHRT_MIN) {
+			dSamples[i] = SHRT_MIN;
+		}
+	}
+}
 
-	double *dSamples = new double[iSamples];
+// remove the DC-mean (the mean value of the amplitude in the waveform)
+// this is a preventive mechanism to make sure the mean amplitude is zero
+void FeatureExtractor::removeDC(double *dSamples, int iSamples) {
 
 	// compute the mean
 	double dAcc = 0.0;
 	for(int i=0 ; i < iSamples ; ++i) {
-		dAcc += (double)sSamples[i];
+		dAcc += dSamples[i];
 	}
 	dAcc /= ((double)iSamples);
 	
 	// substract the mean
 	for(int i=0 ; i < iSamples ; ++i) {
-		dSamples[i] = ((double)sSamples[i])-dAcc;
+		dSamples[i] = dSamples[i]-dAcc;
 	}
-	
-	// convert back to short
-	convert(dSamples,sSamples,iSamples);
-	
-	delete [] dSamples;
 }
 
 // apply pre-emphasis to all the samples (note that some samples at the end may be discarded)
-void FeatureExtractor::applyPreemphasis(short *sSamples, int iSamples) {
+void FeatureExtractor::applyPreemphasis(double *dSamples, int iSamples) {
 
 	for(int i=iSamples-1 ; i > 0 ; --i) {
-		sSamples[i] = convert(((float)sSamples[i])-(PREEMPHASIS_COEFFICIENT*((float)sSamples[i-1])));
+		dSamples[i] = dSamples[i]-(PREEMPHASIS_COEFFICIENT*dSamples[i-1]);
 	}
-	sSamples[0] = convert(((float)sSamples[0])-(PREEMPHASIS_COEFFICIENT*((float)sSamples[0])));
+	dSamples[0] = dSamples[0]-(PREEMPHASIS_COEFFICIENT*dSamples[0]);
 }
 
-// apply Window-tapering
-void FeatureExtractor::applyWindowTapering(double *dSamples, int iSamples) {
+// apply window tapering (if needed)
+void FeatureExtractor::applyWindowTapering(double *dSamplesFrame, int iSamplesFrame) {
 
 	// Hamming window
 	if (m_iWindowTapering == WINDOW_TAPERING_METHOD_HAMMING) {
-		applyHammingWindow(dSamples,iSamples);
+		applyHammingWindow(dSamplesFrame,iSamplesFrame);
 	}
 	// Hann window (original)
 	else if (m_iWindowTapering == WINDOW_TAPERING_METHOD_HANN) {
-		applyHannWindowOriginal(dSamples,iSamples);
+		applyHannWindowOriginal(dSamplesFrame,iSamplesFrame);
 	}
 	// Hann window (modified)
 	else if (m_iWindowTapering == WINDOW_TAPERING_METHOD_HANN_MODIFIED) {
-		applyHannWindowModified(dSamples,iSamples);
+		applyHannWindowModified(dSamplesFrame,iSamplesFrame);
 	} 
-	// no window tapering
+	// no tapering window
 	else {
-		assert(m_iWindowTapering == WINDOW_TAPERING_METHOD_NONE);
+		assert(m_iWindowTapering == WINDOW_TAPERING_METHOD_NONE);	
 	}
 }
 
@@ -735,8 +758,7 @@ float *FeatureExtractor::computeDerivatives(float *fFeatures, int iFeatures) {
 	assert(iOrder >= 1);
 	int iFeaturesMinimum = ((iDelta*2)+1);
 	if (iFeatures < iFeaturesMinimum) {
-		BVC_WARNING << "insufficient number of feature vectors to compute derivatives (available: " 
-			<< iFeatures << " required: " << iFeaturesMinimum << ")";	
+		BVC_WARNING << "insufficient number of feature vectors to compute derivatives (available: " << iFeatures << " required: " << iFeaturesMinimum << ")";	
 		return NULL;
 	}
 
@@ -1087,7 +1109,4 @@ float *FeatureExtractor::spliceFeatures(float *fFeatures, int iFeatures, int iEl
 	return fFeaturesSpliced;
 }
 
-}; // end-of-namespace
-
-
-
+};	// end-of-namespace

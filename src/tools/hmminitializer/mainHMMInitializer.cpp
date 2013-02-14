@@ -38,84 +38,78 @@ using namespace Bavieca;
 // main for the HMM estimation tool: "hmminitializer"
 int main(int argc, char *argv[]) {
 
-	// define command line parameters
-	CommandLineManager *m_commandLineManager = new CommandLineManager("hmminitializer",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
-	m_commandLineManager->defineParameter("-cfg","feature configuration",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-fea","feature folder",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-lex","pronunciation dictionary (lexicon)",PARAMETER_TYPE_FILE,false);	
-	m_commandLineManager->defineParameter("-mlf","master label file",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-met","HMM initialization method",
-		PARAMETER_TYPE_STRING,true,"flatStart|alignment","flatStart");
-	m_commandLineManager->defineParameter("-cov","covariance type",PARAMETER_TYPE_STRING,true,"diagonal|full","diagonal");	
-	m_commandLineManager->defineParameter("-mod","acoustic models",PARAMETER_TYPE_FILE,false);	
+	try {
+
+		// define command line parameters
+		CommandLineManager commandLineManager("hmminitializer",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
+		commandLineManager.defineParameter("-cfg","feature configuration",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-fea","feature folder",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-lex","pronunciation dictionary (lexicon)",PARAMETER_TYPE_FILE,false);	
+		commandLineManager.defineParameter("-mlf","master label file",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-met","HMM initialization method",
+			PARAMETER_TYPE_STRING,true,"flatStart|alignment","flatStart");
+		commandLineManager.defineParameter("-cov","covariance type",PARAMETER_TYPE_STRING,true,"diagonal|full","diagonal");	
+		commandLineManager.defineParameter("-mod","acoustic models",PARAMETER_TYPE_FILE,false);	
+		
+		// parse command line parameters
+		if (commandLineManager.parseParameters(argc,argv) == false) {
+			return -1;
+		}
+		
+		// get the parameters
+		const char *strFileFeatureConfiguration = commandLineManager.getParameterValue("-cfg");
+		const char *strFolderFeatures = commandLineManager.getParameterValue("-fea");
+		const char *strFilePhoneSet = commandLineManager.getParameterValue("-pho");
+		const char *strFileLexicon = commandLineManager.getParameterValue("-lex");
+		const char *strFileMLF = commandLineManager.getParameterValue("-mlf");
+		const char *strHMMInitializationMethod = commandLineManager.getParameterValue("-met");
+		const char *strCovarianceType = commandLineManager.getParameterValue("-cov");
+		const char *strFileModels = commandLineManager.getParameterValue("-mod");
+		
+		// load the feature configuration file
+		ConfigurationFeatures configurationFeatures(strFileFeatureConfiguration);
+		configurationFeatures.load();
+		// get the feature dimensionality
+		int iFeatureDimensionality = configurationFeatures.getDimensionality();
+		
+		// load the phone set
+		PhoneSet phoneSet(strFilePhoneSet);
+		phoneSet.load();
+		
+		// load the lexicon
+		LexiconManager lexiconManager(strFileLexicon,&phoneSet); 
+		lexiconManager.load();
+		
+		// load the Master Label File
+		MLFFile mlfFile(&lexiconManager,strFileMLF,MODE_READ);	
+		mlfFile.load();
+		
+		// initialize the acoustic models
+		int iCovarianceType = Gaussian::getCovarianceModellingType(strCovarianceType);	
+		HMMInitializer hmmInitializer(iFeatureDimensionality,iCovarianceType,&phoneSet);
+		
+		// initialization of HMM-parameters
+		// (flat-start)
+		if (strcmp(strHMMInitializationMethod,AM_INITIALIZATION_METHOD_FLATSTART) == 0) {
+		
+			// initialize the acoustic models to the global distribution of the data
+			HMMManager *hmmManager = hmmInitializer.initializeModelsFlatStart(mlfFile.getUtterances(),strFolderFeatures);
+			assert(hmmManager);
+			hmmManager->store(strFileModels);	
+			delete hmmManager;
+		}
+		// (alignment)
+		else {
+			assert(strcmp(strHMMInitializationMethod,AM_INITIALIZATION_METHOD_ALIGNMENT) == 0);	
+			BVC_ERROR << "initialization method not supported yet";
+		}
 	
-	// parse command line parameters
-	if (m_commandLineManager->parseParameters(argc,argv) == false) {
+	} catch (ExceptionBase &e) {
+	
+		std::cerr << e.what() << std::endl;
 		return -1;
 	}
-	
-	// get the parameters
-	const char *m_strFileFeatureConfiguration = m_commandLineManager->getParameterValue("-cfg");
-	const char *m_strFolderFeatures = m_commandLineManager->getParameterValue("-fea");
-	const char *m_strFilePhoneSet = m_commandLineManager->getParameterValue("-pho");
-	const char *m_strFileLexicon = m_commandLineManager->getParameterValue("-lex");
-	const char *m_strFileMLF = m_commandLineManager->getParameterValue("-mlf");
-	const char *m_strHMMInitializationMethod = m_commandLineManager->getParameterValue("-met");
-	const char *m_strCovarianceType = m_commandLineManager->getParameterValue("-cov");
-	const char *m_strFileModels = m_commandLineManager->getParameterValue("-mod");
-	
-	// load the feature configuration file
-	ConfigurationFeatures *m_configurationFeatures = new ConfigurationFeatures(m_strFileFeatureConfiguration);
-	m_configurationFeatures->load();
-	// get the feature dimensionality
-	int m_iFeatureDimensionality = m_configurationFeatures->getDimensionality();
-	delete m_configurationFeatures;
-	
-   // load the phone set
-   PhoneSet *m_phoneSet = new PhoneSet(m_strFilePhoneSet);
-   m_phoneSet->load();
-	
-	// load the lexicon
-   LexiconManager *m_lexiconManager = new LexiconManager(m_strFileLexicon,m_phoneSet); 
-   m_lexiconManager->load();
-   //m_lexiconManager->print(true);
-	
-	// load the Master Label File
-	MLFFile *m_mlfFile = new MLFFile(m_lexiconManager,m_strFileMLF,MODE_READ);	
-	m_mlfFile->load();
-	
-	// initialize the acoustic models
-	int iCovarianceType = Gaussian::getCovarianceModellingType(m_strCovarianceType);	
-	HMMInitializer *m_hmmInitializer = new HMMInitializer(m_iFeatureDimensionality,iCovarianceType,m_phoneSet);
-	
-	HMMManager *m_hmmManager = NULL;
-	
-	// initialization of HMM-parameters
-	// (flat-start)
-	if (strcmp(m_strHMMInitializationMethod,AM_INITIALIZATION_METHOD_FLATSTART) == 0) {
-	
-		// initialize the acoustic models to the global distribution of the data
-		m_hmmManager = m_hmmInitializer->initializeModelsFlatStart(m_mlfFile->getUtterances(),m_strFolderFeatures);
-		assert(m_hmmManager);
-		
-		// store the models to disk
-		m_hmmManager->store(m_strFileModels);
-		
-		delete m_hmmManager;
-	}
-	// (alignment)
-	else {
-		assert(strcmp(m_strHMMInitializationMethod,AM_INITIALIZATION_METHOD_ALIGNMENT) == 0);	
-		BVC_ERROR << "initialization method not supported yet";
-	}
-		
-	// clean-up
-	delete m_hmmInitializer;
-	delete m_mlfFile;
-	delete m_lexiconManager;
-	delete m_phoneSet;
-	delete m_commandLineManager;	
 	
 	return 0;
 }

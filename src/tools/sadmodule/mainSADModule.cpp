@@ -36,80 +36,82 @@ using namespace Bavieca;
 // main for the Speech Activity Detection tool: "sadmodule"
 int main(int argc, char *argv[]) {
 
-	// (1) define command line parameters
-	CommandLineManager *m_commandLineManager = new CommandLineManager("sadmodule",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
-	m_commandLineManager->defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-mod","acoustic models",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-fea","feature file to process",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-sil","max Gaussian components for silence",
-		PARAMETER_TYPE_INTEGER,false);
-	m_commandLineManager->defineParameter("-sph","max Gaussian components for speech",
-		PARAMETER_TYPE_INTEGER,false);
-	m_commandLineManager->defineParameter("-pad","speech padding (# frames)",PARAMETER_TYPE_INTEGER,true,NULL,"10");	
-	m_commandLineManager->defineParameter("-pen","speech insertion penalty",PARAMETER_TYPE_FLOAT,false);	
-	m_commandLineManager->defineParameter("-out","speech segmentation output",PARAMETER_TYPE_FILE,false);
-	
-	// (2) parse command line parameters
-	if (m_commandLineManager->parseParameters(argc,argv) == false) {
-		return -1;
-	}
-	
-	// get parameters
-	const char *m_strFileFeatures = m_commandLineManager->getParameterValue("-fea");
-	const char *m_strFilePhoneSet = m_commandLineManager->getParameterValue("-pho");
-	const char *m_strFileModels = m_commandLineManager->getParameterValue("-mod");	
-	int m_iMaxGaussianComponentsSilence = atoi(m_commandLineManager->getParameterValue("-sil"));	
-	int m_iMaxGaussianComponentsSpeech = atoi(m_commandLineManager->getParameterValue("-sph"));	
-	int m_iFramesPadding = atoi(m_commandLineManager->getParameterValue("-pad"));	
-	float m_fPenaltySilenceToSpeech = atof(m_commandLineManager->getParameterValue("-pen"));	
-	const char *m_strFileOutput = m_commandLineManager->getParameterValue("-out");	
-	
-   // load the phone set
-   PhoneSet *m_phoneSet = new PhoneSet(m_strFilePhoneSet);
-   m_phoneSet->load();
-   
-	// load the acoustic models
-	HMMManager *m_hmmManager = new HMMManager(m_phoneSet,HMM_PURPOSE_EVALUATION);
-	m_hmmManager->load(m_strFileModels);
-	
-	// load the file to process
-	FeatureFile *m_featureFile = new FeatureFile(m_strFileFeatures,MODE_READ);
-	m_featureFile->load();
-	
-	int m_iFeatures = -1;
-	float *m_fFeatures = m_featureFile->getFeatureVectors(&m_iFeatures);
-	
-	// create the SAD module
-	SADModule *m_sadModule = new SADModule(m_phoneSet,m_hmmManager,m_iMaxGaussianComponentsSilence,
-		m_iMaxGaussianComponentsSpeech,m_fPenaltySilenceToSpeech,m_iFramesPadding);
-	m_sadModule->initialize();
-	
-	double dTimeBegin = TimeUtils::getTimeMilliseconds();
+	try {
 
-	// perform the actual segmentation
-	m_sadModule->beginSession();	
-	m_sadModule->processFeatures(m_fFeatures,m_iFeatures);	
-	VSpeechSegment m_vSpeechSegment;
-	m_sadModule->recoverSpeechSegments(m_vSpeechSegment);
-	//m_sadModule->printSegments(m_vSpeechSegment);	
-	m_sadModule->endSession();
+		// (1) define command line parameters
+		CommandLineManager commandLineManager("sadmodule",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
+		commandLineManager.defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-mod","acoustic models",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-fea","feature file to process",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-sil","max Gaussian components for silence",
+			PARAMETER_TYPE_INTEGER,false);
+		commandLineManager.defineParameter("-sph","max Gaussian components for speech",
+			PARAMETER_TYPE_INTEGER,false);
+		commandLineManager.defineParameter("-pad","speech padding (# frames)",PARAMETER_TYPE_INTEGER,true,NULL,"10");	
+		commandLineManager.defineParameter("-pen","speech insertion penalty",PARAMETER_TYPE_FLOAT,false);	
+		commandLineManager.defineParameter("-out","speech segmentation output",PARAMETER_TYPE_FILE,false);
+		
+		// (2) parse command line parameters
+		if (commandLineManager.parseParameters(argc,argv) == false) {
+			return -1;
+		}
+		
+		// get parameters
+		const char *strFileFeatures = commandLineManager.getParameterValue("-fea");
+		const char *strFilePhoneSet = commandLineManager.getParameterValue("-pho");
+		const char *strFileModels = commandLineManager.getParameterValue("-mod");	
+		int iMaxGaussianComponentsSilence = atoi(commandLineManager.getParameterValue("-sil"));	
+		int iMaxGaussianComponentsSpeech = atoi(commandLineManager.getParameterValue("-sph"));	
+		int iFramesPadding = atoi(commandLineManager.getParameterValue("-pad"));	
+		float fPenaltySilenceToSpeech = atof(commandLineManager.getParameterValue("-pen"));	
+		const char *strFileOutput = commandLineManager.getParameterValue("-out");	
+		
+		// load the phone set
+		PhoneSet phoneSet(strFilePhoneSet);
+		phoneSet.load();
+		
+		// load the acoustic models
+		HMMManager hmmManager(&phoneSet,HMM_PURPOSE_EVALUATION);
+		hmmManager.load(strFileModels);
+		
+		// load the file to process
+		FeatureFile featureFile(strFileFeatures,MODE_READ);
+		featureFile.load();
+		
+		int iFeatures = -1;
+		float *fFeatures = featureFile.getFeatureVectors(&iFeatures);
+		
+		// create the SAD module
+		SADModule sadModule(&phoneSet,&hmmManager,iMaxGaussianComponentsSilence,
+			iMaxGaussianComponentsSpeech,fPenaltySilenceToSpeech,iFramesPadding);
+		sadModule.initialize();
+		
+		double dTimeBegin = TimeUtils::getTimeMilliseconds();
 	
-	double dTimeEnd = TimeUtils::getTimeMilliseconds();	
-	double dSecondsProcessing = (dTimeEnd-dTimeBegin)/1000.0;
-	double dSecondsAudio = ((float)m_iFeatures)/100.0;
-	printf("feature frames: %u (RTF: %.2f)\n",m_iFeatures,dSecondsProcessing/dSecondsAudio);
+		// perform the actual segmentation
+		sadModule.beginSession();	
+		sadModule.processFeatures(fFeatures,iFeatures);	
+		VSpeechSegment vSpeechSegment;
+		sadModule.recoverSpeechSegments(vSpeechSegment);
+		//sadModule.printSegments(vSpeechSegment);	
+		sadModule.endSession();
+		
+		double dTimeEnd = TimeUtils::getTimeMilliseconds();	
+		double dSecondsProcessing = (dTimeEnd-dTimeBegin)/1000.0;
+		double dSecondsAudio = ((float)iFeatures)/100.0;
+		printf("feature frames: %u (RTF: %.2f)\n",iFeatures,dSecondsProcessing/dSecondsAudio);
+		
+		// write the segmentation to file
+		SADModule::store(strFileOutput,vSpeechSegment);
+		
+		// clean-up
+		SADModule::deleteVSpeechSegment(vSpeechSegment);
+		delete [] fFeatures;
+		
+	} catch (ExceptionBase &e) {
 	
-	// write the segmentation to file
-	SADModule::store(m_strFileOutput,m_vSpeechSegment);
-	
-	// clean-up
-	SADModule::deleteVSpeechSegment(m_vSpeechSegment);
-	delete m_sadModule;
-	delete m_featureFile;
-	delete [] m_fFeatures;
-	delete m_hmmManager;
-	delete m_phoneSet;	
-	delete m_commandLineManager;
-	
+		std::cerr << e.what() << std::endl;
+		return -1;
+	}	
 	return 0;
 }

@@ -68,26 +68,26 @@ ActiveStateTable::ActiveStateTable(float fPruningLikelihood, int iPruningMaxStat
 
 ActiveStateTable::~ActiveStateTable()
 {
-	if (m_activeStatesCurrent != NULL) {
+	if (m_activeStatesCurrent) {
 		delete [] m_activeStatesCurrent;
 	}
-	if (m_activeStatesNext != NULL) {
+	if (m_activeStatesNext) {
 		delete [] m_activeStatesNext;
 	}
-	if (m_activeStatesEpsilon != NULL) {
+	if (m_activeStatesEpsilon) {
 		delete [] m_activeStatesEpsilon;
 	}	
-	if (m_hashEntries != NULL) {	
+	if (m_hashEntries) {	
 		delete [] m_hashEntries;
 	}
-	if (m_historyItems != NULL) {
+	if (m_historyItems) {
 		delete [] m_historyItems;
 	}
-	if (m_wshashEntries != NULL) {
+	if (m_wshashEntries) {
 		cleanHashWordSequences();	
 		delete [] m_wshashEntries;
 	}
-	if (m_wgTokens != NULL) {
+	if (m_wgTokens) {
 		delete [] m_wgTokens;
 	}
 }

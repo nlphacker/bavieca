@@ -61,7 +61,7 @@ bool WFSAcceptor::acceptSequence(vector<unsigned int> vInputSymbols) {
 		VStateX *aux = vStates1;
 		vStates1 = vStates2;
 		vStates2 = aux;
-		if (vStates1->empty() == true) {
+		if (vStates1->empty()) {
 			printf("%u not seen!\n",vInputSymbols[i]);
 			return false;
 		} else {

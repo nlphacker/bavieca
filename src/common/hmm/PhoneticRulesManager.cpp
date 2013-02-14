@@ -109,7 +109,7 @@ void PhoneticRulesManager::load() {
             }
             // copy the phones
             for(int i=0 ; i < iBasePhones ; ++i) {
-               if (aux->bPhone[i] == true) {
+               if (aux->bPhone[i]) {
                   phoneticRule->bPhone[i] = true;
                }
             }
@@ -141,7 +141,7 @@ void PhoneticRulesManager::load() {
    }
    for(VPhoneticRule::iterator it = m_vPhoneticRule.begin() ; it != m_vPhoneticRule.end() ; ++it) {
 		for(int i=0 ; i<iBasePhones+1 ; ++i) {
-			if ((*it)->bPhone[i] == true) {
+			if ((*it)->bPhone[i]) {
 				bPhone[i] = true;
 			}
 		}

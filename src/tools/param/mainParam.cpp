@@ -31,62 +31,65 @@ using namespace std;
 using namespace Bavieca;
 
 // main for the feature extraction tool: "param"
-//int mainParam(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
 
-	// define command line parameters
-	CommandLineManager *m_commandLineManager = new CommandLineManager("param",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
-	m_commandLineManager->defineParameter("-cfg","feature configuration",PARAMETER_TYPE_FILE,false);	
-	m_commandLineManager->defineParameter("-raw","audio file to parameterize (raw format)",PARAMETER_TYPE_FILE,true);
-	m_commandLineManager->defineParameter("-fea","file to store the feature vectors extracted",PARAMETER_TYPE_FILE,true);
-	m_commandLineManager->defineParameter("-bat","batch file with pairs [rawFile featureFile]",
-		PARAMETER_TYPE_FILE,true);	
-	m_commandLineManager->defineParameter("-wrp","frequency warp factor",PARAMETER_TYPE_FLOAT,true,"[0.80|1.20]","1.0");	
-	m_commandLineManager->defineParameter("-nrm","cepstral normalization mode",
-		PARAMETER_TYPE_STRING,true,"none|utterance|session","utterance");	
-	m_commandLineManager->defineParameter("-met","cepstral normalization method",PARAMETER_TYPE_STRING,true,"none|CMN|CMVN","CMN");	
-	m_commandLineManager->defineParameter("-hlt","whether to halt the batch processing if an error is found",
-		PARAMETER_TYPE_BOOLEAN,true,"yes|no","no");	
+	try {
+
+		// define command line parameters
+		CommandLineManager commandLineManager("param",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
+		commandLineManager.defineParameter("-cfg","feature configuration",PARAMETER_TYPE_FILE,false);	
+		commandLineManager.defineParameter("-raw","audio file to parameterize (raw format)",PARAMETER_TYPE_FILE,true);
+		commandLineManager.defineParameter("-fea","file to store the feature vectors extracted",PARAMETER_TYPE_FILE,true);
+		commandLineManager.defineParameter("-bat","batch file with pairs [rawFile featureFile]",
+			PARAMETER_TYPE_FILE,true);	
+		commandLineManager.defineParameter("-wrp","frequency warp factor",PARAMETER_TYPE_FLOAT,true,"[0.80|1.20]","1.0");	
+		commandLineManager.defineParameter("-nrm","cepstral normalization mode",
+			PARAMETER_TYPE_STRING,true,"none|utterance|session","utterance");	
+		commandLineManager.defineParameter("-met","cepstral normalization method",PARAMETER_TYPE_STRING,true,"none|CMN|CMVN","CMN");	
+		commandLineManager.defineParameter("-hlt","whether to halt the batch processing if an error is found",
+			PARAMETER_TYPE_BOOLEAN,true,"yes|no","no");	
+		
+		// parse the parameters
+		if (commandLineManager.parseParameters(argc,argv) == false) {
+			return -1;
+		}
+		
+		// get the parameters
+		
+		// load the configuration file
+		const char *strFileConfiguration = commandLineManager.getParameterValue("-cfg");
+		ConfigurationFeatures configurationFeatures(strFileConfiguration);
+		configurationFeatures.load();
+		
+		// perform the parameterization
+			
+		// load the parameters
+		float fWarpFactor = commandLineManager.getFloatParameterValue("-wrp"); 
+		int iCepstralBufferSize = -1;
+		int iCepstralNormalizationMode = 
+			FeatureExtractor::getNormalizationMode(commandLineManager.getParameterValue("-nrm"));	
+		int iCepstralNormalizationMethod = 
+			FeatureExtractor::getNormalizationMethod(commandLineManager.getParameterValue("-met"));
+				
+		FeatureExtractor featureExtractor(&configurationFeatures,fWarpFactor,iCepstralBufferSize,
+			iCepstralNormalizationMode,iCepstralNormalizationMethod);
+		
+		featureExtractor.initialize();
+		if (commandLineManager.isParameterSet("-bat") == false) {
+			featureExtractor.extractFeatures(commandLineManager.getParameterValue("-raw"),
+				commandLineManager.getParameterValue("-fea"));
+		} else {
+			if (featureExtractor.extractFeaturesBatch(commandLineManager.getParameterValue("-bat"),
+				CommandLineManager::str2bool(commandLineManager.getParameterValue("-hlt"))) == false) {
+				BVC_ERROR << "problem processing the batch file";	
+			}
+		}
+		
+	} catch (ExceptionBase &e) {
 	
-	// parse the parameters
-	if (m_commandLineManager->parseParameters(argc,argv) == false) {
+		std::cerr << e.what() << std::endl;
 		return -1;
 	}
-	
-	// get the parameters
-	
-	// load the configuration file
-	const char *m_strFileConfiguration = m_commandLineManager->getParameterValue("-cfg");
-	ConfigurationFeatures *m_configurationFeatures = new ConfigurationFeatures(m_strFileConfiguration);
-	m_configurationFeatures->load();
-	
-	// perform the parameterization
-		
-	// load the parameters
-	float m_fWarpFactor = m_commandLineManager->getFloatParameterValue("-wrp"); 
-	int m_iCepstralBufferSize = -1;
-	int m_iCepstralNormalizationMode = 
-		FeatureExtractor::getNormalizationMode(m_commandLineManager->getParameterValue("-nrm"));	
-	int m_iCepstralNormalizationMethod = 
-		FeatureExtractor::getNormalizationMethod(m_commandLineManager->getParameterValue("-met"));
-			
-	FeatureExtractor *m_featureExtractor = new FeatureExtractor(m_configurationFeatures,m_fWarpFactor,m_iCepstralBufferSize,m_iCepstralNormalizationMode,m_iCepstralNormalizationMethod);
-	
-	m_featureExtractor->initialize();
-	if (m_commandLineManager->isParameterSet("-bat") == false) {
-		m_featureExtractor->extractFeatures(m_commandLineManager->getParameterValue("-raw"),
-			m_commandLineManager->getParameterValue("-fea"));
-	} else {
-		if (m_featureExtractor->extractFeaturesBatch(m_commandLineManager->getParameterValue("-bat"),
-			CommandLineManager::str2bool(m_commandLineManager->getParameterValue("-hlt"))) == false) {
-			printf("Error processing the batch file\n");	
-		}
-	}
-	delete m_featureExtractor;
-	
-	// clean-up
-	delete m_commandLineManager;
-	delete m_configurationFeatures;
 	
 	return 0;
 }

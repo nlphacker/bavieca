@@ -1,9 +1,22 @@
-/*----------------------------------------------------------------------------*
- * HMM-based Automatic Speech Recognition System                              *
- *                                                                            *
- * Daniel Bolanos                                                             *
- * Boulder Language Technologies / University of Colorado, 2009-2010          *
- *----------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------------------------*
+ * Copyright (C) 2012 Daniel Bolaños - www.bltek.com - Boulder Language Technologies           *
+ *                                                                                             *
+ * www.bavieca.org is the website of the Bavieca Speech Recognition Toolkit                    *
+ *                                                                                             *
+ * Licensed under the Apache License, Version 2.0 (the "License");                             *
+ * you may not use this file except in compliance with the License.                            *
+ * You may obtain a copy of the License at                                                     *
+ *                                                                                             *
+ *         http://www.apache.org/licenses/LICENSE-2.0                                          *
+ *                                                                                             *
+ * Unless required by applicable law or agreed to in writing, software                         *
+ * distributed under the License is distributed on an "AS IS" BASIS,                           *
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.                    *
+ * See the License for the specific language governing permissions and                         *
+ * limitations under the License.                                                              *
+ *---------------------------------------------------------------------------------------------*/
+
+
 #ifndef FEATUREEXTRACTOR_H
 #define FEATUREEXTRACTOR_H
 
@@ -57,7 +70,6 @@ class ConfigurationFeatures;
 // DEPRECATED  	TODO
 #define  FEATURE_VECTOR_LENGTH						39
 #define  FEATURE_VECTOR_LENGTH_ALIGNED_16			40				// 40*sizeof(float) is multiple of 16bytes
-
 
 typedef struct {
 	float *fFeatures;
@@ -123,7 +135,7 @@ class FeatureExtractor {
 		bool m_bCepstralBufferFull;				// whether the cepstral buffer is full (circular buffer)
 		
 		int m_iCoefficients;			// number of coefficients (including cepstral coefficients and energy without derivatives)
-		int m_iCoefficientsTotal;	// total number of coefficients in the whole feature vectors
+		int m_iCoefficientsTotal;	// total number of coefficients in the whole feature vector
 		
 			
 		float *m_fCenterFrequencyMel;		// center frequencies of the filters in the Mel scale 		
@@ -148,17 +160,20 @@ class FeatureExtractor {
 		int m_iSamplesUsefulPrev;			// number of useful samples from previous chunk (size >= iSamplesFrame-iSamplesSkip)
 		short *m_sSamplesUsefulPrev;		// useful samples from previous chunk of samples
 		
-		// remove DC-mean
-		void removeDC(short *sSamples, int iSamples);
-				
-		// apply pre-emphasis
-		void applyPreemphasis(short *sSamples, int iSamples);
+		// set limits to the sample values
+		void setLimits(double *dSamples, int iSamples);	
 		
-		// apply Window-tapering
+		// remove DC-mean
+		void removeDC(double *dSamples, int iSamples);
+		
+		// apply pre-emphasis
+		void applyPreemphasis(double *dSamples, int iSamples);
+		
+		// apply window tapering (if needed)
 		void applyWindowTapering(double *dSamples, int iSamples);
 		
 		// apply the Hamming window
-		void applyHammingWindow(double *dSamples, int iSamples);	
+		void applyHammingWindow(double *fSamples, int iSamples);	
 		
 		// apply the Hann window (original)
 		void applyHannWindowOriginal(double *dSamples, int iSamples);	
@@ -166,47 +181,19 @@ class FeatureExtractor {
 		// apply the Hann window (modified)
 		void applyHannWindowModified(double *dSamples, int iSamples);	
 		
-		// convert a float value to a short value
-		short convert(float f) {
-		
-			if (f > ((float)SHRT_MAX)) {
-				return SHRT_MAX;
-			} else if (f < ((float)SHRT_MIN)) {
-				return SHRT_MIN;
-			} else {
-				return (short)f;
-			}
-		}
-		
-		// convert a vector from double to short
-		void convert(double *dV, short *sV, int iLength) {
-		
-			int i;
-			
-			for(i = 0 ; i < iLength ; ++i) {
-				if (dV[i] > ((double)SHRT_MAX)) {
-					sV[i] = SHRT_MAX;
-				} else if (dV[i] < ((double)SHRT_MIN)) {
-					sV[i] = SHRT_MIN;
-				} else {
-					sV[i] = (short)dV[i];
-				}
-			}
-		}		
-		
 		// computes the log energy of a speech frame
 		double computeLogEnergy(double *dFrame, int iWindowLength);
 		
 		// convert Mel frequency to linear frequency
 		float melToLinear(float fFrequency) {
 		
-			return 700.0*(exp(fFrequency/1127.0)-1.0);
+			return (float)(700.0*(exp(fFrequency/1127.0)-1.0));
 		}
 
 		// convert Mel frequency to linear frequency
 		float linearToMel(float fFrequency) {
 		
-			return 1127.0*log((1.0)+(fFrequency/700.0));
+			return float(1127.0*log((1.0)+(fFrequency/700.0)));
 		}
 		
 		// compute the lower bin connected to each FFT point
@@ -297,17 +284,17 @@ class FeatureExtractor {
 		// extract features (utterance-based cepstral normalization)
 		float *extractFeatures(const char *strFile, int *iFeatures);
 		
-		// extract static features in stream mode (make use of "left context" speech samples)
-		float *extractFeaturesStream(short *sSamples, int iSamples, int *iFeatures);		
-		
 		// extract features (utterance or stream-based cepstral normalization)
-		float *extractFeatures(short *sSamples, int iSamples, int *iFeatures);	
+		float *extractFeatures(short *sSamples, int iSamples, int *iFeatures);
+			
+		// extract static features in stream mode (make use of "left context" speech samples) 
+		float *extractFeaturesStream(short *sSamples, int iSamples, int *iFeatures);	
 		
 		// extract static features 
 		float *extractStaticFeatures(short *sSamples, int iSamples, int *iFeatures);	
 		
 		// print the features (debugging)
-		void print(float *fFeatures, int iFeatures);
+		void print(float *fFeatures, int iFeatures);		
 		
 		int getFeatureDimensionality() {
 		
@@ -346,9 +333,8 @@ class FeatureExtractor {
 				return CEPSTRAL_NORMALIZATION_METHOD_CMVN;
 			}
 		}
-
 };
 
-#endif
+};	// end-of-namespace
 
-}; // end-of-namespace
+#endif

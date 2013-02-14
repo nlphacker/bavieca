@@ -29,99 +29,152 @@ using namespace Bavieca;
 // main for the tool "wfsbuilder"
 int main(int argc, char *argv[]) {
 
-	// (1) define command line parameters
-	CommandLineManager *m_commandLineManager = new CommandLineManager("wfsabuilder",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
-	m_commandLineManager->defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-mod","acoustic models",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-lex","pronunciation dictionary (lexicon)",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-lm","language model",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-ngram","n-gram",PARAMETER_TYPE_STRING,false,"zerogram|unigram|bigram|trigram");
-	m_commandLineManager->defineParameter("-scl","language model scaling factor",PARAMETER_TYPE_FLOAT,false);
-	m_commandLineManager->defineParameter("-ip","insertion penalty (standard lexical units)",PARAMETER_TYPE_FLOAT,false);
-	m_commandLineManager->defineParameter("-ips","insertion penalty (silence and filler lexical units)",PARAMETER_TYPE_FLOAT,false);	
-	m_commandLineManager->defineParameter("-ipf","filler specific insertion penalties",PARAMETER_TYPE_FILE,true);	
-	m_commandLineManager->defineParameter("-srg","semiring used to do weight pushing",PARAMETER_TYPE_STRING,true,"none|tropical|log","log");
-	m_commandLineManager->defineParameter("-net","decoding network to build",PARAMETER_TYPE_FILE,false);
+	try {
+
+		// (1) define command line parameters
+		CommandLineManager commandLineManager("wfsabuilder",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
+		commandLineManager.defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-mod","acoustic models",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-lex","pronunciation dictionary (lexicon)",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-lm","language model",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-ngram","n-gram",PARAMETER_TYPE_STRING,false,"zerogram|unigram|bigram|trigram");
+		commandLineManager.defineParameter("-scl","language model scaling factor",PARAMETER_TYPE_FLOAT,false);
+		commandLineManager.defineParameter("-ip","insertion penalty (standard lexical units)",PARAMETER_TYPE_FLOAT,false);
+		commandLineManager.defineParameter("-ips","insertion penalty (silence and filler lexical units)",PARAMETER_TYPE_FLOAT,false);	
+		commandLineManager.defineParameter("-ipf","filler specific insertion penalties",PARAMETER_TYPE_FILE,true);	
+		commandLineManager.defineParameter("-srg","semiring used to do weight pushing",PARAMETER_TYPE_STRING,true,"none|tropical|log","log");
+		commandLineManager.defineParameter("-net","decoding network to build",PARAMETER_TYPE_FILE,false);
+		
+		// parse the parameters
+		if (commandLineManager.parseParameters(argc,argv) == false) {
+			return -1;
+		}
+		
+		// get the parameters
+		const char *strFilePhoneticSet = commandLineManager.getStrParameterValue("-pho");
+		const char *strFileLexicon = commandLineManager.getStrParameterValue("-lex");
+		const char *strFileLanguageModel = commandLineManager.getStrParameterValue("-lm");
+		const char *strLanguageModelFormat = "ARPA";
+		const char *strLanguageModelType = "ngram";
+		const char *strLanguageModelNGram = commandLineManager.getStrParameterValue("-ngram");
+		const char *strFileModels = commandLineManager.getStrParameterValue("-mod");
+		float fLMScalingFactor = commandLineManager.getFloatParameterValue("-scl");
+		float fInsertionPenaltyStandard = commandLineManager.getFloatParameterValue("-ip");
+		float fInsertionPenaltyFiller = commandLineManager.getFloatParameterValue("-ips");
+		const char *strFileInsertionPenaltyFiller = NULL;
+		if (commandLineManager.isParameterSet("-ipf")) {
+			strFileInsertionPenaltyFiller = commandLineManager.getStrParameterValue("-ipf");
+		}
+		const char *strFileDecodingNetwork = commandLineManager.getStrParameterValue("-net");
 	
-	// parse the parameters
-	if (m_commandLineManager->parseParameters(argc,argv) == false) {
+		// parameter injection
+		
+		// wsj
+		/*string strPhoneticSetFile = "/home/hmmdecoder/src/config/wsj/phoneset.txt";
+		string strLexiconFile = "/home/hmmdecoder/src/config/WFST/wsj-5k.lex";
+		string strLanguageModelFile = "/home/hmmdecoder/src/config/WFST/wsj-5k-cnp.arpa";
+		//string strLanguageModelFile = "/home/hmmdecoder/src/config/wsj/wsj-5k-cnp-bigram.arpa";	
+		//string strFileModels = "/home/hmmtrainer/src/data/models80h/july26/gi_500_2_100_sil/models28.bin";
+		//string strFileModels = "/home/hmmtrainer/src/data/models3|30min/(6)/models/models05.bin";
+		//string strFileModels = "/home/hmmtrainer/src/data/models3|30min/(6)/models/models16.bin";
+		string strFileModels = "/home/hmmdecoder/src/config/WFST/wsj/models25.bin";
+		string strFileList = "/home/hmmdecoder/src/config/wsj/list.txt";*/
+		
+		/*string strPhoneticSetFile = "/home/speech/wsj/scripts/test/config/phoneset.txt";
+		string strLexiconFile = "/home/speech/wsj/scripts/test/lm/wsj-5k.lex";
+		string strLanguageModelFile = "/home/speech/wsj/scripts/test/lm/wsj-5k-cnp.arpa";
+		string strFileModels = "/home/speech/wsj/models/may18th/1400_400_0.05_paramMyFixedHamming/gi/models25.bin";
+		string strFileNetwork = "/home/speech/wsj/scripts/test/wfsa/unigram.bin";
+		//float fLMScalingFactor = 0.0;
+		float fLMScalingFactor = 25.0;
+		//float fInsertionPenalty = 0.0;
+		float fInsertionPenalty = -18.0;	*/
+		
+		// ScienceTutor
+		/*string strPhoneticSetFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/phoneset.txt";
+		//string strLexiconFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/lexicon.lex";
+		string strLexiconFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/lexicon2Filler.lex";
+		//string strLexiconFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/lexicon1Filler.lex";
+		//string strLexiconFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/lexiconNoFiller.lex";
+		string strLanguageModelFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/lm.arpa";
+		//string strLexiconFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/MS/lexicon.lex";
+		//string strLanguageModelFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/MS/lm.arpa";
+		//string strFileModels = "/home/hmmdecoder/src/config/WFST/ScienceTutor/models05.bin";
+		string strFileModels = "/home/hmmdecoder/src/config/WFST/ScienceTutor/models20.bin";
+		float fLMScalingFactor = 25.0;
+		float fInsertionPenalty = -20.0;*/
+		
+		// kids
+		/*string strPhoneticSetFile = "/home/hmmdecoder/src/config/WFST/kids/phoneset.txt";
+		//string strLexiconFile = "/home/hmmdecoder/src/config/WFST/kids/story.lex";
+		string strLexiconFile = "/home/hmmdecoder/src/config/WFST/kids/storyNoFiller.lex";
+		string strLanguageModelFile = "/home/hmmdecoder/src/config/WFST/kids/racer-lm.arpa.gen";
+		//string strFileModels = "/home/hmmdecoder/src/config/WFST/kids/models05.bin";
+		string strFileModels = "/home/hmmdecoder/src/config/WFST/kids/models25.bin";
+		float fLMScalingFactor = 40.0;
+		float fInsertionPenalty = 0.0;*/
+		
+		/*string strLanguageModelFileFormat = "text";
+		string strLanguageModelFormat = "CMU";
+		string strLanguageModelType = "ngram";
+		string strLanguageModelNGram = "unigram";*/
+		//string strLanguageModelNGram = "bigram";
+		//string strLanguageModelNGram = "trigram";
+	
+		// load the phone set
+		PhoneSet phoneSet(strFilePhoneticSet);
+		phoneSet.load();
+		
+		// load the acoustic models
+		HMMManager hmmManager(&phoneSet,HMM_PURPOSE_EVALUATION);
+		hmmManager.load(strFileModels);
+		hmmManager.initializeDecoding();	
+		
+		// load the lexicon
+		LexiconManager lexiconManager(strFileLexicon,&phoneSet);
+		lexiconManager.load();
+		// set default insertion penalty to each lexical unit in the lexicon
+		lexiconManager.attachLexUnitPenalties(fInsertionPenaltyStandard,fInsertionPenaltyFiller);
+		// set specific insertion penalties if available
+		if (strFileInsertionPenaltyFiller != NULL) {
+			FillerManager fillerManager(strFileInsertionPenaltyFiller);	
+			fillerManager.load();
+			fillerManager.attachInsertionPenaltyFillers(&lexiconManager);
+		}
+		lexiconManager.print();  
+		
+		// load the language model
+		LMManager lmManager(&lexiconManager,strFileLanguageModel,strLanguageModelFormat,
+									strLanguageModelType,strLanguageModelNGram); 
+		lmManager.load();
+		lmManager.print();
+	
+		// build the decoding network
+		int iNGram = LMManager::getNGram(strLanguageModelNGram);
+		WFSABuilder wfsaBuilder(&phoneSet,&hmmManager,&lexiconManager,&lmManager,iNGram,fLMScalingFactor);
+		
+		double dBegin = TimeUtils::getTimeMilliseconds();
+		
+		WFSAcceptor *wfsAcceptor = wfsaBuilder.build();
+		if (!wfsAcceptor) {
+			BVC_ERROR << "unable to create the WFSA";
+		}
+		wfsAcceptor->print();
+		
+		// store the acceptor to disk
+		wfsAcceptor->store(&lexiconManager,strFileDecodingNetwork);
+		
+		double dEnd = TimeUtils::getTimeMilliseconds();
+		double dMillisecondsInterval = dEnd - dBegin;
+		printf("building time: %.2f\n",dMillisecondsInterval/1000.0);
+	
+		delete wfsAcceptor;
+	
+	} catch (ExceptionBase &e) {
+	
+		std::cerr << e.what() << std::endl;
 		return -1;
-	}
-	
-	// get the parameters
-	const char *m_strFilePhoneticSet = m_commandLineManager->getStrParameterValue("-pho");
-	const char *m_strFileLexicon = m_commandLineManager->getStrParameterValue("-lex");
-	const char *m_strFileLanguageModel = m_commandLineManager->getStrParameterValue("-lm");
-	const char *m_strLanguageModelFormat = "ARPA";
-	const char *m_strLanguageModelType = "ngram";
-	const char *m_strLanguageModelNGram = m_commandLineManager->getStrParameterValue("-ngram");
-	const char *m_strFileModels = m_commandLineManager->getStrParameterValue("-mod");
-	float m_fLMScalingFactor = m_commandLineManager->getFloatParameterValue("-scl");
-	float m_fInsertionPenaltyStandard = m_commandLineManager->getFloatParameterValue("-ip");
-	float m_fInsertionPenaltyFiller = m_commandLineManager->getFloatParameterValue("-ips");
-	const char *m_strFileInsertionPenaltyFiller = NULL;
-	if (m_commandLineManager->isParameterSet("-ipf")) {
-		m_strFileInsertionPenaltyFiller = m_commandLineManager->getStrParameterValue("-ipf");
-	}
-	const char *m_strFileDecodingNetwork = m_commandLineManager->getStrParameterValue("-net");
-
-   // load the phone set
-   PhoneSet *m_phoneSet = new PhoneSet(m_strFilePhoneticSet);
-   m_phoneSet->load();
-   
-	// load the acoustic models
-	HMMManager *m_hmmManager = new HMMManager(m_phoneSet,HMM_PURPOSE_EVALUATION);
-	m_hmmManager->load(m_strFileModels);
-	m_hmmManager->initializeDecoding();	
-   
-   // load the lexicon
-   LexiconManager *m_lexiconManager = new LexiconManager(m_strFileLexicon,m_phoneSet);
-   m_lexiconManager->load();
-   // set default insertion penalty to each lexical unit in the lexicon
-   m_lexiconManager->attachLexUnitPenalties(m_fInsertionPenaltyStandard,m_fInsertionPenaltyFiller);
-   // set specific insertion penalties if available
-   if (m_strFileInsertionPenaltyFiller != NULL) {
-		FillerManager m_fillerManager(m_strFileInsertionPenaltyFiller);	
-		m_fillerManager.load();
-		m_fillerManager.attachInsertionPenaltyFillers(m_lexiconManager);
-   }
-   m_lexiconManager->print();  
-   
-   // load the language model
-	LMManager *m_lmManager = new LMManager(m_lexiconManager,
-											m_strFileLanguageModel,
-											m_strLanguageModelFormat,
-											m_strLanguageModelType,
-											m_strLanguageModelNGram); 
-	m_lmManager->load();
-	m_lmManager->print();
-
-	// build the decoding network
-	int m_iNGram = LMManager::getNGram(m_strLanguageModelNGram);
-	WFSABuilder *m_wfsaBuilder = new WFSABuilder(m_phoneSet,m_hmmManager,m_lexiconManager,m_lmManager,m_iNGram,m_fLMScalingFactor);
-	
-	double dBegin = TimeUtils::getTimeMilliseconds();
-	
-	WFSAcceptor *m_wfsAcceptor = m_wfsaBuilder->build();
-	if (m_wfsAcceptor == NULL) {
-		return -1;
-	}
-	m_wfsAcceptor->print();
-	
-	// store the acceptor to disk
-	m_wfsAcceptor->store(m_lexiconManager,m_strFileDecodingNetwork);
-	
-   double dEnd = TimeUtils::getTimeMilliseconds();
-   double dMillisecondsInterval = dEnd - dBegin;
-	printf("building time: %.2f\n",dMillisecondsInterval/1000.0);
-
-	delete m_wfsaBuilder;
-	delete m_wfsAcceptor;
-	delete m_commandLineManager;
-	delete m_phoneSet;
-	delete m_hmmManager;
-	delete m_lexiconManager;
-	delete m_lmManager;
+	}	
 	
 	return 0;
 }

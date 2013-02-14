@@ -185,8 +185,8 @@ void MLLRManager::feedAdaptationData(float *fFeatures, int iFeatures, Alignment 
 void MLLRManager::feedAdaptationData(const char *strBatchFile, const char *strAlignmentFormat, 
 	double *dLikelihood, bool bVerbose) {
 
-	BatchFile *batchFile = new BatchFile(strBatchFile,"features|alignment");
-	batchFile->load();
+	BatchFile batchFile(strBatchFile,"features|alignment");
+	batchFile.load();
 	
 	*dLikelihood = 0.0;
 	
@@ -197,24 +197,23 @@ void MLLRManager::feedAdaptationData(const char *strBatchFile, const char *strAl
 		Alignment *alignment = NULL;
 		// text format
 		if (strcmp(strAlignmentFormat,"text") == 0) {	
-			AlignmentFile *alignmentFile = new AlignmentFile(m_phoneSet,NULL);
-			VPhoneAlignment *vPhoneAlignment = alignmentFile->load(batchFile->getField(i,"alignment"));
+			AlignmentFile alignmentFile(m_phoneSet,NULL);
+			VPhoneAlignment *vPhoneAlignment = alignmentFile.load(batchFile.getField(i,"alignment"));
 			assert(vPhoneAlignment);
 			alignment = AlignmentFile::toAlignment(m_phoneSet,m_hmmManager,vPhoneAlignment);
 			AlignmentFile::destroyPhoneAlignment(vPhoneAlignment);
-			delete alignmentFile;
 		} 
 		// binary format
 		else {
-			alignment = Alignment::load(batchFile->getField(i,"alignment"),NULL);
+			alignment = Alignment::load(batchFile.getField(i,"alignment"),NULL);
 			assert(alignment);	
 		}
 		
 		// load the feature vectors
-		FeatureFile *featureFile = new FeatureFile(batchFile->getField(i,"features"),MODE_READ);
-		featureFile->load();
+		FeatureFile featureFile(batchFile.getField(i,"features"),MODE_READ);
+		featureFile.load();
 		int iFeatureVectors = -1;
-		float *fFeatures = featureFile->getFeatureVectors(&iFeatureVectors);
+		float *fFeatures = featureFile.getFeatureVectors(&iFeatureVectors);
 		
 		// check consistency	
 		if (iFeatureVectors != alignment->getFrames()) {
@@ -225,21 +224,18 @@ void MLLRManager::feedAdaptationData(const char *strBatchFile, const char *strAl
 		double dLikelihoodAlignment = 0.0;
 		feedAdaptationData(fFeatures,iFeatureVectors,alignment,&dLikelihoodAlignment);
 		if (bVerbose) {
-			printf("loaded file: %s likelihood: %12.2f\n",batchFile->getField(i,"alignment"),dLikelihoodAlignment);
+			printf("loaded file: %s likelihood: %12.2f\n",batchFile.getField(i,"alignment"),dLikelihoodAlignment);
 		}
 		*dLikelihood += dLikelihoodAlignment;
 		
 		// clean-up
 		delete alignment;
-		delete featureFile;
 		delete [] fFeatures;
 	}
 	
-	if (bVerbose == true) {
+	if (bVerbose) {
 		printf("total likelihood: %14.4f\n",*dLikelihood);
 	}
-
-	delete batchFile;
 }
 
 // store the transforms to the given file

@@ -181,11 +181,10 @@ void DTAccumulator::accumulate() {
 		// (2.1) load the features for the estimation
 		ostringstream strFileFeatures;
 		strFileFeatures << m_strFolderFeatures << PATH_SEPARATOR << (*it)->strFilePattern;
-		FeatureFile *featureFile = new FeatureFile(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,m_iFeatureDimensionality);
-		featureFile->load();
+		FeatureFile featureFile(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,m_iFeatureDimensionality);
+		featureFile.load();
 		int iFeatureVectors = 0;
-		float *fFeatures = (float*)featureFile->getFeatureVectors(&iFeatureVectors);
-		delete featureFile;
+		float *fFeatures = (float*)featureFile.getFeatureVectors(&iFeatureVectors);
 		
 		iFeatureVectorsTotal += iFeatureVectors;	
 		

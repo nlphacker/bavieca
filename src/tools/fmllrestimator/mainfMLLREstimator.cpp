@@ -29,70 +29,72 @@ using namespace Bavieca;
 
 // main for the tool "mapEstimator"
 int main(int argc, char *argv[]) {
+
+	try {
 	
-	// (1) define command line parameters
-	CommandLineManager *m_commandLineManager = new CommandLineManager("fmllrestimator",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
-	m_commandLineManager->defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-mod","bootstrap acoustic models",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-bat","batch file containing pairs (featureFile alignmentFile)",
-		PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-for","alignment file format",PARAMETER_TYPE_STRING,false,"binary|text");
-	m_commandLineManager->defineParameter("-tra","feature transform",PARAMETER_TYPE_FILE,false);
-	m_commandLineManager->defineParameter("-bst","whether to assign all occupation to best scoring Gaussian component",PARAMETER_TYPE_BOOLEAN,true,"yes|no","yes");
+		// (1) define command line parameters
+		CommandLineManager commandLineManager("fmllrestimator",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
+		commandLineManager.defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-mod","bootstrap acoustic models",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-bat","batch file containing pairs (featureFile alignmentFile)",
+			PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-for","alignment file format",PARAMETER_TYPE_STRING,false,"binary|text");
+		commandLineManager.defineParameter("-tra","feature transform",PARAMETER_TYPE_FILE,false);
+		commandLineManager.defineParameter("-bst","whether to assign all occupation to best scoring Gaussian component",PARAMETER_TYPE_BOOLEAN,true,"yes|no","yes");
+		
+		// parse the parameters
+		if (commandLineManager.parseParameters(argc,argv) == false) {
+			return -1;
+		}
+		
+		// load the parameter values
+		const char *strFilePhoneSet = commandLineManager.getParameterValue("-pho");
+		const char *strFileModels = commandLineManager.getParameterValue("-mod");
+		const char *strFileBatch = commandLineManager.getParameterValue("-bat");
+		const char *strFormat = commandLineManager.getParameterValue("-for");
+		const char *strFileTransform = commandLineManager.getParameterValue("-tra");
+		bool bBestComponentOnly = commandLineManager.getBoolParameterValue("-bst");
+		
+		// load the phone set
+		PhoneSet phoneSet(strFilePhoneSet);
+		phoneSet.load();
+		
+		// load the acoustic models
+		HMMManager hmmManager(&phoneSet,HMM_PURPOSE_EVALUATION);
+		hmmManager.load(strFileModels);
+		hmmManager.initializeDecoding();
+		
+		// get starting time
+		double dBegin = TimeUtils::getTimeMilliseconds();	
+			
+		// create the fMLLR estimator
+		FMLLREstimator fMLLREstimator(&phoneSet,&hmmManager,20,bBestComponentOnly);
+		fMLLREstimator.initializeEstimation();
+		double dLikelihood = 0.0;
+		fMLLREstimator.feedAdaptationData(strFileBatch,strFormat,&dLikelihood,true);	
+		
+		double dEndFeed = TimeUtils::getTimeMilliseconds();
+		
+		Transform *transform = fMLLREstimator.estimateTransform(NULL);	
+		assert(transform);
+		
+		// store the transform
+		transform->store(strFileTransform);
+		delete transform;
+		
+		fMLLREstimator.uninitializeEstimation();
+		
+		double dEndComputation = TimeUtils::getTimeMilliseconds();
+		
+		// show the processing time
+		printf("collecting data:      %6.2f seconds\n",(dEndFeed-dBegin)/1000.0);
+		printf("computing transforms: %6.2f seconds\n",(dEndComputation-dEndFeed)/1000.0);
+   
+	} catch (ExceptionBase &e) {
 	
-	// parse the parameters
-	if (m_commandLineManager->parseParameters(argc,argv) == false) {
+		std::cerr << e.what() << std::endl;
 		return -1;
 	}
-	
-	// load the parameter values
-	const char *m_strFilePhoneSet = m_commandLineManager->getParameterValue("-pho");
-	const char *m_strFileModels = m_commandLineManager->getParameterValue("-mod");
-	const char *m_strFileBatch = m_commandLineManager->getParameterValue("-bat");
-	const char *m_strFormat = m_commandLineManager->getParameterValue("-for");
-	const char *m_strFileTransform = m_commandLineManager->getParameterValue("-tra");
-	bool m_bBestComponentOnly = m_commandLineManager->getBoolParameterValue("-bst");
-	
-   // load the phone set
-   PhoneSet *m_phoneSet = new PhoneSet(m_strFilePhoneSet);
-   m_phoneSet->load();
-   
-	// load the acoustic models
-	HMMManager *m_hmmManager = new HMMManager(m_phoneSet,HMM_PURPOSE_EVALUATION);
-	m_hmmManager->load(m_strFileModels);
-	m_hmmManager->initializeDecoding();	
-	
-	// get starting time
-   double dBegin = TimeUtils::getTimeMilliseconds();	
-		
-	// create the fMLLR estimator
-	FMLLREstimator *m_fMLLREstimator = new FMLLREstimator(m_phoneSet,m_hmmManager,20,m_bBestComponentOnly);
-	m_fMLLREstimator->initializeEstimation();
-	double dLikelihood = 0.0;
-	m_fMLLREstimator->feedAdaptationData(m_strFileBatch,m_strFormat,&dLikelihood,true);	
-	
-	double dEndFeed = TimeUtils::getTimeMilliseconds();
-	
-	Transform *transform = m_fMLLREstimator->estimateTransform(NULL);
-	assert(transform);
-	
-	// store the transform
-	transform->store(m_strFileTransform);
-	delete transform;
-	
-	m_fMLLREstimator->uninitializeEstimation();
-	
-	double dEndComputation = TimeUtils::getTimeMilliseconds();
-	
-   // show the processing time
-   printf("collecting data:      %6.2f seconds\n",(dEndFeed-dBegin)/1000.0);
-   printf("computing transforms: %6.2f seconds\n",(dEndComputation-dEndFeed)/1000.0);
-	
-	// clean-up
-	delete m_phoneSet;
-	delete m_hmmManager;
-	delete m_fMLLREstimator;
-	delete m_commandLineManager;
 	
 	return 0;
 }

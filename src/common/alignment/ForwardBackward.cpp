@@ -225,8 +225,8 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	} 
 	// initialization
 	for(int i=0 ; i < iTrellisSize ; ++i) {
-		nodeTrellis[i].dForward = -FLT_MAX;
-		nodeTrellis[i].dBackward = -FLT_MAX;
+		nodeTrellis[i].dForward = -DBL_MAX;
+		nodeTrellis[i].dBackward = -DBL_MAX;
 		nodeTrellis[i].fScore = -FLT_MAX;
 	}
 	
@@ -270,7 +270,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 			// for each time frame
 			for(int t = 0 ; t < iFeatureVectors ; ++t) {
 				// only if there is a significant occupation probability
-				if ((nodeTrellis[t*iHMMStates+i].dForward != -FLT_MAX) && (nodeTrellis[t*iHMMStates+i].dBackward != -FLT_MAX)) {
+				if ((nodeTrellis[t*iHMMStates+i].dForward != -DBL_MAX) && (nodeTrellis[t*iHMMStates+i].dBackward != -DBL_MAX)) {
 					double dProbabilityOccupation = nodeTrellis[t*iHMMStates+i].dForward + nodeTrellis[t*iHMMStates+i].dBackward - dProbabilityUtterance;
 					bStateData = true;
 					double dOccupation = exp(dProbabilityOccupation);
@@ -279,7 +279,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 				}
 			}
 		}
-		assert(bStateData == true);
+		assert(bStateData);
 	} 
 	// multiple gaussian estimation (gaussian-occupation, accumulate statistics in the physical HMM-accumulator)
 	else {
@@ -292,7 +292,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 				// for each time frame
 				for(int t = 0 ; t < iFeatureVectors ; ++t) {
 					// only if there is a significant occupation probability
-					if ((nodeTrellis[t*iHMMStates+i].dForward != -FLT_MAX) && (nodeTrellis[t*iHMMStates+i].dBackward != -FLT_MAX)) {
+					if ((nodeTrellis[t*iHMMStates+i].dForward != -DBL_MAX) && (nodeTrellis[t*iHMMStates+i].dBackward != -DBL_MAX)) {
 						// compute the occupation probability
 						double dProbabilityOccupation = -dProbabilityUtterance + nodeTrellis[t*iHMMStates+i].dBackward;
 						double dU = 0.0; 
@@ -302,16 +302,16 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 						}
 						// t > 0
 						else {
-							if (nodeTrellis[(t-1)*iHMMStates+i].dForward != -FLT_MAX) {
+							if (nodeTrellis[(t-1)*iHMMStates+i].dForward != -DBL_MAX) {
 								dU = nodeTrellis[((t-1)*iHMMStates)+i].dForward;
 								if (i > 0) {
-									if (nodeTrellis[((t-1)*iHMMStates)+(i-1)].dForward != -FLT_MAX) {	
+									if (nodeTrellis[((t-1)*iHMMStates)+(i-1)].dForward != -DBL_MAX) {	
 										dU = Numeric::logAddition(dU,nodeTrellis[((t-1)*iHMMStates)+(i-1)].dForward);
 									}
 								}
 							} else {		
 								if (i > 0) {
-									if (nodeTrellis[((t-1)*iHMMStates)+(i-1)].dForward != -FLT_MAX) {	
+									if (nodeTrellis[((t-1)*iHMMStates)+(i-1)].dForward != -DBL_MAX) {	
 										dU = nodeTrellis[((t-1)*iHMMStates)+(i-1)].dForward;
 									}
 								}	
@@ -330,7 +330,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 				}
 			}
 		}
-		assert(bStateData == true);	
+		assert(bStateData);	
 	}
 	
 	//printf("frames: %d occupation: %.2f\n",iFeatureVectors,dAux);
@@ -349,7 +349,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	//printf("utterance probability: for= %12.4f back= %12.4f diff= %12.8f (%5d frames %5d states) time: %8.4fs\n",f1,f2,fabsf(f1-f2),iFeatureVectors,iHMMStates,dTimeSeconds);	
 	
 	// clean-up
-	if (bTrellisNotCached == true) {
+	if (bTrellisNotCached) {
 		delete [] nodeTrellis;
 	}	
 
@@ -373,19 +373,19 @@ void ForwardBackward::printTrellis(NodeTrellis *node, int iRows, int iColumns) {
 		for(int i=0 ; i < iColumns; ++i) {
 			double dForward = node[(iRows*i)+j].dForward;
 			double dBackward = node[(iRows*i)+j].dBackward;
-			if (dForward == -FLT_MAX) {
+			if (dForward == -DBL_MAX) {
 				dForward = 1000.0;
 			}
-			if (dBackward == -FLT_MAX) {
+			if (dBackward == -DBL_MAX) {
 				dBackward = 1000.0;
 			}
-			/*if (dForward == FLT_MAX) {
+			/*if (dForward == DBL_MAX) {
 				dForward = 0.0;
 				dBackward = 0.0;
 			}*/
 			/*float fProbabilityOccupation = node[i*iRows+j].dForward + node[i*iRows+j].dBackward - fProbabilityUtterance;
 			float fOccupation = exp(fProbabilityOccupation);
-			if (node[(iRows*i)+j].dForward == FLT_MAX) {
+			if (node[(iRows*i)+j].dForward == DBL_MAX) {
 				fOccupation = -1.0;
 			}
 			//printf("[(t=%5d) (%5.2f) %10.2f,%10.2f (%10.2f)] ",i,fOccupation,dForward,dBackward,node[(iRows*i)+j].fScore);*/
@@ -499,7 +499,7 @@ MOccupation *ForwardBackward::processLattice(HypothesisLattice *lattice, float *
 				for(int t = 0 ; t < iFeaturesPhone ; ++t) {
 					// only if there is a significant occupation probability
 					NodeTrellis &node = nodeTrellis[t*iHMMStates+iState];
-					if ((node.dForward != -FLT_MAX) && (node.dBackward != -FLT_MAX)) {
+					if ((node.dForward != -DBL_MAX) && (node.dBackward != -DBL_MAX)) {
 						double dOccupationLikelihood = node.dForward + node.dBackward - dLikelihoodPhone;
 						double dOccupationProb = exp(dOccupationLikelihood);
 						dOccupationTotalAll += dOccupationProb;
@@ -587,7 +587,7 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 	NodeTrellis *nodeSuccessor1;
 	NodeTrellis *nodeSuccessor2;	
 	float *fFeatureVector = NULL;
-	double dScoreFrameBest = -FLT_MAX;
+	double dScoreFrameBest = -DBL_MAX;
 	// t = T
 	nodeTrellis[(iFeatureVectors*iHMMStates)-1].dBackward = 0.0;
 	nodeTrellis[(iFeatureVectors*iHMMStates)-1].fScore = computeLikelihood(vHMMStateComposite[iHMMStates-1],
@@ -595,12 +595,12 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 	
 	// t < T
 	for(int t = iFeatureVectors-1 ; t > 0 ; --t) {
-		dScoreFrameBest = -FLT_MAX;		// keep the best frame-level score, paths with an score outside the beam will be pruned-off
+		dScoreFrameBest = -DBL_MAX;	// keep the best frame-level score, paths with a score outside the beam will be pruned-off
 		fFeatureVector = fFeatureVectors+(t*m_iFeatureDimensionality);
 		// only one successor
 		node = &nodeTrellis[(t*iHMMStates)-1];
 		nodeSuccessor1 = &nodeTrellis[((t+1)*iHMMStates)-1];
-		if ((t > (iHMMStates-1)) && (nodeSuccessor1->dBackward != -FLT_MAX)) {	
+		if ((t > (iHMMStates-1)) && (nodeSuccessor1->dBackward != -DBL_MAX)) {	
 			nodeSuccessor1->fScore = computeLikelihood(vHMMStateComposite[iHMMStates-1],fFeatureVector,t+iOffset);		
 			node->dBackward = nodeSuccessor1->dBackward + nodeSuccessor1->fScore;
 			// keep the best frame-level score
@@ -615,9 +615,9 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 			nodeSuccessor1 = &nodeTrellis[(t*iHMMStates)+i];
 			nodeSuccessor2 = &nodeTrellis[(t*iHMMStates)+(i+1)];
 			// two possible successors
-			if (nodeSuccessor1->dBackward == -FLT_MAX) {
-				if (nodeSuccessor2->dBackward == -FLT_MAX) {
-					node->dBackward = -FLT_MAX;
+			if (nodeSuccessor1->dBackward == -DBL_MAX) {
+				if (nodeSuccessor2->dBackward == -DBL_MAX) {
+					node->dBackward = -DBL_MAX;
 				} else {	
 					nodeSuccessor2->fScore = computeLikelihood(vHMMStateComposite[i+1],fFeatureVector,t+iOffset);
 					node->dBackward = nodeSuccessor2->dBackward + nodeSuccessor2->fScore;
@@ -627,7 +627,7 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 					} 
 				}
 			} else {
-				if (nodeSuccessor2->dBackward == -FLT_MAX) {
+				if (nodeSuccessor2->dBackward == -DBL_MAX) {
 					nodeSuccessor1->fScore = computeLikelihood(vHMMStateComposite[i],fFeatureVector,t+iOffset);
 					node->dBackward = nodeTrellis[(t*iHMMStates)+i].dBackward + nodeSuccessor1->fScore;
 					// keep the best frame-level score
@@ -650,7 +650,7 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 		if (fBackwardThreshold != -1) {
 			if (t > (iHMMStates-1)) {
 				if ((nodeTrellis[(t*iHMMStates)-1].dBackward + fBackwardThreshold) < dScoreFrameBest) {
-					nodeTrellis[(t*iHMMStates)-1].dBackward = -FLT_MAX;
+					nodeTrellis[(t*iHMMStates)-1].dBackward = -DBL_MAX;
 				}
 			}
 			for(int i = 0 ; i < iHMMStates-1 ; ++i) {
@@ -659,7 +659,7 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 					continue;
 				}
 				if ((nodeTrellis[((t-1)*iHMMStates)+i].dBackward + fBackwardThreshold) < dScoreFrameBest) {
-					nodeTrellis[((t-1)*iHMMStates)+i].dBackward = -FLT_MAX;
+					nodeTrellis[((t-1)*iHMMStates)+i].dBackward = -DBL_MAX;
 				}
 			}
 		}
@@ -684,13 +684,13 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 		nodePredecessor2 = &nodeTrellis[((t-1)*iHMMStates)];	
 		// only one predecessor
 		if (((iFeatureVectors-1)-t)+1 > (iHMMStates-1)) {
-			if (node->dBackward == -FLT_MAX) {
-				node->dForward = -FLT_MAX;
+			if (node->dBackward == -DBL_MAX) {
+				node->dForward = -DBL_MAX;
 			} else {
 				assert(node->fScore != -FLT_MAX);
 				node->dForward = nodePredecessor2->dForward + node->fScore;	
 				if ((node->dForward + node->dBackward) < dForwardThreshold) {	
-					node->dForward = -FLT_MAX;
+					node->dForward = -DBL_MAX;
 				}
 			}
 		}
@@ -703,34 +703,34 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 			if ((i > t) || (((iFeatureVectors-1)-t) < ((iHMMStates-1)-i))) {
 				continue;
 			}	
-			if (node->dBackward == -FLT_MAX) {
-				node->dForward = -FLT_MAX;
+			if (node->dBackward == -DBL_MAX) {
+				node->dForward = -DBL_MAX;
 				continue;
 			}
 			// two possible predecessors
-			if (nodePredecessor2->dForward == -FLT_MAX) {
-				if (nodePredecessor1->dForward == -FLT_MAX) {
-					node->dForward = -FLT_MAX;
+			if (nodePredecessor2->dForward == -DBL_MAX) {
+				if (nodePredecessor1->dForward == -DBL_MAX) {
+					node->dForward = -DBL_MAX;
 				} else {
 					node->dForward = nodePredecessor1->dForward + node->fScore;
 					assert(node->fScore != -FLT_MAX);
 					if ((node->dForward + node->dBackward) < dForwardThreshold) {	
-						node->dForward = -FLT_MAX;
+						node->dForward = -DBL_MAX;
 					}
 				}
 			} else {
-				if (nodePredecessor1->dForward == -FLT_MAX) {
+				if (nodePredecessor1->dForward == -DBL_MAX) {
 					node->dForward = nodePredecessor2->dForward + node->fScore;
 					assert(node->fScore != -FLT_MAX);
 					if ((node->dForward + node->dBackward) < dForwardThreshold) {	
-						node->dForward = -FLT_MAX;
+						node->dForward = -DBL_MAX;
 					}	
 				} else {
 					node->dForward = Numeric::logAddition(nodePredecessor1->dForward,nodePredecessor2->dForward);
 					node->dForward += node->fScore;
 					assert(node->fScore != -FLT_MAX);
 					if ((node->dForward + node->dBackward) < dForwardThreshold) {	
-						node->dForward = -FLT_MAX;
+						node->dForward = -DBL_MAX;
 					}
 				}		
 			}
@@ -759,7 +759,7 @@ NodeTrellis *ForwardBackward::newTrellis(int iHMMStates, int iFeatures) {
 		}
 		// if caching is enabled and the new trellis it not too large, cache it 
 		// note: not caching large trellis prevents a more efficient use of the main memory
-		if ((m_bTrellisCacheEnabled == true) && (iTrellisSizeBytes <= m_iTrellisCacheSizeMaxBytes)) {	
+		if ((m_bTrellisCacheEnabled) && (iTrellisSizeBytes <= m_iTrellisCacheSizeMaxBytes)) {	
 			// empty the cache if necessary
 			if (m_nodeTrellisCache != NULL) {
 				delete [] m_nodeTrellisCache;
@@ -773,8 +773,8 @@ NodeTrellis *ForwardBackward::newTrellis(int iHMMStates, int iFeatures) {
 	} 
 	// initialization
 	for(int i=0 ; i < iTrellisSize ; ++i) {
-		nodeTrellis[i].dForward = -FLT_MAX;
-		nodeTrellis[i].dBackward = -FLT_MAX;
+		nodeTrellis[i].dForward = -DBL_MAX;
+		nodeTrellis[i].dBackward = -DBL_MAX;
 		nodeTrellis[i].fScore = -FLT_MAX;
 	}
 	
@@ -846,7 +846,7 @@ Alignment *ForwardBackward::processPhoneAlignment(float *fFeatures, int iFeature
 			for(int iState = 0 ; iState < iHMMStates ; ++iState) {
 				// only if there is a significant occupation probability
 				NodeTrellis &node = nodeTrellis[t*iHMMStates+iState];
-				if ((node.dForward != -FLT_MAX) && (node.dBackward != -FLT_MAX)) {
+				if ((node.dForward != -DBL_MAX) && (node.dBackward != -DBL_MAX)) {
 					double dOccupationLikelihood = node.dForward + node.dBackward - dLikelihoodPhone;
 					double dOccupationProb = exp(dOccupationLikelihood);
 					StateOcc *stateOcc = new StateOcc;

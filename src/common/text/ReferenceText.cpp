@@ -64,7 +64,7 @@ bool ReferenceText::load() {
       int iLength = strlen(strLine);		
 		for(int i=0; i<iLength ; ++i , ++iPosition) {
 			// regular words and initials+acronyms
-			if ((isWordCharacter(strLine[i]) == true) || ((strLine[i] == '.') && (i+1 < iLength) && (isalnum(strLine[i+1]) != 0))) {
+			if ((isWordCharacter(strLine[i])) || ((strLine[i] == '.') && (i+1 < iLength) && (isalnum(strLine[i+1]) != 0))) {
 				strWord[iIndexWithinWord++] = toupper(strLine[i]);
 			}
 			else {
@@ -99,15 +99,15 @@ bool ReferenceText::load() {
 						bEndSentence = true;
 					}
 				}	
-				if (bEndSentence == true) {
+				if (bEndSentence) {
 				   ReferenceSentence *sentence = new ReferenceSentence;
-				   if (m_vReferenceSentence.empty() == true) {
+				   if (m_vReferenceSentence.empty()) {
 				   	sentence->iIndexFirstWord = 0;
 				   } else {
 				   	sentence->iIndexFirstWord = m_vReferenceSentence.back()->iIndexLastWord + 1;
 				   }
 				   // there has to be at least one word
-				   if (m_vReferenceWord.empty() == true) {
+				   if (m_vReferenceWord.empty()) {
 				   	return false;
 				   }
 				   sentence->iIndexLastWord = m_vReferenceWord.back()->iIndex;

@@ -46,7 +46,7 @@ void BatchFile::load() {
 
 	// get the column names
 	int iColumn = 0;
-	char strColumnName[1024];
+	char *strColumnName = new char[m_strType.length()+1];
 	int iIndex = 0;
 	const char *str = m_strType.c_str();
 	while(1) {
@@ -64,7 +64,8 @@ void BatchFile::load() {
 			break;
 		}
 		++str;
-	}	
+	}
+	delete [] strColumnName;
 	
 	m_iColumns = iColumn;
 	

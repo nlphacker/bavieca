@@ -545,7 +545,7 @@ class HypothesisLattice {
 		
 		const char *bool2str(bool b) {
 			
-			if (b == true) {
+			if (b) {
 				return "yes";
 			} else {
 				return "no";

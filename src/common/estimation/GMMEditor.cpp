@@ -182,7 +182,7 @@ void GMMEditor::mixtureMerge(HMMState *hmmState, float fMinimumGaussianOccupatio
 				break;
 			}
 		}
-	} while(bMerged == true);
+	} while(bMerged);
 	
 	assert((int)mGaussianInfo.size() == hmmState->getMixture().getNumberComponents());
 	
@@ -330,7 +330,7 @@ int GMMEditor::mixtureIncrement(HMMState *hmmState, int iIncrement, int iSplitti
 			assert(hmmState->getMixture().getNumberComponents() == 1);
 			GaussianInfo *gaussianInfo = &mGaussianInfo[hmmState->getMixture()(0)];
 			// do not split Gaussian components that were just merged
-			if (gaussianInfo->bMerged == true) {
+			if (gaussianInfo->bMerged) {
 				return iAdded;
 			}
 			// the occupation must be at least two times the minimum Gaussian occupation
@@ -395,7 +395,7 @@ int GMMEditor::mixtureDouble(HMMState *hmmState, float fMinimumGaussianOccupatio
 		
 		// skip components with not enough occupation or those that were just merged
 		if ((gaussianInfo1->dOccupation < 2.0f*fMinimumGaussianOccupation) ||
-			(gaussianInfo1->bMerged == true)) {
+			(gaussianInfo1->bMerged)) {
 			continue;	
 		}
 		

@@ -105,7 +105,7 @@ bool ParameterManager::defineParameter(const char *strName, const char *strDescr
 void ParameterManager::parse(VParameterValue &vParameterValue) {
 
 	// (1) checks
-	if (m_mParameter.empty() == true) {
+	if (m_mParameter.empty()) {
 		BVC_ERROR << "no parameter definition found";
 	}
 
@@ -235,7 +235,7 @@ void ParameterManager::parse(VParameterValue &vParameterValue) {
 				}
 			}	
 		}
-		if (((*it).bOneRequired == true) && (bOneDefined == false)) {
+		if (((*it).bOneRequired) && (bOneDefined == false)) {
 			string str = "one of these parameters needs to be defined:";
 			for(VString::iterator jt = (*it).vParameters->begin() ; jt != (*it).vParameters->end() ; ++jt) {
 				str += " " + *jt;
@@ -273,7 +273,7 @@ void ParameterManager::setParameterValue(const char *strName, const char *strVal
 
 	MParameter::iterator it = m_mParameter.find(strName);
 	if (it == m_mParameter.end()) {
-		BVC_ERROR << "parameter does not exist";
+		BVC_ERROR << "parameter \"" << strName << "\" does not exist";
 	}	
 	it->second->strValue = strValue;
 }
@@ -363,11 +363,11 @@ VString *ParameterManager::getItemList(const char *strItems) {
 	int iCharacters = 0;
 	for(int i=0 ; i<iLength ; ++i) {
 		if (isspace(strItems[i]) != 0) {
-			return false;
+			return NULL;
 		}
 		if (strItems[i] == '|') {
 			if (iCharacters <= 0) {
-				return false;
+				return NULL;
 			}
 			strValue[iCharacters] = 0;
 			vString->push_back(strValue);

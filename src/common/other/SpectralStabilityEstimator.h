@@ -17,40 +17,65 @@
  *---------------------------------------------------------------------------------------------*/
 
 
-#ifndef MAPPINGS_H
-#define MAPPINGS_H
+#ifndef SPECTRALSTABILITYESTIMATOR_H
+#define SPECTRALSTABILITYESTIMATOR_H
 
-using namespace std;
-
-#include <stdio.h>
-#include <string>
-#include <map>
+#include "AlignmentFile.h"
+#include "FeatureFile.h"
+#include "BatchFile.h"
+#include "LexiconManager.h"
+#include "PhoneSet.h"
 
 namespace Bavieca {
+
+// number of bins used to bin the 
+#define NUMBER_BINS		50
+
+// number of vectors used to compute the cepstral mean (excluding the central vector)
+#define NUMBER_VECTORS_CONTEXT	6
 
 /**
 	@author daniel <dani.bolanos@gmail.com>
 */
-class Mappings {
-	
+class SpectralStabilityEstimator {
+
 	private:
 	
-		string m_strFile;
-		map<string,string> m_mMappings;
+		PhoneSet *m_phoneSet;
+		LexiconManager *m_lexiconManager;
 
 	public:
-
+		
 		// constructor
-		Mappings(const char *strFile);
-
+		SpectralStabilityEstimator(PhoneSet *phoneSet, LexiconManager *lexiconManager);
+		
 		// destructor
-		~Mappings();
+		~SpectralStabilityEstimator();
 		
-		// load the mappings
-		void load();
+		// process a batch file
+		bool processBatchFile(const char *strFileBatch, const char *strFileOutput);
 		
-		// map a lexical unit if a mapping is defined 
-		const char *operator[](const char *str);
+		// compute the spectral stability of a feature frames for the given utterance
+		bool computeSpectralStability(const char *strFileAlignment, const char *strFileFeatures);
+		
+		// compute the euclidean norm of a feature vector
+		float computeEuclideanNorm(float *fFeatureVector) {
+		
+			/*float fAcc = 0.0;
+			for(int i=0 ; i < CEPSTRAL_PARAMETERS_NUMBER ; ++i) {			// just the MFCC not the energy
+				fAcc += fFeatureVector[i]*fFeatureVector[i];
+			}
+			fAcc = sqrt(fAcc);
+			
+			return fAcc;*/
+			
+			return 0.0f;
+		}
+		
+		// hypothesizes regions where there is a filled-pause, it uses two thresholds
+		// - a frame is considered to be likely a filled-pause frame if its instability falls below fMaxInstability
+		// - a segment of N consecutive likely frames is hypothesized as a filled pause if (N >= iMinFrames)
+		void hypothesizeFilledPauses(float *fInstability, int iFrames, float fMaxInstability, int iMinFrames);
 
 };
 

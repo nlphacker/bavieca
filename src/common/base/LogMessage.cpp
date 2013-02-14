@@ -34,6 +34,8 @@ LogMessage::~LogMessage()
 		throw std::runtime_error(m_stream.str());
 	} else if (m_strType.compare("Warning") == 0) {
 		std::cerr << "Warning: " << m_stream.str() << "\n";
+	} else if (m_strType.compare("Information") == 0) {
+		std::cout << "Information: " << m_stream.str() << "\n";
 	} else {
 		std::cerr << m_stream.str()  << "\n";
 	}

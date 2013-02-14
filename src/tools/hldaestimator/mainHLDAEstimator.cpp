@@ -28,60 +28,56 @@ using namespace Bavieca;
 // main for the tool "hldaestimator"
 int main(int argc, char *argv[]) {
 
-	// define the parameters
-	CommandLineManager *m_commandLineManager = new CommandLineManager("hldaestimator",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
-	m_commandLineManager->defineParameter("-cfg","feature configuration",PARAMETER_TYPE_FILE,false);	
-	m_commandLineManager->defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);	
-	m_commandLineManager->defineParameter("-mod","acoustic models",PARAMETER_TYPE_FILE,false);	
-	m_commandLineManager->defineParameter("-acc","input accumulator filelist",PARAMETER_TYPE_FILE,false);	
-	m_commandLineManager->defineParameter("-itt","number of iterations for transform update",
-		PARAMETER_TYPE_INTEGER,true,"[1|100]","10");	
-	m_commandLineManager->defineParameter("-itp","number of iterations for parameter update",
-		PARAMETER_TYPE_INTEGER,true,"[1|100]","10");	
-	m_commandLineManager->defineParameter("-red","dimensionality reduction",PARAMETER_TYPE_INTEGER,true,NULL,"13");	
-	m_commandLineManager->defineParameter("-out","output folder",PARAMETER_TYPE_FOLDER,false);	
-	
-	// parse the parameters
-	if (m_commandLineManager->parseParameters(argc,argv) == false) {
-		return -1;
-	}
-	
-	// retrieve the parameters
-	const char *m_strFileFeatureConfiguration = m_commandLineManager->getParameterValue("-cfg");
-	const char *m_strFilePhoneSet = m_commandLineManager->getParameterValue("-pho");
-	const char *m_strFileModels = m_commandLineManager->getParameterValue("-mod");
-	const char *m_strFileAccList = m_commandLineManager->getParameterValue("-acc");
-	int m_iIterationsTransformUpdate = atoi(m_commandLineManager->getParameterValue("-itt"));
-	int m_iIterationsParameterUpdate = atoi(m_commandLineManager->getParameterValue("-itp"));
-	int m_iDimensionalityReduction = atoi(m_commandLineManager->getParameterValue("-red"));
-	const char *m_strFolderOutput = m_commandLineManager->getParameterValue("-out");
-	
-   // load the feature configuration
-   ConfigurationFeatures *configurationFeatures = new ConfigurationFeatures(m_strFileFeatureConfiguration);
-   configurationFeatures->load();
-   
-   delete configurationFeatures;	
-	
-   // load the phone set
-   PhoneSet *m_phoneSet = new PhoneSet(m_strFilePhoneSet);
-   m_phoneSet->load();
- 
-	// load the HMM-models
-	HMMManager *m_hmmManager = new HMMManager(m_phoneSet,HMM_PURPOSE_ESTIMATION);	
-	m_hmmManager->load(m_strFileModels);
-	m_hmmManager->initializeEstimation(ACCUMULATOR_TYPE_PHYSICAL,
-		m_hmmManager->getContextModelingOrderHMM(),m_hmmManager->getContextModelingOrderHMMCW());	
+	try {
 
-	// initialize the HLDA estimator
-	HLDAEstimator *m_hldaEstimator = new HLDAEstimator(m_hmmManager,m_strFileAccList,m_iDimensionalityReduction,m_iIterationsTransformUpdate,m_iIterationsParameterUpdate,m_strFolderOutput);
+		// define the parameters
+		CommandLineManager commandLineManager("hldaestimator",SYSTEM_VERSION,SYSTEM_AUTHOR,SYSTEM_DATE);
+		commandLineManager.defineParameter("-pho","phonetic symbol set",PARAMETER_TYPE_FILE,false);	
+		commandLineManager.defineParameter("-mod","acoustic models",PARAMETER_TYPE_FILE,false);	
+		commandLineManager.defineParameter("-acc","input accumulator filelist",PARAMETER_TYPE_FILE,false);	
+		commandLineManager.defineParameter("-itt","number of iterations for transform update",
+			PARAMETER_TYPE_INTEGER,true,"[1|100]","10");	
+		commandLineManager.defineParameter("-itp","number of iterations for parameter update",
+			PARAMETER_TYPE_INTEGER,true,"[1|100]","10");	
+		commandLineManager.defineParameter("-red","dimensionality reduction",PARAMETER_TYPE_INTEGER,true,NULL,"13");	
+		commandLineManager.defineParameter("-out","output folder",PARAMETER_TYPE_FOLDER,false);	
+		
+		// parse the parameters
+		if (commandLineManager.parseParameters(argc,argv) == false) {
+			return -1;
+		}
+		
+		// retrieve the parameters
+		const char *strFilePhoneSet = commandLineManager.getParameterValue("-pho");
+		const char *strFileModels = commandLineManager.getParameterValue("-mod");
+		const char *strFileAccList = commandLineManager.getParameterValue("-acc");
+		int iIterationsTransformUpdate = atoi(commandLineManager.getParameterValue("-itt"));
+		int iIterationsParameterUpdate = atoi(commandLineManager.getParameterValue("-itp"));
+		int iDimensionalityReduction = atoi(commandLineManager.getParameterValue("-red"));
+		const char *strFolderOutput = commandLineManager.getParameterValue("-out");
+		
+		// load the phone set
+		PhoneSet phoneSet(strFilePhoneSet);
+		phoneSet.load();
 	
-	// do the actual estimation
-	m_hldaEstimator->estimate();
+		// load the HMM-models
+		HMMManager hmmManager(&phoneSet,HMM_PURPOSE_ESTIMATION);	
+		hmmManager.load(strFileModels);
+		hmmManager.initializeEstimation(ACCUMULATOR_TYPE_PHYSICAL,
+			hmmManager.getContextModelingOrderHMM(),hmmManager.getContextModelingOrderHMMCW());	
 	
-	// clean-up
-	delete m_hldaEstimator;
-	delete m_hmmManager;
-	delete m_phoneSet;
+		// initialize the HLDA estimator
+		HLDAEstimator hldaEstimator(&hmmManager,strFileAccList,iDimensionalityReduction,
+			iIterationsTransformUpdate,iIterationsParameterUpdate,strFolderOutput);
+		
+		// do the actual estimation
+		hldaEstimator.estimate();
+	
+	} catch (ExceptionBase &e) {
+	
+		std::cerr << e.what() << std::endl;
+		return -1;
+	}	
 
 	return 0;
 }

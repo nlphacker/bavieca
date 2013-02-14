@@ -36,7 +36,7 @@ TextAligner::~TextAligner()
 TextAlignment *TextAligner::align(VLexUnit &vLexUnitHyp, VLexUnit &vLexUnitRef, bool bPenalizeTrailingDeletions) {
 
    // if there are no elements in the reference return error
-   if (vLexUnitRef.empty() == true) {
+   if (vLexUnitRef.empty()) {
       return NULL;
    }
  

@@ -601,7 +601,7 @@ void LMManager::sortBigrams() {
 					bSwapped = true;
 				}
 			}
-		} while(bSwapped == true);
+		} while(bSwapped);
 	}
 }
 

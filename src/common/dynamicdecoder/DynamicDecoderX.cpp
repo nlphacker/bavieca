@@ -1716,6 +1716,16 @@ void DynamicDecoderX::historyItemGarbageCollection() {
 			}
 		}	
 	}
+	/*if (m_iHistoryItemsAux2 != NULL) {
+		for(int i=0 ; i < m_iHistoryItemsAux2Size ; ++i) {
+			if (m_iHistoryItemsAux2[i] != -1) {
+				if ((m_historyItems+m_iHistoryItemsAux2[i])->iActive != m_iTimeCurrent) {	
+					(m_historyItems+m_iHistoryItemsAux2[i])->iActive = m_iTimeCurrent;
+					++iItemsActive;
+				}
+			}
+		}	
+	}*/
 	
 	// (3) if a certain percentage* of the items are active then we need to allocate 
 	// a bigger data structure to keep the new history items
@@ -2308,6 +2318,11 @@ bool DynamicDecoderX::mergeWordSequences(int iWGToken1, int iWGToken2) {
 	int iLength2 = 0;
 	for( ; ((iLength2 < m_iMaxWordSequencesState) && (wgToken2[iLength2].iWordSequence != -1)) ; ++iLength2);
 	
+	/*WGToken wgTokenAux1[m_iMaxWordSequencesState];
+	WGToken wgTokenAux2[m_iMaxWordSequencesState];
+	memcpy(&wgTokenAux1,wgToken1,sizeof(WGToken)*m_iMaxWordSequencesState);
+	memcpy(&wgTokenAux2,wgToken2,sizeof(WGToken)*m_iMaxWordSequencesState);*/
+	
 	assert((iLength1 > 0) && (iLength2 > 0));
 		
 	int k = iLength1-1;	
@@ -2363,7 +2378,23 @@ bool DynamicDecoderX::mergeWordSequences(int iWGToken1, int iWGToken2) {
 		wgToken1[iUniqueElements+1].iWordSequence = -1;
 	}
 	
+	//printWGToken(wgTokenTable);
 	delete [] wgTokenTable;
+	
+	// sanity check
+	/*int iElements = 0;
+	for(int i=0 ; ((i < m_iMaxWordSequencesState) && (wgToken1[i].iWordSequence != -1)) ; ++i, ++iElements) {
+		//printf("%3d -> %12.4f\n",i,wgToken1[i].fScore);
+		if (i > 0) {
+			//if (wgToken1[i-1].fScore <= wgToken1[i].fScore) {
+			//	printWGToken(wgTokenAux1);
+			//	printWGToken(wgTokenAux2);
+			//	printWGToken(wgToken1);
+			//}
+			assert(wgToken1[i-1].fScore >= wgToken1[i].fScore);
+		}
+	}*/
+	//assert(iElements == std::min(iLength1+iLength2,m_iMaxWordSequencesState));
 
 	return bReturn;
 }
@@ -2388,7 +2419,7 @@ float DynamicDecoderX::computeLoadFactorHashWordSequences(int *iBucketsUsed, int
 	return ((float)(*iBucketsUsed))/((float)m_iWSHashBuckets);
 }
 
-// shows hash-occupation information (debugging)
+// show hash-occupation information (debugging)
 void DynamicDecoderX::printHashsStats() {
 
 	int iBucketsUsed = 0;
@@ -2491,6 +2522,11 @@ void DynamicDecoderX::pruneExtraTokens(DNode *node) {
 			activeTokensNext[iAvailable] = activeTokensNext[j];
 		}
 	}
+	/*int iSurvivors2 = node->iActiveTokensNext-iPruned;
+	if (iSurvivors != iSurvivors2) {
+		printf("%f %f\n",fThresholdHistogram,fThresholdNode);
+	}
+	assert(iSurvivors == iSurvivors2);*/
 	node->iActiveTokensNext = node->iActiveTokensNext-iPruned;
 	
 	if (node->iActiveTokensNext >= m_iTokensNodeMax) {

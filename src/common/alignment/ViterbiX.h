@@ -86,7 +86,7 @@ class ViterbiX {
 		// prints the alignment
 		void print(VPhoneAlignment &vPhoneAlignment) {
 		
-			if (vPhoneAlignment.empty() == true) {
+			if (vPhoneAlignment.empty()) {
 				printf("<empty alignment>\n");
 				return;
 			}

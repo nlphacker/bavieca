@@ -163,7 +163,7 @@ void Viterbi::getHMMStateDecodingComposite(VLexUnit &vLexUnitText, VHMMStateDeco
 float Viterbi::computeEmissionProbability(HMMStateDecoding *hmmStateDecoding, float *fFeatureVector, int iFeatureVector) {
 
 	// cache: check if the score exists in the cache
-	if (m_bUseCache == true) {
+	if (m_bUseCache) {
 	
 		int iIndex = iFeatureVector*m_iHMMStatesPhysical+hmmStateDecoding->getId();
 		if (m_fScoreCache[iIndex] != FLT_MAX) {
@@ -183,7 +183,9 @@ float Viterbi::computeEmissionProbability(HMMStateDecoding *hmmStateDecoding, fl
 }
 
 // align a sequence of HMM-states to the audio
-VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVectors, VHMMStateDecoding &vHMMStateDecodingComposite, VLexUnit &vLexUnit, float *fLikelihood, int iOffset, unsigned char &iErrorCode) {
+VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVectors, 
+	VHMMStateDecoding &vHMMStateDecodingComposite, VLexUnit &vLexUnit, float *fLikelihood, 
+	int iOffset, unsigned char &iErrorCode) {
 
 	// check whether there are enough feature frames to perform the alignment
 	if ((int)vHMMStateDecodingComposite.size() > iFeatureVectors) {
@@ -196,7 +198,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 	m_hmmManager->resetHMMEmissionProbabilityComputation(vHMMStateDecodingComposite);
 	
 	// create the cache if necessary
-	if (m_bUseCache == true) {
+	if (m_bUseCache) {
 		if (m_fScoreCache == NULL) {
 			m_iHMMStatesPhysical = m_hmmManager->getNumberHMMStatesPhysical();
 			int iEntriesNeeded = iFeatureVectors*m_iHMMStatesPhysical;
@@ -263,7 +265,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 	nodeTrellis[0].iHMMStatePrev = -1;
 	// t > 0
 	for(int t = 1 ; t < iFeatureVectors ; ++t) {
-		double dScoreFrameBest = -FLT_MAX;	// keep the best frame-level score (pruning)
+		double dScoreFrameBest = -DBL_MAX;	// keep the best frame-level score (pruning)
 		float *fFeatureVector = fFeatureVectors+(t*m_iFeatureDimensionality);
 		// only one predecessor
 		if (((iFeatureVectors-1)-t)+1 > (iHMMStates-1)) {
@@ -369,7 +371,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 	vPhoneAlignment->push_front(phoneAlignment);
 	while(t >= 0) {
 		// the phone changes
-		if ((vHMMStateDecodingComposite[iHMMState]->getState() == NUMBER_HMM_STATES-1) && (bNewPhone == true)) {
+		if ((vHMMStateDecodingComposite[iHMMState]->getState() == NUMBER_HMM_STATES-1) && (bNewPhone)) {
 			// increment the phone index within the current lexical unit (or restart it in case we moved to the next lexical unit)
 			--iPhoneIndexLexUnit;
 			if (iPhoneIndexLexUnit == -1) {

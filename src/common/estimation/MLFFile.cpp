@@ -60,7 +60,7 @@ void MLFFile::load() {
    	// feature file?
    	if (isFeatureFilename(strLine)) {
    		if (mlfUtterance != NULL) {
-   			if (mlfUtterance->vLexUnit.empty() == true) {
+   			if (mlfUtterance->vLexUnit.empty()) {
    				BVC_ERROR << "loading MLF file: " << m_strFile << " at line " << iLine << ", unexpected feature file name";
    			}
    			m_vMLFUtterance.push_back(mlfUtterance);
@@ -79,7 +79,7 @@ void MLFFile::load() {
    	}
    }	
 	if (mlfUtterance != NULL) {
-		if (mlfUtterance->vLexUnit.empty() == true) {	
+		if (mlfUtterance->vLexUnit.empty()) {	
 			BVC_ERROR << "loading MLF: line " << iLine;
 		}
 		m_vMLFUtterance.push_back(mlfUtterance);

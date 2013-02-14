@@ -63,7 +63,7 @@ Alignment *ViterbiX::processUtterance(VLexUnit &vLexUnitTranscription, bool bMul
 	//double dTimeBegin = TimeUtils::getTimeMilliseconds();
 	
 	// make sure there is at least one lexical unit to align to
-	if (vLexUnitTranscription.empty() == true) {
+	if (vLexUnitTranscription.empty()) {
 		iErrorCode = ERROR_CODE_EMPTY_TRANSCRIPTION;
 		return NULL;	
 	}	
@@ -146,7 +146,7 @@ Alignment *ViterbiX::processUtterance(VLexUnit &vLexUnitTranscription, bool bMul
 		}	
 		// previous nodes
 		for(FBEdgeHMM *edge = edgeTmp->nodePrev->edgePrev ; edge != NULL ; edge = edge->edgeNext) {
-			if (trellis[t*iEdges+edge->iEdge].dViterbi != -FLT_MAX) {
+			if (trellis[t*iEdges+edge->iEdge].dViterbi != -DBL_MAX) {
 				if (trellis[t*iEdges+edge->iEdge].dViterbi > dViterbiPrevBest) {
 					dViterbiPrevBest = trellis[t*iEdges+edge->iEdge].dViterbi;
 					edgePrevBest = edge; 
@@ -210,7 +210,7 @@ VTrellisNode *ViterbiX::viterbi(int iFeatures, float *fFeatures, int iNodes, FBN
 	
 	for(int i=0 ; i < iFeatures*iEdges ; ++i) {
 		trellis[i].fScore = -FLT_MAX;
-		trellis[i].dViterbi = -FLT_MAX;
+		trellis[i].dViterbi = -DBL_MAX;
 	}
 
 	// active states
@@ -248,25 +248,25 @@ VTrellisNode *ViterbiX::viterbi(int iFeatures, float *fFeatures, int iNodes, FBN
 			int s = edgeActiveCurrent[i]->iEdge;
 			VTrellisNode *nodeTrellis = &trellis[t*iEdges+s];
 			// accumulate probability mass from previous time-frame
-			nodeTrellis->dViterbi = -FLT_MAX;
+			nodeTrellis->dViterbi = -DBL_MAX;
 			// (1) same node	
 			if (t > edgeActiveCurrent[i]->nodePrev->iDistanceStart) {
-				if (trellis[(t-1)*iEdges+s].dViterbi != -FLT_MAX) {
+				if (trellis[(t-1)*iEdges+s].dViterbi != -DBL_MAX) {
 					nodeTrellis->dViterbi = trellis[(t-1)*iEdges+s].dViterbi;	
 				}
 			}
 			// (2) previous nodes
 			for(FBEdgeHMM *edge = edgeActiveCurrent[i]->nodePrev->edgePrev ; edge != NULL ; edge = edge->edgeNext) {
 				if (t > edge->nodePrev->iDistanceStart) {
-					//if (trellis[(t-1)*iEdges+edge->iEdge].dViterbi != -FLT_MAX) {
+					//if (trellis[(t-1)*iEdges+edge->iEdge].dViterbi != -DBL_MAX) {
 						//nodeTrellis->dViterbi = Numeric::logAddition(trellis[(t-1)*iEdges+edge->iEdge].dViterbi,nodeTrellis->dViterbi);
 					//}
-					if (trellis[(t-1)*iEdges+edge->iEdge].dViterbi != -FLT_MAX) {
+					if (trellis[(t-1)*iEdges+edge->iEdge].dViterbi != -DBL_MAX) {
 						nodeTrellis->dViterbi = max(nodeTrellis->dViterbi,trellis[(t-1)*iEdges+edge->iEdge].dViterbi);
 					}
 				}
 			}
-			if (nodeTrellis->dViterbi != -FLT_MAX) {	
+			if (nodeTrellis->dViterbi != -DBL_MAX) {	
 				HMMStateDecoding *hmmStateDecoding = (HMMStateDecoding*)(edgeActiveCurrent[i]->hmmStateEstimation);
 				assert(hmmStateDecoding->getGaussianComponents() > 0);
 				nodeTrellis->fScore = hmmStateDecoding->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,t);
@@ -356,7 +356,7 @@ VTrellisNode *ViterbiX::newTrellis(int iFeatures, int iEdges, int *iErrorCode) {
 		}
 		// if caching is enabled and the new trellis it not too large, cache it 
 		// note: not caching large trellis prevents a more efficient use of the main memory
-		if ((m_bTrellisCache == true) && (iTrellisSizeBytes <= m_iTrellisCacheMaxSizeBytes)) {	
+		if ((m_bTrellisCache) && (iTrellisSizeBytes <= m_iTrellisCacheMaxSizeBytes)) {	
 			// empty the cache if necessary
 			if (m_trellisCache != NULL) {
 				delete [] m_trellisCache;
@@ -393,7 +393,7 @@ void ViterbiX::print(VTrellisNode *node, int iRows, int iColumns) {
 				fScore = -100000.0000;
 			}
 			double dViterbi = node[i*iColumns+j].dViterbi;
-			if (dViterbi == -FLT_MAX) {
+			if (dViterbi == -DBL_MAX) {
 				dViterbi = -100000.0000;
 			}
 			printf("%12.4f %12.4f   ",fScore,dViterbi);

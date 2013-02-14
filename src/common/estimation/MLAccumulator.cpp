@@ -193,11 +193,11 @@ void MLAccumulator::accumulate() {
 		// load the features for the estimation
 		ostringstream strFileFeatures;
 		strFileFeatures << m_strFolderFeaturesAlignment << PATH_SEPARATOR << (*it)->strFilePattern;
-		FeatureFile *featureFileAlignment = new FeatureFile(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,m_iFeatureDimensionalityAlignment);
-		featureFileAlignment->load();
+		FeatureFile featureFileAlignment(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,
+			m_iFeatureDimensionalityAlignment);
+		featureFileAlignment.load();
 		int iFeatureVectorsAlignment = 0;
-		float *fFeaturesAlignment = (float*)featureFileAlignment->getFeatureVectors(&iFeatureVectorsAlignment);
-		delete featureFileAlignment;
+		float *fFeaturesAlignment = (float*)featureFileAlignment.getFeatureVectors(&iFeatureVectorsAlignment);
 		
 		// load the features for the accumulation (if necessary)
 		int iFeatureVectorsAcc = -1;
@@ -205,10 +205,10 @@ void MLAccumulator::accumulate() {
 		if (m_bSingleFeatureStream == false) {
 			ostringstream strFileFeatures;
 			strFileFeatures << m_strFolderFeaturesAcc << PATH_SEPARATOR << (*it)->strFilePattern;
-			FeatureFile *featureFileAcc = new FeatureFile(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,m_iFeatureDimensionalityAcc);
-			featureFileAcc->load();
-			fFeaturesAcc = (float*)featureFileAcc->getFeatureVectors(&iFeatureVectorsAcc);
-			delete featureFileAcc;
+			FeatureFile featureFileAcc(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,
+				m_iFeatureDimensionalityAcc);
+			featureFileAcc.load();
+			fFeaturesAcc = (float*)featureFileAcc.getFeatureVectors(&iFeatureVectorsAcc);
 		} 
 		// same feature stream for estimation and parameter update (default behaviour)
 		else {
@@ -233,7 +233,7 @@ void MLAccumulator::accumulate() {
 		}
 		// utterance discarded: show a message
 		else {
-			BVC_WARNING << "unable to process utterance: \"" << strFileFeatures << "\", reason: " << strReturnCode;
+			BVC_WARNING << "unable to process utterance: \"" << strFileFeatures.str() << "\", reason: " << strReturnCode;
 		}
 		delete alignment;
 		
