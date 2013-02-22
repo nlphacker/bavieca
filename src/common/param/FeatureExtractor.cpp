@@ -190,7 +190,7 @@ float FeatureExtractor::getWarpedFrequency(float fFrequency) {
 	if (fFrequency <= dW0) {
 		return m_fWarpFactor*fFrequency;
 	} else {
-		return (m_fWarpFactor*dW0)+((dFrequencyMax-(m_fWarpFactor*dW0))/(dFrequencyMax-dW0))*(fFrequency-dW0);
+		return (float)((m_fWarpFactor*dW0)+((dFrequencyMax-(m_fWarpFactor*dW0))/(dFrequencyMax-dW0))*(fFrequency-dW0));
 	}	
 }
 
@@ -213,7 +213,7 @@ bool FeatureExtractor::extractFeaturesBatch(const char *strFileBatch, bool bHalt
 		short int *sSamples = NULL;
 		try {
 			sSamples = AudioFile::load(batchFile.getField(iUtterance,"raw"),&iSamples);
-		} catch(ExceptionBase &e) {
+		} catch(ExceptionBase) {
 			if (bHaltOnFailure) {
 				return false;
 			}	
@@ -237,7 +237,7 @@ bool FeatureExtractor::extractFeaturesBatch(const char *strFileBatch, bool bHalt
 		try {
 			featureFile.store(vUtteranceData[iUtterance].features.fFeatures,
 			vUtteranceData[iUtterance].features.iFeatures);
-		} catch(ExceptionBase &e) {	
+		} catch(ExceptionBase) {	
 			if (bHaltOnFailure) {
 				return false;
 			}	
@@ -501,7 +501,7 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 		}
 		for(int j=2 ; j < m_iFFTPoints/2 ; ++j) {
 			int iBin = m_iFFTPointBin[j];
-			float fValue = m_fFFTPointGain[j]*dFFTMagnitude[j];
+			float fValue = (float)(m_fFFTPointGain[j]*dFFTMagnitude[j]);
 			if (iBin > 0) {
 				dBins[iBin] += fValue;
 			}
@@ -528,9 +528,9 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 				dAux += dBins[k]*cos((PI_NUMBER*j*(((float)k)-0.5))/((float)m_iFilterbankFilters));
 			}
 			dAux *= sqrt(2.0/((float)m_iFilterbankFilters));
-			fMFCCAux[j-1] = dAux;
+			fMFCCAux[j-1] = (float)dAux;
 		}
-		fMFCCAux[m_iCepstralCoefficients] = dFrameEnergy;
+		fMFCCAux[m_iCepstralCoefficients] = (float)dFrameEnergy;
 	}
 	
 	// apply cepstral normalization (optional)
@@ -626,9 +626,9 @@ void FeatureExtractor::removeDC(short *sSamples, int iSamples) {
 void FeatureExtractor::applyPreemphasis(short *sSamples, int iSamples) {
 
 	for(int i=iSamples-1 ; i > 0 ; --i) {
-		sSamples[i] = convert(((float)sSamples[i])-(PREEMPHASIS_COEFFICIENT*((float)sSamples[i-1])));
+		sSamples[i] = convert(((float)sSamples[i])-((float)PREEMPHASIS_COEFFICIENT*((float)sSamples[i-1])));
 	}
-	sSamples[0] = convert(((float)sSamples[0])-(PREEMPHASIS_COEFFICIENT*((float)sSamples[0])));
+	sSamples[0] = convert(((float)sSamples[0])-((float)PREEMPHASIS_COEFFICIENT*((float)sSamples[0])));
 }
 
 // apply Window-tapering
@@ -840,9 +840,9 @@ void FeatureExtractor::applyCMN(float *fFeatures, int iFeatures, int iCoefficien
 	// substract the mean
 	for(int i=0 ; i < iFeatures ; ++i) {
 		for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
-			fFeatures[i*iCoefficients+j] -= dMean[j];
+			fFeatures[i*iCoefficients+j] -= (float)dMean[j];
 		}
-	}	
+	}
  
  	delete [] dObservation;
  	delete [] dMean;
@@ -880,7 +880,7 @@ void FeatureExtractor::applyCMVN(float *fFeatures, int iFeatures, int iCoefficie
 	// substract the mean
 	for(int i=0 ; i < iFeatures ; ++i) {
 		for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
-			fFeatures[i*iCoefficients+j] = (fFeatures[i*iCoefficients+j]-dMean[j])/dStandardDeviation[j];
+			fFeatures[i*iCoefficients+j] = (float)((fFeatures[i*iCoefficients+j]-dMean[j])/dStandardDeviation[j]);
 		}
 	}	
  
@@ -935,7 +935,7 @@ void FeatureExtractor::applyCMNStream(float *fFeatures, int iFeatures, int iCoef
 	// (3) substract the mean
 	for(int i=0 ; i < iFeatures ; ++i) {	
 		for(int j=0 ; j < iCoefficientsNormalization ; ++j) {	
-			fFeatures[i*iCoefficients+j] -= dAcc[j];
+			fFeatures[i*iCoefficients+j] -= (float)dAcc[j];
 		}		
 	}
 		
@@ -988,7 +988,7 @@ void FeatureExtractor::applyCMN(FeaturesUtterance *featuresUtterance, int iUtter
 		// accumulate statistics
 		for(int i=0 ; i < featuresUtterance[iUtterance].iFeatures ; ++i) {
 			for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
-				fFeatures[i*iCoefficients+j] = fFeatures[i*iCoefficients+j]-dMean[j];
+				fFeatures[i*iCoefficients+j] = (float)(fFeatures[i*iCoefficients+j]-dMean[j]);
 			}	
 		}
 	}	
@@ -1048,7 +1048,7 @@ void FeatureExtractor::applyCMVN(FeaturesUtterance *featuresUtterance, int iUtte
 		// accumulate statistics
 		for(int i=0 ; i < featuresUtterance[iUtterance].iFeatures ; ++i) {
 			for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
-				fFeatures[i*iCoefficients+j] = (fFeatures[i*iCoefficients+j]-dMean[j])/dStandardDeviation[j];
+				fFeatures[i*iCoefficients+j] = (float)((fFeatures[i*iCoefficients+j]-dMean[j])/dStandardDeviation[j]);
 			}	
 		}
 	}	

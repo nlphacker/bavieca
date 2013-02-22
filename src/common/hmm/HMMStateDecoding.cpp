@@ -389,17 +389,16 @@ float HMMStateDecoding::computeEmissionProbabilityNearestNeighborSIMD(float *fFe
 		return m_fProbabilityCached;
 	}
 
-#ifdef _WIN32
+#if defined __linux__ || defined __APPLE__
+	__attribute__((aligned(16))) float *fMean,*fCovariance,fAcc;
+	__attribute__((aligned(16))) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
+	__attribute__((aligned(16))) float tmpf[4];
+#elif _WIN32
 	__declspec(align(16)) float *fMean,*fCovariance,fAcc;
 	__declspec(align(16)) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
 	__declspec(align(16)) float tmpf[4];
 #endif
 
-#ifdef __linux__
-	__attribute__((aligned(16))) float *fMean,*fCovariance,fAcc;
-	__attribute__((aligned(16))) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
-	__attribute__((aligned(16))) float tmpf[4];
-#endif
 
   __m128 tmp;
   __m128 ans;
@@ -523,17 +522,16 @@ float HMMStateDecoding::computeEmissionProbabilityNearestNeighborSIMD(float *fFe
 		//return m_fProbabilityCached;
 	}
 	
-#ifdef _WIN32
+#if defined __linux__ || defined __APPLE__
+	__attribute__((aligned(16))) float *fMean,*fCovariance,fAcc;
+	__attribute__((aligned(16))) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
+	__attribute__((aligned(16))) float tmpf[4];
+#elif _WIN32
 	__declspec(align(16)) float *fMean,*fCovariance,fAcc;
 	__declspec(align(16)) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
 	__declspec(align(16)) float tmpf[4];
 #endif 
 
-#ifdef __linux__
-	__attribute__((aligned(16))) float *fMean,*fCovariance,fAcc;
-	__attribute__((aligned(16))) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
-	__attribute__((aligned(16))) float tmpf[4];
-#endif 
 
   __m128 tmp;
   __m128 ans;
@@ -665,9 +663,7 @@ __attribute__((aligned(16))) float *fStaticMean2 = NULL;
 __attribute__((aligned(16))) float *fStaticCovariance2 = NULL;
 __attribute__((aligned(16))) float fAcc[4];
 __attribute__((aligned(16))) float fStaticConstant;
-#endif
-
-#ifdef _WIN32
+#elif _WIN32
 __declspec(align(16)) float *fStaticFeatures = NULL;
 __declspec(align(16)) float *fStaticMean = NULL;
 __declspec(align(16)) float *fStaticCovariance = NULL;

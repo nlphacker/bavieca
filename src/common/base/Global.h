@@ -68,16 +68,16 @@
 const double PI_NUMBER = 2.0*acos(0.0);
 
 // inlining
-#if defined __linux__
-     #define FORCE_INLINE __attribute__((always_inline))
-     #define NO_INLINE __attribute__((noinline))
-#elif defined _WIN32
-     #define FORCE_INLINE __forceinline
-     #define NO_INLINE __declspec(noinline)
+#if defined __linux__ || defined __APPLE__
+	#define FORCE_INLINE __attribute__((always_inline))
+	#define NO_INLINE __attribute__((noinline))
+#elif _WIN32
+	#define FORCE_INLINE __forceinline
+	#define NO_INLINE __declspec(noinline)
 #else
-     #error "no inlining support"
-     #define FORCE_INLINE inline
-     #define NO_INLINE
+	#warning "unsupported platform"
+	#define FORCE_INLINE inline
+	#define NO_INLINE
 #endif 
 
 

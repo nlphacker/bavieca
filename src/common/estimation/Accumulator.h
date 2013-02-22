@@ -64,20 +64,18 @@ namespace Bavieca {
 
 #define MAX_IDENTITY_LENGTH		32
 
-
-
 using namespace std;
 
 #include <string>
 #include <vector>
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 using namespace __gnu_cxx;
 #include <ext/hash_map>
-#endif
-
-#ifdef _WIN32
+#elif _WIN32
 #include <hash_map>
+#else
+	#error "unsupported platform"
 #endif
 
 class Accumulator;
@@ -97,7 +95,22 @@ typedef struct {
 struct MAccumulatorFunctions
 {
 
-#ifdef _WIN32
+#if defined __linux__ || defined __APPLE__
+	
+	// comparison function (used for matching, comparison for equality)
+	bool operator()(const unsigned char *contextUnit1, const unsigned char *contextUnit2) const {
+	
+		for(int i=0 ; contextUnit1[i] != UCHAR_MAX ; ++i) {
+			assert(contextUnit2[i] != UCHAR_MAX);
+			if (contextUnit1[i] != contextUnit2[i]) {
+				return false;
+			}
+		}
+		
+		return true;
+	}	
+	
+#elif _WIN32	
 	
 	static const size_t bucket_size = 4;
 	static const size_t min_buckets = 8;
@@ -117,21 +130,6 @@ struct MAccumulatorFunctions
 		// a == b, then (a < b) and (b < a) must be false
 		return false;
 	}
-	
-#elif __linux__
-	
-	// comparison function (used for matching, comparison for equality)
-	bool operator()(const unsigned char *contextUnit1, const unsigned char *contextUnit2) const {
-	
-		for(int i=0 ; contextUnit1[i] != UCHAR_MAX ; ++i) {
-			assert(contextUnit2[i] != UCHAR_MAX);
-			if (contextUnit1[i] != contextUnit2[i]) {
-				return false;
-			}
-		}
-		
-		return true;
-	}
 
 #endif
 	
@@ -141,7 +139,6 @@ struct MAccumulatorFunctions
 		unsigned int iAcc = 0;
 		unsigned int iAux = 0;
 		for(int i=0 ; contextUnit[i] != UCHAR_MAX ; ++i) {
-			//printf("%u ",contextUnit[i]);
 			if (i <= 3) {	
 				iAcc <<= (8*i);
 				iAcc += contextUnit[i];
@@ -151,14 +148,13 @@ struct MAccumulatorFunctions
 				iAcc ^= iAux;
 			}
 		}
-		//printf("-> %u\n",iAcc);
 	
 		return iAcc;
 	}
 };
 
 // structure for easy access to logical accumulators (maps context dependent phones to accumulators)
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 typedef hash_map<unsigned char*,Accumulator*,MAccumulatorFunctions,MAccumulatorFunctions> MAccumulatorLogical;
 #elif _WIN32
 typedef hash_map<unsigned char*,Accumulator*,MAccumulatorFunctions> MAccumulatorLogical;

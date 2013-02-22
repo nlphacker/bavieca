@@ -25,13 +25,13 @@
 #include "HMMManager.h"
 #include "LexiconManager.h"
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 using namespace __gnu_cxx;
 #include <ext/hash_map>
-#endif
-
-#ifdef _WIN32
+#elif _WIN32
 #include <hash_map>
+#else 
+	#error "unsupported platform"
 #endif
 
 using namespace std;
@@ -91,7 +91,25 @@ typedef struct {
 struct MContextHashFunctions
 {
 
-#ifdef _WIN32
+#if defined __linux__ || defined __APPLE__	
+
+	// comparison function (used for matching, comparison for equality)
+	bool operator()(const unsigned char *contextUnit1, const unsigned char *contextUnit2) const {
+	
+		int i=0;
+		for( ; contextUnit1[i] != UCHAR_MAX ; ++i) {
+			assert(contextUnit2[i] != UCHAR_MAX);
+			if (contextUnit1[i] != contextUnit2[i]) {
+				return false;
+			}
+		}
+		assert(contextUnit2[i] == UCHAR_MAX);
+		
+		return true;
+	}
+
+#elif _WIN32
+
 	static const size_t bucket_size = 4;
 	static const size_t min_buckets = 8;
 
@@ -109,24 +127,7 @@ struct MContextHashFunctions
 		assert(contextUnit2[i] == UCHAR_MAX);
 		// a == b, then (a < b) and (b < a) must be false
 		return false;
-	}
-	
-#elif __linux__	
-
-	// comparison function (used for matching, comparison for equality)
-	bool operator()(const unsigned char *contextUnit1, const unsigned char *contextUnit2) const {
-	
-		int i=0;
-		for( ; contextUnit1[i] != UCHAR_MAX ; ++i) {
-			assert(contextUnit2[i] != UCHAR_MAX);
-			if (contextUnit1[i] != contextUnit2[i]) {
-				return false;
-			}
-		}
-		assert(contextUnit2[i] == UCHAR_MAX);
-		
-		return true;
-	}
+	}	
 
 #endif
 	
@@ -151,7 +152,7 @@ struct MContextHashFunctions
 };
 
 // structure for easy management of different contexts (keeps existing contexts)
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 typedef hash_map<unsigned char*,bool,MContextHashFunctions,MContextHashFunctions> MContextBool;
 typedef hash_map<unsigned char*,NodeTempX*,MContextHashFunctions,MContextHashFunctions> MContextNode;
 typedef hash_map<unsigned char*,vector< pair<unsigned char*,NodeTempX*> >,MContextHashFunctions,MContextHashFunctions> MContextV;

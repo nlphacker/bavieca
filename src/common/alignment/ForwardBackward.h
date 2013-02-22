@@ -57,7 +57,16 @@ typedef struct {
 // ad-hoc functions to use Duple as the key in a hash_map data structure
 struct MTimeStateFunctions {
 
-#ifdef _WIN32
+#if defined __linux__ || defined __APPLE__
+	
+	// comparison function (used for matching, comparison for equality)
+	bool operator()(const pair<int,int> timeState1, const pair<int,int> timeState2) const {
+	
+		return ((timeState1.first == timeState2.first) && (timeState1.second == timeState2.second));
+	}
+	
+#elif _WIN32
+		
 	static const size_t bucket_size = 4;
 	static const size_t min_buckets = 8;
 
@@ -69,14 +78,6 @@ struct MTimeStateFunctions {
 		} else {
 			return (timeState1.first < timeState2.first);
 		}
-	}
-	
-#elif __linux__
-	
-	// comparison function (used for matching, comparison for equality)
-	bool operator()(const pair<int,int> timeState1, const pair<int,int> timeState2) const {
-	
-		return ((timeState1.first == timeState2.first) && (timeState1.second == timeState2.second));
 	}
 
 #endif
@@ -92,7 +93,7 @@ struct MTimeStateFunctions {
 	}
 };
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 // maps (timeFrame+hmmId) to occupation probability (posterior prob)
 typedef hash_map<pair<int,int> , double,MTimeStateFunctions,MTimeStateFunctions> MOccupation;
 // maps (timeFrame+hmmId) to likelihood values

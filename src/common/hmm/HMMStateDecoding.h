@@ -32,7 +32,14 @@ using namespace std;
 #include <xmmintrin.h>
 //#include <smmintrin.h>
 //#include <pmmintrin.h>
+
+#if defined __linux__ || defined _WIN32
 #include <malloc.h>
+#elif __APPLE__
+#include <sys/malloc.h>
+#else 
+	#error "unsupported platform"
+#endif
 
 #include "Global.h"
 
@@ -244,17 +251,16 @@ class HMMStateDecoding {
 				return m_fProbabilityCached;
 			}
 		
-		#ifdef _WIN32
+		#if defined __linux__ || defined __APPLE__
+			__attribute__((aligned(16))) float *fMean,*fCovariance,fAcc;
+			__attribute__((aligned(16))) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
+			__attribute__((aligned(16))) float tmpf[4];
+		#elif _WIN32
 			__declspec(align(16)) float *fMean,*fCovariance,fAcc;
 			__declspec(align(16)) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
 			__declspec(align(16)) float tmpf[4];
 		#endif
 		
-		#ifdef __linux__
-			__attribute__((aligned(16))) float *fMean,*fCovariance,fAcc;
-			__attribute__((aligned(16))) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
-			__attribute__((aligned(16))) float tmpf[4];
-		#endif
 		
 		__m128 tmp;
 		__m128 ans;

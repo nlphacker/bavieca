@@ -33,34 +33,34 @@ namespace Bavieca {
 class ConfigurationFeatures;
 
 // feature type
-#define FEATURE_TYPE_MFCC		0
+#define FEATURE_TYPE_MFCC		0	
 #define FEATURE_TYPE_PLP		1
 
 // feature extraction parameters
-#define PREEMPHASIS_COEFFICIENT						0.97	// pre-emphasis coefficient
-#define WINDOW_SIZE										20		// window size in milliseconds
-#define SKIP_RATE											10		// skip rate in milliseconds
+#define PREEMPHASIS_COEFFICIENT				0.97		// pre-emphasis coefficient
+#define WINDOW_SIZE					20		// window size in milliseconds
+#define SKIP_RATE					10		// skip rate in milliseconds
 
 // window tapering method
-#define WINDOW_TAPERING_METHOD_NONE					0		// no tapering
-#define WINDOW_TAPERING_METHOD_HANN					1		// Hann window
-#define WINDOW_TAPERING_METHOD_HAMMING				2		// Hamming window
+#define WINDOW_TAPERING_METHOD_NONE			0		// no tapering
+#define WINDOW_TAPERING_METHOD_HANN			1		// Hann window
+#define WINDOW_TAPERING_METHOD_HAMMING			2		// Hamming window
 #define WINDOW_TAPERING_METHOD_HANN_MODIFIED		3		// Hann window (modified)
 
 // cepstral normalization mode
-#define CEPSTRAL_NORMALIZATION_MODE_NONE			0		// unnormalized features
-#define CEPSTRAL_NORMALIZATION_MODE_UTTERANCE	1		// training / transcription mode decoding
+#define CEPSTRAL_NORMALIZATION_MODE_NONE		0		// unnormalized features
+#define CEPSTRAL_NORMALIZATION_MODE_UTTERANCE		1		// training / transcription mode decoding
 #define CEPSTRAL_NORMALIZATION_MODE_SESSION		2		// training / transcription mode decoding
 #define CEPSTRAL_NORMALIZATION_MODE_STREAM		3		// live decoding
 
 // string version
-#define STR_CEPSTRAL_NORMALIZATION_MODE_NONE			"none"
+#define STR_CEPSTRAL_NORMALIZATION_MODE_NONE		"none"
 #define STR_CEPSTRAL_NORMALIZATION_MODE_UTTERANCE	"utterance"
 #define STR_CEPSTRAL_NORMALIZATION_MODE_SESSION		"session"
 #define STR_CEPSTRAL_NORMALIZATION_MODE_STREAM		"stream"
 
 // cepstral normalization method
-#define CEPSTRAL_NORMALIZATION_METHOD_CMN			0		// cepstral mean normalization
+#define CEPSTRAL_NORMALIZATION_METHOD_CMN		0		// cepstral mean normalization
 #define CEPSTRAL_NORMALIZATION_METHOD_CMVN		1		// cepstral mean variance normalization
 
 // string version
@@ -68,9 +68,8 @@ class ConfigurationFeatures;
 #define STR_CEPSTRAL_NORMALIZATION_METHOD_CMVN		"CMVN"
 
 // DEPRECATED  	TODO
-#define  FEATURE_VECTOR_LENGTH						39
-#define  FEATURE_VECTOR_LENGTH_ALIGNED_16			40				// 40*sizeof(float) is multiple of 16bytes
-
+#define  FEATURE_VECTOR_LENGTH				39
+#define  FEATURE_VECTOR_LENGTH_ALIGNED_16		40				// 40*sizeof(float) is multiple of 16bytes
 
 typedef struct {
 	float *fFeatures;
@@ -100,13 +99,13 @@ class FeatureExtractor {
 	
 		int m_iSamplingRate;			// sampling rate
 		int m_iSampleSize;			// sample size
-		int m_bDCRemoval;				// whether to remove the DC offset (if any)
+		int m_bDCRemoval;			// whether to remove the DC offset (if any)
 		int m_bPreemphasis;			// whether to preemphasize the waveform
 		
 		// windowing
 		int m_iWindowWidth;			// width of the analysis window (in milliseconds)
 		int m_iWindowShift;			// shift between adjacent analysis windows (in milliseconds)
-		int m_iWindowTapering;;		// window tapering mode (Hamming window, Hann window, etc)
+		int m_iWindowTapering;			// window tapering mode (Hamming window, Hann window, etc)
 		
 		// feature type
 		int m_iType;
@@ -114,51 +113,51 @@ class FeatureExtractor {
 		// filterbank
 		int m_iFilterbankFrequencyMin;		// minimum frequency used to build the filterbank (useful for narrowband)
 		int m_iFilterbankFrequencyMax;		// maximum frequency used to build the filterbank (useful for narrowband)
-		int m_iFilterbankFilters;				// number of filters in the filterbank
+		int m_iFilterbankFilters;		// number of filters in the filterbank
 		
 		// DCT
-		int m_iCepstralCoefficients;				// number of cepstral coefficients when applying the Discrete Cosine Transform
+		int m_iCepstralCoefficients;		// number of cepstral coefficients when applying the Discrete Cosine Transform
 		
-		bool m_bEnergy;								// whether to include normalized energy as a feature
-		float m_fWarpFactor;							// warp factor for Vocal Tract Lenght Normalization
+		bool m_bEnergy;				// whether to include normalized energy as a feature
+		float m_fWarpFactor;			// warp factor for Vocal Tract Lenght Normalization
 		
 		// derivatives
-		int m_iDerivativesOrder;					// derivatives order (2 for speed and acceleration, etc)
-		int m_iDerivativesDelta;					// number of frames on each side of the regression window
+		int m_iDerivativesOrder;		// derivatives order (2 for speed and acceleration, etc)
+		int m_iDerivativesDelta;		// number of frames on each side of the regression window
 		
 		// spliced features
 		int m_iSplicedSize;
 		
 		// cepstral normalization
-		int m_iCepstralBufferSize;					// cepstral buffer size in frames
-		int m_iCepstralNormalizationMode;		// cepstral normalization mode (utterance/stream)
-		int m_iCepstralNormalizationMethod;		// cepstral normalization method
-		bool m_bCepstralBufferFull;				// whether the cepstral buffer is full (circular buffer)
+		int m_iCepstralBufferSize;		// cepstral buffer size in frames
+		int m_iCepstralNormalizationMode;	// cepstral normalization mode (utterance/stream)
+		int m_iCepstralNormalizationMethod;	// cepstral normalization method
+		bool m_bCepstralBufferFull;		// whether the cepstral buffer is full (circular buffer)
 		
 		int m_iCoefficients;			// number of coefficients (including cepstral coefficients and energy without derivatives)
-		int m_iCoefficientsTotal;	// total number of coefficients in the whole feature vectors
+		int m_iCoefficientsTotal;		// total number of coefficients in the whole feature vectors
 		
 			
 		float *m_fCenterFrequencyMel;		// center frequencies of the filters in the Mel scale 		
 		
 		// FFT
-		int m_iFFTPoints;				// number of points in the Fast Fourier Transform
+		int m_iFFTPoints;			// number of points in the Fast Fourier Transform
 		int *m_iFFTPointBin;			// keeps the lower bin of a given point in the FFT (each point is connected to two bins)
 		float *m_fFFTPointGain;
 		
 		// cepstral buffer: it is used for different purposes
 		// - cepstral normalization (mean/variance)
 		// - cepstral context in live mode (last feature vectors from the previous speech chunk are used)	
-		int m_iCepstralBufferPointer;			// pointer to the last used position in the cepstral buffer
-		float *m_fCepstralBuffer;				// cepstral buffer
+		int m_iCepstralBufferPointer;		// pointer to the last used position in the cepstral buffer
+		float *m_fCepstralBuffer;		// cepstral buffer
 		
 		// auxiliar variables
 		int m_iSamplesFrame;
 		int m_iSamplesSkip;
 		
 		// stream mode feature extraction (left context)
-		int m_iSamplesStream;				// samples in current stream
-		int m_iSamplesUsefulPrev;			// number of useful samples from previous chunk (size >= iSamplesFrame-iSamplesSkip)
+		int m_iSamplesStream;			// samples in current stream
+		int m_iSamplesUsefulPrev;		// number of useful samples from previous chunk (size >= iSamplesFrame-iSamplesSkip)
 		short *m_sSamplesUsefulPrev;		// useful samples from previous chunk of samples
 		
 		// remove DC-mean
@@ -213,13 +212,13 @@ class FeatureExtractor {
 		// convert Mel frequency to linear frequency
 		float melToLinear(float fFrequency) {
 		
-			return 700.0*(exp(fFrequency/1127.0)-1.0);
+			return (float)(700.0*(exp(fFrequency/1127.0)-1.0));
 		}
 
 		// convert Mel frequency to linear frequency
 		float linearToMel(float fFrequency) {
 		
-			return 1127.0*log((1.0)+(fFrequency/700.0));
+			return (float)(1127.0*log((1.0)+(fFrequency/700.0)));
 		}
 		
 		// compute the lower bin connected to each FFT point

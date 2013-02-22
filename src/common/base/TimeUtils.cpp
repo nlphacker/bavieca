@@ -21,11 +21,9 @@
 
 #include <string.h>
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 #include <sys/time.h>
-#endif
-
-#ifdef _WIN32
+#elif _WIN32
 #define NOMINMAX
 #include <windows.h>
 #endif
@@ -35,7 +33,7 @@ namespace Bavieca {
 // return the current time measured in milliseconds
 double TimeUtils::getTimeMilliseconds() {
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 	struct timeval tv;
 	struct timezone tz;
 	struct tm *tm;
@@ -43,9 +41,7 @@ double TimeUtils::getTimeMilliseconds() {
 	tm=localtime(&tv.tv_sec);
 	//printf(" %d:%02d:%02d %d \n", tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec);
 	return (tv.tv_sec*1000 + tv.tv_usec/1000);
-#endif
-
-#ifdef _WIN32
+#elif _WIN32
 	FILETIME ft;
 	unsigned __int64 tmpres = 0;
     GetSystemTimeAsFileTime(&ft);
@@ -64,7 +60,7 @@ double TimeUtils::getTimeMilliseconds() {
 // return the date and time in a string
 void TimeUtils::getDateTime(string &strDateTime) {
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 	char strAux[100];
 
 	time_t timeAux;
@@ -81,9 +77,7 @@ void TimeUtils::getDateTime(string &strDateTime) {
 	}
 	
 	strDateTime = strAux;
-#endif
-
-#ifdef _WIN32
+#elif _WIN32
 	char strAux[100];
 	SYSTEMTIME t;
 	//GetSystemTime(&t);    //(this is UTC time)

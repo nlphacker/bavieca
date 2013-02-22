@@ -26,7 +26,14 @@
 #include <xmmintrin.h>
 //#include <smmintrin.h>
 //#include <pmmintrin.h>
+
+#if defined __linux__ || defined _WIN32
 #include <malloc.h>
+#elif __APPLE__
+#include <sys/malloc.h>
+#else
+	#error "unsupported platform"
+#endif
 
 using namespace std;
 

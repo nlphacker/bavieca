@@ -28,13 +28,13 @@ using namespace std;
 #include <vector>
 #include <iomanip>
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 using namespace __gnu_cxx;
 #include <ext/hash_map>
-#endif
-
-#ifdef _WIN32
+#elif _WIN32
 #include <hash_map>
+#else
+	#error "unsupported platform"
 #endif
 
 #include "Global.h"
@@ -135,7 +135,16 @@ typedef list<LeafToProcess*> LLeafToProcess;
 // ad-hoc functions to use State* as the key of a hash_map structure
 struct stateHashMapFunctions
 {
-#ifdef _WIN32
+
+#if defined __linux__ || defined __APPLE__
+	
+	// comparison function (used for matching, comparison for equality)
+	bool operator()(const State *state1, const State *state2) const {
+		
+		return (state1 == state2);
+	}
+
+#elif _WIN32
 
 	static const size_t bucket_size = 4;
 	static const size_t min_buckets = 8;
@@ -146,13 +155,6 @@ struct stateHashMapFunctions
 		return (state1 < state2);
 	}
 
-#elif __linux__
-	
-	// comparison function (used for matching, comparison for equality)
-	bool operator()(const State *state1, const State *state2) const {
-		
-		return (state1 == state2);
-	}
 #endif
 	
 	// hash function (elements in the subset are not sorted)
@@ -162,7 +164,7 @@ struct stateHashMapFunctions
 	}
 };
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 typedef hash_map<State*,bool,stateHashMapFunctions,stateHashMapFunctions> MStateBool;
 typedef hash_map<State*,unsigned int,stateHashMapFunctions,stateHashMapFunctions> MStateSymbol;
 #elif _WIN32

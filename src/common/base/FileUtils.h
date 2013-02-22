@@ -27,11 +27,12 @@
 
 namespace Bavieca {
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 #define PATH_SEPARATOR		'/'
-#endif
-#ifdef _WIN32
+#elif _WIN32
 #define PATH_SEPARATOR	'\\'
+#else
+	#error "unsupported platform"
 #endif
 
 // return codes for createFolder
@@ -70,7 +71,7 @@ class FileUtils {
 		// return whether the file exists
 		static bool isFile(const char *strFile);
 
-	#ifdef __linux__
+	#if defined __linux__ || defined __APPLE__
 		
 		// create the given folder
 		static int createFolder(const char *strFolder, mode_t mode = 0777);

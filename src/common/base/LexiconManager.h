@@ -37,13 +37,13 @@ using namespace std;
 #include "Global.h"
 #include "PhoneSet.h"
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 using namespace __gnu_cxx;
 #include <ext/hash_map>
-#endif
-
-#ifdef _WIN32
+#elif _WIN32
 #include <hash_map>
+#else
+	#error "unsupported platform"
 #endif
 
 namespace Bavieca {
@@ -92,7 +92,15 @@ typedef list<LexUnit*> LLexUnit;
 struct MLexUnitFunctions
 {
 
-#ifdef _WIN32
+#if defined __linux__ || defined __APPLE__
+
+	// comparison function (used for matching, comparison for equality)
+	bool operator()(const char *strLexUnit1, const char *strLexUnit2) const {
+		
+		return (strcmp(strLexUnit1,strLexUnit2) == 0);
+	}
+
+#elif _WIN32
 
 	static const size_t bucket_size = 4;
 	static const size_t min_buckets = 8;
@@ -103,13 +111,6 @@ struct MLexUnitFunctions
 		return (strcmp(strLexUnit1,strLexUnit2) < 0);
 	}
 
-#elif __linux__
-
-	// comparison function (used for matching, comparison for equality)
-	bool operator()(const char *strLexUnit1, const char *strLexUnit2) const {
-		
-		return (strcmp(strLexUnit1,strLexUnit2) == 0);
-	}
 #endif
 	
 	// hash function
@@ -143,10 +144,12 @@ typedef struct {
 typedef vector<LexUnitX*> VLexUnitX;
 
 // maps lexical units as strings of characters to their corresponding data structure
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 typedef hash_map<const char*,LexUnitX*,MLexUnitFunctions,MLexUnitFunctions> MLexUnit;
 #elif _WIN32
 typedef hash_map<const char*,LexUnitX*,MLexUnitFunctions> MLexUnit;
+#else
+	#error "unsupported platform"
 #endif
 
 // maps lexical units within one lexicon to lexical units within another lexicon
