@@ -368,7 +368,7 @@ void Accumulator::storeAccumulators(const char *strFile, int iDim,
 	unsigned char iType = ACCUMULATOR_TYPE_PHYSICAL;
 	IOBase::write(file.getStream(),iType);
 	
-	int iAccumulators = mPhysicalAccumulator.size();
+	int iAccumulators = (int)mPhysicalAccumulator.size();
 	IOBase::write(file.getStream(),iAccumulators);
 	IOBase::write(file.getStream(),iDim);
 	IOBase::write(file.getStream(),iCovarianceModeling);	
@@ -600,7 +600,7 @@ void Accumulator::adaptContextWidth(MAccumulatorLogical &mAccumulator, unsigned 
 	assert(iContextSize < iContextSizeNew);
 	
 	// (1) shorten accumulators because of within-word context
-	int iAccumulatorsOriginal = mAccumulator.size();
+	int iAccumulatorsOriginal = (int)mAccumulator.size();
 	MAccumulatorLogical mAccumulatorTemp;
 	if (iContextSizeNew < iContextSize) {
 		for(MAccumulatorLogical::iterator it = mAccumulator.begin() ; it != mAccumulator.end() ; ++it) {
@@ -623,7 +623,7 @@ void Accumulator::adaptContextWidth(MAccumulatorLogical &mAccumulator, unsigned 
 		}
 		mAccumulator.swap(mAccumulatorTemp);
 	}
-	int iAccumulatorsCompacted = mAccumulator.size();
+	int iAccumulatorsCompacted = (int)mAccumulator.size();
 	
 	cout << "original: " << iAccumulatorsOriginal << endl;
 	cout << "original: " << iAccumulatorsCompacted << endl;

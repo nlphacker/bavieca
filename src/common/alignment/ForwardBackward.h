@@ -160,7 +160,7 @@ class ForwardBackward {
 		
 		// perform the forward-backward algorithm over an utterance
 		Alignment *processUtterance(VLexUnit &vLexUnitTranscription, float *fFeaturesAlignment, 
-			float *fFeaturesAccumulation, int iFeatureVectors, double *dUtteranceLikelihood, const char **strReturnCode);
+			float *fFeaturesAccumulation, int iFeatures, double *dUtteranceLikelihood, const char **strReturnCode);
 		
 		// forward-backward alignment preserving phone-boundaries
 		Alignment *processPhoneAlignment(float *fFeatures, int iFeatures, 

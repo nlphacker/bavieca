@@ -145,9 +145,9 @@ class Alignment {
 		}
 		
 		// return the number of frames
-		inline int getFrames() {
+		inline unsigned int getFrames() {
 		
-			return m_vFrameAlignment.size();
+			return (int)m_vFrameAlignment.size();
 		}
 		
 		// return a frame alignment

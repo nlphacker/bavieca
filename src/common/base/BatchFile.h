@@ -38,7 +38,7 @@ typedef vector<BatchEntry*> VBatchEntry;
 
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class BatchFile {
 
@@ -64,7 +64,7 @@ class BatchFile {
 		// return the number of entries in the batch file
 		unsigned int size() {
 		
-			return m_vBatchEntry.size();
+			return (unsigned int)m_vBatchEntry.size();
 		}
 		
 		// return the field in the given entry and column

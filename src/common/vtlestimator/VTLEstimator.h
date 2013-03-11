@@ -33,7 +33,7 @@ class LexiconManager;
 class PhoneSet;
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class VTLEstimator {
 

@@ -32,7 +32,7 @@ using namespace std;
 namespace Bavieca {
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class AudioFile {
 

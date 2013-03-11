@@ -65,7 +65,7 @@ ForwardBackward::~ForwardBackward()
 
 // create the trellis for an utterance (this trellis will be used to perform the forward-backward algorithm)
 Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, float *fFeaturesAlignment, 
-	float *fFeaturesAccumulation, int iFeatureVectors, double *dUtteranceLikelihood, const char **strReturnCode) {
+	float *fFeaturesAccumulation, int iFeatures, double *dUtteranceLikelihood, const char **strReturnCode) {
 
 	double dBegin = TimeUtils::getTimeMilliseconds();
 	
@@ -165,7 +165,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 				assert(accumulator);
 				vAccumulator.push_back(accumulator);
 			} else {
-				for(int g=0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
+				for(unsigned int g=0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
 					Accumulator *accumulator = m_hmmManagerUpdate->getAccumulator(hmmState->getId(),g); 
 					assert(accumulator);
 					vAccumulator.push_back(accumulator);
@@ -178,19 +178,19 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	// reset the emission probability computation (to avoid using cached computations that are outdated)	
 	m_hmmManagerEstimation->resetHMMEmissionProbabilityComputation(vHMMStateCompositeEstimation);
 	
-	int iHMMStates = vHMMStateCompositeEstimation.size();
+	int iHMMStates = (int)vHMMStateCompositeEstimation.size();
 	
 	// there can't be fewer feature vectors than HMM-states in the composite
-	if (iFeatureVectors < iHMMStates) {
+	if (iFeatures < iHMMStates) {
 		*strReturnCode = FB_RETURN_CODE_INSUFFICIENT_NUMBER_FEATURE_VECTORS;
 		return NULL;
 	}
 
 	// trellis size: # elements
-	int iTrellisSize = iFeatureVectors*iHMMStates;
+	int iTrellisSize = iFeatures*iHMMStates;
 	
 	// check if the memory to be allocated does not exceed the maximum allowed
-	int iTrellisSizeBytes = iHMMStates*iFeatureVectors*sizeof(NodeTrellis);
+	int iTrellisSizeBytes = iHMMStates*iFeatures*sizeof(NodeTrellis);
 	if (iTrellisSizeBytes > m_iTrellisSizeMaxBytes) {
 		*strReturnCode = FB_RETURN_CODE_UTTERANCE_TOO_LONG_MAXIMUM_TRELLIS_SIZE_EXCEEDED;
 		return NULL;
@@ -198,10 +198,10 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	
 	// allocate memory for the trellis (if enabled, try to reuse a cached trellis first)
 	NodeTrellis *nodeTrellis = NULL;
-	if ((m_bTrellisCacheEnabled == false) || (m_nodeTrellisCache == NULL) || (m_iTrellisCacheSize < (iHMMStates*iFeatureVectors))) {
+	if ((m_bTrellisCacheEnabled == false) || (m_nodeTrellisCache == NULL) || (m_iTrellisCacheSize < (iHMMStates*iFeatures))) {
 		// try to allocate memory for the trellis
 		try {
-			nodeTrellis = new NodeTrellis[iHMMStates*iFeatureVectors];
+			nodeTrellis = new NodeTrellis[iHMMStates*iFeatures];
 		}
 		catch (const std::bad_alloc&) {
 			*strReturnCode = FB_RETURN_CODE_UTTERANCE_TOO_LONG_UNABLE_TO_CREATE_TRELLIS;
@@ -216,7 +216,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 			}
 			// cache the new trellis
 			m_nodeTrellisCache = nodeTrellis;
-			m_iTrellisCacheSize = iHMMStates*iFeatureVectors;
+			m_iTrellisCacheSize = iHMMStates*iFeatures;
 		} else {
 			bTrellisNotCached = true;
 		}
@@ -237,14 +237,14 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	double dTimeSeconds = 0.0;
 
 	// compute forward-backward scores
-	computeFBTrellis(nodeTrellis,vHMMStateCompositeEstimation,iHMMStates,fFeaturesAlignment,iFeatureVectors,fBackwardThreshold);
+	computeFBTrellis(nodeTrellis,vHMMStateCompositeEstimation,iHMMStates,fFeaturesAlignment,iFeatures,fBackwardThreshold);
 	//printTrellis(nodeTrellis,iRows,iColumns);
 		
 	double dEnd = TimeUtils::getTimeMilliseconds();
 	dTimeSeconds = (dEnd-dBegin)/1000.0;
 	
 	// (2.1) sanity checks
-	f1 = (float)nodeTrellis[iHMMStates*iFeatureVectors-1].dForward;
+	f1 = (float)nodeTrellis[iHMMStates*iFeatures-1].dForward;
 	f2 = (float)nodeTrellis[0].dBackward + nodeTrellis[0].fScore;
 	if (fabs(f1-f2) > 0.1) {
 		*strReturnCode = FB_RETURN_CODE_UTTERANCE_TOO_LONG_NUMERICAL_INACCURACIES;	
@@ -252,7 +252,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	//printf("utterance probability: for= %12.4f back= %12.4f diff= %12.8f (%5d frames %5d states) time: %8.4fs\n",f1,f2,fabs(f1-f2),iFeatureVectors,iHMMStates,dTimeSeconds);	
 	
 	// (3) compute estimation statistics
-	double dProbabilityUtterance = nodeTrellis[iHMMStates*iFeatureVectors-1].dForward;
+	double dProbabilityUtterance = nodeTrellis[iHMMStates*iFeatures-1].dForward;
 	
 	// update the accumulators of each of the HMM-states in the utterance
 
@@ -268,7 +268,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 				accumulator = vAccumulatorComposite[i].front();
 			}
 			// for each time frame
-			for(int t = 0 ; t < iFeatureVectors ; ++t) {
+			for(int t = 0 ; t < iFeatures ; ++t) {
 				// only if there is a significant occupation probability
 				if ((nodeTrellis[t*iHMMStates+i].dForward != -DBL_MAX) && (nodeTrellis[t*iHMMStates+i].dBackward != -DBL_MAX)) {
 					double dProbabilityOccupation = nodeTrellis[t*iHMMStates+i].dForward + nodeTrellis[t*iHMMStates+i].dBackward - dProbabilityUtterance;
@@ -288,9 +288,9 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 		// for each HMM-state
 		for(int i = 0 ; i < iHMMStates ; ++i) {
 			// for each gaussian in the mixture
-			for(int g = 0 ; g < vHMMStateCompositeUpdate[i]->getMixture().getNumberComponents() ; ++g) {	
+			for(unsigned int g = 0 ; g < vHMMStateCompositeUpdate[i]->getMixture().getNumberComponents() ; ++g) {	
 				// for each time frame
-				for(int t = 0 ; t < iFeatureVectors ; ++t) {
+				for(int t = 0 ; t < iFeatures ; ++t) {
 					// only if there is a significant occupation probability
 					if ((nodeTrellis[t*iHMMStates+i].dForward != -DBL_MAX) && (nodeTrellis[t*iHMMStates+i].dBackward != -DBL_MAX)) {
 						// compute the occupation probability
@@ -363,9 +363,7 @@ void ForwardBackward::printTrellis(NodeTrellis *node, int iRows, int iColumns) {
 
 	double dProbabilityUtterance = node[iRows*iColumns-1].dForward;
 	
-	printf("utterance probability: %f\n",dProbabilityUtterance);
-
-	printf("\n");
+	cout << "utterance probability: " << dProbabilityUtterance << endl << endl;
 
 	// print froward and backward scores
 	for(int j=0 ; j < iRows; ++j) {
@@ -399,7 +397,7 @@ void ForwardBackward::printTrellis(NodeTrellis *node, int iRows, int iColumns) {
 			}
 			//printf("[(t=%5d) %5.2f] ",i,fOccupation);
 		}
-		printf("\n");
+		cout << endl;
 	}
 }
 

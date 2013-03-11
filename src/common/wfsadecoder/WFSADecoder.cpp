@@ -69,15 +69,13 @@ void WFSADecoder::initialize() {
 
 
 // initialize the Viterbi search
-bool WFSADecoder::initializeViterbi() {
+void WFSADecoder::initializeViterbi() {
 
-
-	return true;
 }
 
 
 // Viterbi search
-bool WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) {
+void WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) {
 
 	double dTimeBegin = TimeUtils::getTimeMilliseconds();
 
@@ -379,7 +377,7 @@ bool WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 			// move to the next time frame
 			m_activeStateTable->nextTimeFrame();
 		} else {
-			printf("t=%5d bestScore: %14.6f\n",t,m_fScoreBest);
+			cout << "t=" << setw(5) << t << " bestScore: " << FLT(14,6) << m_fScoreBest << endl;
 		}
 	}
 	
@@ -389,9 +387,8 @@ bool WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;
 	
-	printf("decoding time: %.2f seconds (RTF: %5.2f)\n",dTimeSeconds,dTimeSeconds/(((float)iFeatureVectors)/100.0));	
-
-	return true;
+	BVC_VERB << "decoding time: " << FLT(8,2) << dTimeSeconds << " seconds (RTF: " <<  
+		FLT(5,2) << dTimeSeconds/(((float)iFeatureVectors)/100.0) << ")";	
 }
 
 // return the best path

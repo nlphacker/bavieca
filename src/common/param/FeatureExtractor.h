@@ -73,14 +73,14 @@ class ConfigurationFeatures;
 
 typedef struct {
 	float *fFeatures;
-	int iFeatures;
+	unsigned int iFeatures;
 } FeaturesUtterance;
 
 typedef vector<FeaturesUtterance> VFeaturesUtterance; 
 
 typedef struct {
 	short *sSamples;
-	int iSamples;
+	unsigned int iSamples;
 } SamplesUtterance;
 
 typedef struct {
@@ -141,7 +141,7 @@ class FeatureExtractor {
 		float *m_fCenterFrequencyMel;		// center frequencies of the filters in the Mel scale 		
 		
 		// FFT
-		int m_iFFTPoints;			// number of points in the Fast Fourier Transform
+		unsigned int m_iFFTPoints;			// number of points in the Fast Fourier Transform
 		int *m_iFFTPointBin;			// keeps the lower bin of a given point in the FFT (each point is connected to two bins)
 		float *m_fFFTPointGain;
 		
@@ -152,12 +152,12 @@ class FeatureExtractor {
 		float *m_fCepstralBuffer;		// cepstral buffer
 		
 		// auxiliar variables
-		int m_iSamplesFrame;
-		int m_iSamplesSkip;
+		unsigned int m_iSamplesFrame;
+		unsigned int m_iSamplesSkip;
 		
 		// stream mode feature extraction (left context)
 		int m_iSamplesStream;			// samples in current stream
-		int m_iSamplesUsefulPrev;		// number of useful samples from previous chunk (size >= iSamplesFrame-iSamplesSkip)
+		unsigned int m_iSamplesUsefulPrev;		// number of useful samples from previous chunk (size >= iSamplesFrame-iSamplesSkip)
 		short *m_sSamplesUsefulPrev;		// useful samples from previous chunk of samples
 		
 		// remove DC-mean
@@ -225,10 +225,10 @@ class FeatureExtractor {
 		void computeFFTPointBin();
 		
 		// extract MFCC features (only the static coefficients)
-		float *extractStaticFeaturesMFCC(short *sSamples, int iSamples, int *iFeatures);
+		float *extractStaticFeaturesMFCC(short *sSamples, unsigned int iSamples, unsigned int *iFeatures);
 		
 		// extract PLP features (only the static coefficients)
-		float *extractStaticFeaturesPLP(short *sSamples, int iSamples, int *iFeatures);		
+		float *extractStaticFeaturesPLP(short *sSamples, unsigned int iSamples, unsigned int *iFeatures);		
 		
 		// compute derivatives
 		float *computeDerivatives(float *fFeatures, int iFeatures);
@@ -237,19 +237,24 @@ class FeatureExtractor {
 		float *spliceFeatures(float *fFeatures, int iFeatures, int iElements);	
 		
 		// compute CMN over a set of utterances (session mode)
-		void applyCMN(FeaturesUtterance *featuresUtterance, int iUtterances, int iCoefficients, int iCoefficientsNormalization);	
+		void applyCMN(FeaturesUtterance *featuresUtterance, unsigned int iUtterances, unsigned int iCoefficients, 
+			unsigned int iCoefficientsNormalization);	
 		
 		// compute CMVN over a set of utterances (session mode)
-		void applyCMVN(FeaturesUtterance *featuresUtterance, int iUtterances, int iCoefficients, int iCoefficientsNormalization);	
+		void applyCMVN(FeaturesUtterance *featuresUtterance, unsigned int iUtterances, unsigned int iCoefficients, 
+			unsigned int iCoefficientsNormalization);	
 		
 		// aplly utterance-based cepstral mean normalization
-		void applyCMN(float *fFeatures, int iFeatures, int iCoefficients, int iCoefficientsNormalization);
+		void applyCMN(float *fFeatures, unsigned int iFeatures, unsigned int iCoefficients, 
+			unsigned int iCoefficientsNormalization);
 		
 		// apply utterance-based cepstral mean variance normalization
-		void applyCMVN(float *fFeatures, int iFeatures, int iCoefficients, int iCoefficientsNormalization);	
+		void applyCMVN(float *fFeatures, unsigned int iFeatures, unsigned int iCoefficients, 
+			unsigned int iCoefficientsNormalization);	
 		
 		// apply stream-based cepstral mean normalization
-		void applyCMNStream(float *fFeatures, int iFeatures, int iCoefficients, int iCoefficientsNormalization);	
+		void applyCMNStream(float *fFeatures, unsigned int iFeatures, unsigned int iCoefficients, 
+			unsigned int iCoefficientsNormalization);	
 		
 		// build the filter bank (it takes into account the warp factor)
 		void buildFilterBank();	
@@ -307,16 +312,16 @@ class FeatureExtractor {
 		void extractFeatures(const char *strFileRaw, const char *strFileFea);
 			
 		// extract features (utterance-based cepstral normalization)
-		float *extractFeatures(const char *strFile, int *iFeatures);
+		float *extractFeatures(const char *strFile, unsigned int *iFeatures);
 		
 		// extract static features in stream mode (make use of "left context" speech samples)
-		float *extractFeaturesStream(short *sSamples, int iSamples, int *iFeatures);		
+		float *extractFeaturesStream(short *sSamples, unsigned int iSamples, unsigned int *iFeatures);		
 		
 		// extract features (utterance or stream-based cepstral normalization)
-		float *extractFeatures(short *sSamples, int iSamples, int *iFeatures);	
+		float *extractFeatures(short *sSamples, unsigned int iSamples, unsigned int *iFeatures);	
 		
 		// extract static features 
-		float *extractStaticFeatures(short *sSamples, int iSamples, int *iFeatures);	
+		float *extractStaticFeatures(short *sSamples, unsigned int iSamples, unsigned int *iFeatures);	
 		
 		// print the features (debugging)
 		void print(float *fFeatures, int iFeatures);

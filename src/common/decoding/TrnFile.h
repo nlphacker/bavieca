@@ -62,9 +62,9 @@ class TrnFile {
 		void load();
 		
 		// return the size
-		inline int size() {
+		inline unsigned int size() {
 		
-			return m_vTrnEntry.size();
+			return (unsigned int)m_vTrnEntry.size();
 		}
 		
 		// return the given entry

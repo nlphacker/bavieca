@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
 		FeatureFile featureFile(strFileFeatures,MODE_READ);
 		featureFile.load();
 		
-		int iFeatures = -1;
+		unsigned int iFeatures = 0;
 		float *fFeatures = featureFile.getFeatureVectors(&iFeatures);
 		
 		// create the SAD module

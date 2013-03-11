@@ -27,13 +27,20 @@ SRC_DIR = .
 OBJ_DIR = ../../obj/$(ARCH)-$(OS)/api
 LIB_DIR = ../../lib/$(ARCH)-$(OS)
 OBJFILES_BASE = $(patsubst $(SRC_DIR)/%,$(OBJ_DIR)/%,$(patsubst %.cpp,%.o,$(wildcard $(SRC_DIR)/*.cpp)))
+OBJFILES_BASE_JAVA = $(patsubst $(SRC_DIR)/%,$(OBJ_DIR)/%,$(patsubst %.cxx,%.o,$(wildcard $(SRC_DIR)/*.cxx)))
+LIBS = -L../../lib/$(ARCH)-$(OS)/ $(LIBS_DIR_CBLAS) $(LIBS_DIR_LAPACK)
 
-all: createDirectories libbaviecaapi.a
+all: createDirectories libbaviecaapi.a libbaviecaapi.so libbaviecaapijni.so
+	@echo $(OBJFILES_BASE)
+
+java-api: createDirectories libbaviecaapijni.so
 	@echo $(OBJFILES_BASE)
 
 clean: 
 	rm -rf $(OBJ_DIR)
 	rm -rf $(LIB_DIR)/libbaviecaapi.a
+	rm -rf $(LIB_DIR)/libbaviecaapi.so
+	rm -rf $(LIB_DIR)/libbaviecaapijni.so
 
 createDirectories: 
 	(mkdir -p $(LIB_DIR))
@@ -47,12 +54,25 @@ libbaviecaapi.a: $(OBJFILES_BASE)
 	$(AR) $@ $?
 	(mv libbaviecaapi.a $(LIB_DIR))
 
+libbaviecaapi.so: $(OBJFILES_BASE)
+	$(XCC) $(LIBS) -shared -o libbaviecaapi.so $(OBJFILES_BASE) -lcommon_pic
+	(mv libbaviecaapi.so $(LIB_DIR))
+
+libbaviecaapijni.so: $(OBJFILES_BASE) $(OBJFILES_BASE_JAVA)
+	$(XCC) $(LIBS) -shared -o libbaviecaapijni.so $(OBJFILES_BASE) $(OBJFILES_BASE_JAVA) -lcommon_pic
+	(mv libbaviecaapijni.so $(LIB_DIR))
+
 # ----------------------------------------------
 # create the object files from the source files
 # ----------------------------------------------
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
-	$(XCC) $(CPPFLAGS) $(INC) -c $< -o $@
+	$(XCC) $(CPPFLAGS_SHARED) $(INC) -c $< -o $@
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cxx
+	$(XCC) $(CPPFLAGS_SHARED) $(INC) $(INCS_DIR_JNI) -fno-strict-aliasing -c $< -o $@
+
+
 
 
 

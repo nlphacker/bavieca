@@ -29,7 +29,7 @@ using namespace std;
 namespace Bavieca {
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class LexUnitsFile {
 
@@ -54,9 +54,9 @@ class LexUnitsFile {
 		void load();
 		
 		// return the number of lexical units
-		int size() {
+		unsigned int size() {
 			
-			return m_vLexUnit.size();
+			return (unsigned int)m_vLexUnit.size();
 		}
 		
 		// return the lexical unit at the given position

@@ -38,7 +38,7 @@ typedef struct {
 typedef vector<Filler*> VFiller;
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class FillerManager {
 

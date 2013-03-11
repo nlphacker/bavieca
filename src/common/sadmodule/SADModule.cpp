@@ -111,7 +111,7 @@ void SADModule::initialize() {
 		
 			// keep the best and accumulate the weight 
 			int iCount = 0;
-			for(LGaussianDecoding::iterator it = lGaussian.begin() ; (it != lGaussian.end()) && ((iCount < m_iMaxGaussianComponentsSpeech) || (m_iMaxGaussianComponentsSpeech == 1)) ; ++it, ++iCount) {
+			for(LGaussianDecoding::iterator it = lGaussian.begin() ; (it != lGaussian.end()) && ((iCount < m_iMaxGaussianComponentsSpeech) || (m_iMaxGaussianComponentsSpeech == -1)) ; ++it, ++iCount) {
 				HMMStateDecoding::copyGaussian(&(gaussiansSpeech[iComponentsSpeechFound]),*it,m_iDim);
 				fWeightAccumulatedSpeech += (*it)->fWeight;
 				++iComponentsSpeechFound;

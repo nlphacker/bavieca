@@ -62,7 +62,7 @@ void LMLookAhead::initialize() {
 	}
 	m_iHashEntryCollisionAvailable = m_iHashBucketEntries;
 	int iCacheSizeBytes = m_iHashEntries*sizeof(LAHashEntry);
-	cout << "look-ahead cache size: " << iCacheSizeBytes << " bytes\n";
+	BVC_VERB << "look-ahead cache size: " << iCacheSizeBytes << " bytes";
 	
 	// cache stats
 	m_iCacheHits = 0;
@@ -240,8 +240,8 @@ void LMLookAhead::cacheGarbageCollection() {
 		BVC_ERROR << "look-ahead cache is full, " << iEntriesCleared << " buckets are empty, but there is no space to handle collisions";
 	}	
 	
-	cout << "entries cleared: " << iEntriesCleared << endl;
-	cout << "collision available: " << m_iHashEntryCollisionAvailable << endl;
+	BVC_VERB << "entries cleared: " << iEntriesCleared;
+	BVC_VERB << "collision available: " << m_iHashEntryCollisionAvailable;
 }
 
 // print cache stats (performance analysis)
@@ -261,15 +261,15 @@ void LMLookAhead::printCacheStats() {
 		}
 	}
 	
-	cout << "-- look-ahead cache stats --" << endl;
-	cout << "cache hits: " << m_iCacheHits << endl;
-	cout << "cache miss: " << m_iCacheMisses << endl;	
-	cout << "total entries:    " << m_iHashEntries << endl;
-	cout << "- buckets used:   " << iBucketsUsed << endl;
-	cout << "- collisions:     " << iCollisions << endl;
-	cout << "load factor:      " << ((float)iBucketsUsed)/((float)m_iHashBucketEntries) << endl;
-	cout << "collision factor: " << ((float)iCollisions)/((float)iBucketsUsed) << endl;
-	cout << "----------------------------" << endl;
+	BVC_VERB << "-- look-ahead cache stats --" ;
+	BVC_VERB << "cache hits: " << m_iCacheHits;
+	BVC_VERB << "cache miss: " << m_iCacheMisses;	
+	BVC_VERB << "total entries:    " << m_iHashEntries;
+	BVC_VERB << "- buckets used:   " << iBucketsUsed;
+	BVC_VERB << "- collisions:     " << iCollisions;
+	BVC_VERB << "load factor:      " << ((float)iBucketsUsed)/((float)m_iHashBucketEntries);
+	BVC_VERB << "collision factor: " << ((float)iCollisions)/((float)iBucketsUsed);
+	BVC_VERB << "----------------------------";
 }
 
 };	// end-of-namespace

@@ -129,7 +129,7 @@ class RegressionTree {
 			
 			assert(iStart<=iEnd);
 		
-			#ifdef __linux__	
+			#if defined __linux__ || defined __APPLE__	
 			// on linux 32 bits RAND_MAX = 2147483647 (this is the maximum signed integer)
 			assert(RAND_MAX > iEnd-iStart);			
 			// this is a very weak random number
@@ -162,7 +162,7 @@ class RegressionTree {
 		int getGaussianComponentsObserved(RTNode *node) {
 		
 			if ((node->left == NULL) && (node->right == NULL)) {
-				return node->vGaussianStats.size();
+				return (int)node->vGaussianStats.size();
 			} else {
 				assert((node->left != NULL) && (node->right != NULL));
 				return getGaussianComponentsObserved(node->left)+getGaussianComponentsObserved(node->right);

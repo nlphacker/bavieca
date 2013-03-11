@@ -46,7 +46,7 @@ using namespace std;
 enum {WA_INS=0x1, WA_DEL=0x2, WA_SUB=0x4, WA_COR=0x8};
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class ReferenceAligner {
 

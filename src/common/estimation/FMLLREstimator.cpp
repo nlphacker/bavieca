@@ -72,7 +72,7 @@ void FMLLREstimator::uninitializeEstimation() {
 // note: it is possible to accumulate statistics at the Gaussian component or at the transform level
 // - Gaussian component level: O(n^2) per Gaussian component
 // - Transform level: O(n^3) per transform + O(n) per Gaussian component
-void FMLLREstimator::feedAdaptationData(float *fFeatures, int iFeatures, Alignment *alignment, 
+void FMLLREstimator::feedAdaptationData(float *fFeatures, unsigned int iFeatures, Alignment *alignment, 
 	double *dLikelihood) {
 
 	// sanity check
@@ -81,7 +81,7 @@ void FMLLREstimator::feedAdaptationData(float *fFeatures, int iFeatures, Alignme
 	m_fOccupancyTotal += iFeatures;
 
 	*dLikelihood = 0.0;
-	for(int t=0 ; t<iFeatures ; ++t) {
+	for(unsigned int t=0 ; t<iFeatures ; ++t) {
 		
 		float *fFeatureVector = fFeatures+(t*m_iDim);
 		
@@ -187,7 +187,7 @@ void FMLLREstimator::feedAdaptationData(const char *strBatchFile, const char *st
 		// load the feature vectors
 		FeatureFile featureFile(batchFile.getField(i,"features"),MODE_READ);
 		featureFile.load();
-		int iFeatureVectors = -1;
+		unsigned int iFeatureVectors = -1;
 		float *fFeatures = featureFile.getFeatureVectors(&iFeatureVectors);
 		
 		// load and apply the transform

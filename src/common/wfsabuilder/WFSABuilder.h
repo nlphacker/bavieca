@@ -396,19 +396,19 @@ class WFSABuilder {
 		// print the array of states
 		void printStates(State *states, unsigned int iStates, State *stateInitial) {
 		
-			printf("--------------------------------------------------------\n");
+			cout << "--------------------------------------------------------" << endl;
 			for(unsigned int i=0 ; i<iStates ; ++i) {
 				if (states+i == stateInitial) {
 					cout << "initial state: " << stateInitial << " (" << stateInitial->iId << ")" << endl;
 				}
 				printStateTransitions(states+i);
 			}	
-			printf("--------------------------------------------------------\n");
+			cout << "--------------------------------------------------------" << endl;
 		}
 		
 		void printStateTransitions(State *state) {
 		
-			printf("state id: %u\n",state->iId);
+			cout << "state id: " << state->iId << endl;
 			for(VTransition::iterator it = state->vTransition.begin() ; it != state->vTransition.end() ; ++it) {
 				printTransition(*it);	
 			}

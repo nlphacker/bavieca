@@ -30,7 +30,7 @@ namespace Bavieca {
 const double PI_NUMBER = 2.0*acos(0.0);
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class Numeric {
 

@@ -16,12 +16,11 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 
 // author, version and date
@@ -59,6 +58,9 @@
 #define finite _finite
 #endif
 
+// verbose output
+//#define BVC_VERBOSE_ENABLED
+
 // asserts
 //#define NDEBUG 
 #include <assert.h> 
@@ -66,6 +68,9 @@
 #include <float.h>
 
 const double PI_NUMBER = 2.0*acos(0.0);
+
+// formatting macros
+#define FLT(width,precision) std::setw(width) << std::setiosflags(ios::fixed) << std::setprecision(precision)
 
 // inlining
 #if defined __linux__ || defined __APPLE__

@@ -65,7 +65,7 @@ void MAPEstimator::estimateParameters(MAccumulatorPhysical &mAccumulator, float 
 void MAPEstimator::estimateParameters(HMMState *hmmState, Accumulator **accumulators, float fPriorKnowledgeWeight) {
 
 	// (1) update the mean of each Gaussian component
-	for(int g = 0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
+	for(unsigned int g = 0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
 	
 		Gaussian *gaussian = hmmState->getMixture()(g);
 		Accumulator *accumulator = accumulators[g];

@@ -93,7 +93,7 @@ typedef vector<GaussianDecoding*> VGaussianDecoding;
 typedef list<GaussianDecoding*> LGaussianDecoding;
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class HMMStateDecoding {
 

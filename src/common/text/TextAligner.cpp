@@ -51,8 +51,8 @@ TextAlignment *TextAligner::align(VLexUnit &vLexUnitHyp, VLexUnit &vLexUnitRef, 
    int j;
    
    // create the grid
-   int iRows = vLexUnitHyp.size()+1;
-   int iColumns = vLexUnitRef.size()+1;
+   int iRows = (int)(vLexUnitHyp.size()+1);
+   int iColumns = (int)(vLexUnitRef.size()+1);
 
    int i,pen;
    TAGridElement **grid = new TAGridElement*[iRows];

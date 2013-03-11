@@ -19,9 +19,18 @@
 include Makefile.defines
   
 all:
-	(cd common; $(MAKE) all)
+	(cd common; $(MAKE) static)
+	(cd common; $(MAKE) pic)
 	(cd api; $(MAKE) all)
 	(cd tools; $(MAKE) all)
+
+cmd_tools:
+	(cd common; $(MAKE) static)
+	(cd tools; $(MAKE) all)
+
+java-api: 
+	(cd common; $(MAKE) pic)
+	(cd api; $(MAKE) java-api)
 
 clean:
 	(cd common; $(MAKE) clean)

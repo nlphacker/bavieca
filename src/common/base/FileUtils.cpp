@@ -30,7 +30,7 @@ void FileUtils::getFolder(char *strFolder, const char *strPath) {
 	} else if (strPointer == strPath) {
 		sprintf(strFolder,"%c",PATH_SEPARATOR);
 	} else {
-		int iLength = strPointer-strPath;
+		int iLength = (int)(strPointer-strPath);
 		assert(iLength>=0);
 		strncpy(strFolder,strPath,iLength);
 		strFolder[iLength] = 0;
@@ -57,20 +57,17 @@ void FileUtils::getFileNameWithoutExtension(char *strFileName, const char *strPa
 		if (strPointerExtension == NULL) {
 			strcpy(strFileName,strPath);
 		} else {
-			int iLength = strPointerExtension-strPath;
-			assert(iLength>=0);
+			unsigned int iLength = (unsigned int)(strPointerExtension-strPath);
 			strncpy(strFileName,strPath,iLength);
 			strFileName[iLength] = 0;
 		}	
 	} else {
 		if (strPointerExtension == NULL) {
-			int iLength = strlen(strPath)-(strPointerSeparator-strPath)-1;
-			assert(iLength>=0);
+			unsigned int iLength = (unsigned int)(strlen(strPath)-(strPointerSeparator-strPath)-1);
 			strncpy(strFileName,strPointerSeparator+1,iLength);
 			strFileName[iLength] = 0;
 		} else {
-			int iLength = strPointerExtension-strPointerSeparator-1;
-			assert(iLength>=0);
+			unsigned int iLength = (unsigned int)(strPointerExtension-strPointerSeparator-1);
 			strncpy(strFileName,strPointerSeparator+1,iLength);
 			strFileName[iLength] = 0;
 		}	
@@ -95,7 +92,7 @@ void FileUtils::replaceExtension(char *strDest, const char *strPath, const char 
 	if (strPointer == NULL) {
 		sprintf(strDest,"%s.%s",strPath,strExtension);
 	} else {	
-		int iChars = strPointer-strPath+1;
+		int iChars = (int)(strPointer-strPath+1);
 		strncpy(strDest,strPath,iChars);
 		strcpy(strDest+iChars,strExtension);
 	}	
@@ -142,7 +139,7 @@ bool FileUtils::isFile(const char *strFile) {
 	return false;
 }
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 
 // create the given folder
 int FileUtils::createFolder(const char *strFolder, mode_t mode) {

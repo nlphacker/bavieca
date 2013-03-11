@@ -1796,7 +1796,7 @@ LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, 
 	
 	// get the maximum tree depth (all the trees have the same depth so use the first one)
 	for(unsigned int i=0 ; i < m_phoneSet->size() ; ++i) {
-		if (bPhoneRight[i] == true) {
+		if (bPhoneRight[i]) {
 			*iTreeDepth = getTreeDepth(lexiconTree[i]->stateRoot);
 			break;
 		}

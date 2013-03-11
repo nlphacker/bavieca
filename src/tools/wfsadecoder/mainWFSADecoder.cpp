@@ -236,7 +236,7 @@ int main(int argc, char *argv[]) {
 					printf("%d -> %d\n",iDimFea,(*it)->getRows());
 					for(VUtteranceData::iterator jt = vUtteranceData.begin() ; jt != vUtteranceData.end() ; ++jt) {
 						float *fFeaturesX = new float[jt->features.iFeatures*(*it)->getRows()];
-						for(int i=0 ; i < jt->features.iFeatures ; ++i) {
+						for(unsigned int i=0 ; i < jt->features.iFeatures ; ++i) {
 							(*it)->apply(jt->features.fFeatures+(i*iDimFea),fFeaturesX+(i*(*it)->getRows()));
 						}
 						delete [] jt->features.fFeatures;

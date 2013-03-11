@@ -282,7 +282,7 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 				
 				// compute the occupation for each gaussian in the mixture
 				double dGaussianAux = 0.0;
-				for(int g = 0 ; g < edgeActiveCurrent[i]->hmmStateEstimation->getMixture().getNumberComponents() ; ++g) {
+				for(unsigned int g = 0 ; g < edgeActiveCurrent[i]->hmmStateEstimation->getMixture().getNumberComponents() ; ++g) {
 					
 					double dOccLikGaussian = edgeActiveCurrent[i]->hmmStateEstimation->computeEmissionProbabilityGaussian(g,fFeatureVectorAlignment,t) + dOccupationLikelihood + log(edgeActiveCurrent[i]->hmmStateEstimation->getMixture()(g)->weight());	
 					

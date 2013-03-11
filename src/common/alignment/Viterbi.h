@@ -52,7 +52,7 @@ typedef struct _VNode {
 } VNode;
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class Viterbi {
 
@@ -90,11 +90,11 @@ class Viterbi {
 		float computeEmissionProbability(HMMStateDecoding *hmmStateDecoding, float *fFeatureVector, int iFeatureVector);
 		
 		// return the number of HMM-states of a sequence of lexical units
-		int getHMMStatesNumber(VLexUnit &vLexUnit) {
+		unsigned int getHMMStatesNumber(VLexUnit &vLexUnit) {
 		
-			int iHMMStates = 0;
+			unsigned int iHMMStates = 0;
 			for(VLexUnit::iterator it = vLexUnit.begin() ; it != vLexUnit.end() ; ++it) {
-				iHMMStates += (*it)->vPhones.size();
+				iHMMStates += (unsigned int)(*it)->vPhones.size();
 			}
 			
 			return iHMMStates;

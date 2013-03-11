@@ -45,7 +45,7 @@ typedef struct {
 typedef vector<ReferenceWord*> VReferenceWord;
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class ReferenceText {
 
@@ -68,9 +68,9 @@ class ReferenceText {
 		bool load();
 		
 		// return the number of elements
-		inline int size() {
+		inline unsigned int size() {
 			
-			return m_vReferenceWord.size();
+			return (unsigned int)m_vReferenceWord.size();
 		}
 		
 		// return whether there are elements

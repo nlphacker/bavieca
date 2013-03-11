@@ -224,7 +224,7 @@ void ActiveStateTable::printInfo() {
 	fSize += m_iHashEntries*sizeof(HashEntry);							// there is a hash table
 	fSize += m_iHistoryItems*sizeof(HistoryItem);
 	// convert to MB
-	fSize /= 1024*1024;															
+	fSize /= 1024*1024;
 
 	printf("-----------------------------------------\n");
 	printf("load factor:        %8.4f\n",fLoadFactor);
@@ -879,12 +879,12 @@ BestPath *ActiveStateTable::getBestPath(int iFeatureVectors) {
 								}
 							}
 						}
-						/*if (bFound == true) {
+						/*if (bFound) {
 							break;	
 						}*/
 					}
 				}
-				assert(bFound == true);
+				assert(bFound);
 				fScore += fScoreFinalBest;
 				if ((transitionBest == NULL) || (fScore > fScoreBestTransition)) {
 					transitionBest = transition;
@@ -1071,7 +1071,7 @@ HypothesisLattice *ActiveStateTable::getHypothesisLattice() {
 						}
 					}
 				}
-				assert(bFound == true);
+				assert(bFound);
 				
 				HistoryItem *historyItem = new HistoryItem();
 				historyItem->iLexUnitPron = transition->iSymbol & LEX_UNIT_TRANSITION_COMPLEMENT;
@@ -1088,7 +1088,7 @@ HypothesisLattice *ActiveStateTable::getHypothesisLattice() {
 	}
 
 	// if the vector is empty the lattice cannot be built
-	if (vHistoryItem.empty() == true) {
+	if (vHistoryItem.empty()) {
 		return NULL;
 	}
 	

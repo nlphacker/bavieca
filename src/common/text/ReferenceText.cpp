@@ -61,7 +61,7 @@ bool ReferenceText::load() {
    int iIndexSentence = 0;
 	int iIndexWithinWord = 0;
    while(fgets(strLine,1024,file) != NULL) {
-      int iLength = strlen(strLine);		
+      int iLength = (int)strlen(strLine);		
 		for(int i=0; i<iLength ; ++i , ++iPosition) {
 			// regular words and initials+acronyms
 			if ((isWordCharacter(strLine[i])) || ((strLine[i] == '.') && (i+1 < iLength) && (isalnum(strLine[i+1]) != 0))) {

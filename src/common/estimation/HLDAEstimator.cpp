@@ -81,7 +81,7 @@ void HLDAEstimator::estimate() {
 	GaussianData *gaussianData = new GaussianData[iGaussianComponents];
 	int iGaussian = 0;
 	for(int i=0 ; i < iHMMStates ; ++i) {
-		for(int j=0 ; j < hmmStates[i]->getMixture().getNumberComponents() ; ++j, ++iGaussian) {
+		for(unsigned int j=0 ; j < hmmStates[i]->getMixture().getNumberComponents() ; ++j, ++iGaussian) {
 			gaussianData[iGaussian].gaussian = hmmStates[i]->getMixture()(j);
 			gaussianData[iGaussian].vCovDiag = new Vector<float>(m_iN);
 			dOccupationTotal += gaussianData[iGaussian].dOccupation;
@@ -291,7 +291,7 @@ void HLDAEstimator::applyTransform(Matrix<float> &mTransform, HMMManager *hmmMan
 	for(int s = 0 ; s < iHMMStates ; ++s) {
 
 		// update each Gaussian component
-		for(int g = 0 ; g < hmmStates[s]->getMixture().getNumberComponents() ; ++g) {
+		for(unsigned int g = 0 ; g < hmmStates[s]->getMixture().getNumberComponents() ; ++g) {
 			
 			Gaussian *gaussian = hmmStates[s]->getMixture()(g);
 			assert(gaussian != NULL);
@@ -373,7 +373,7 @@ void HLDAEstimator::loadGaussianOccupation(double *dOccupationTotal, GaussianDat
 	
 	int iGaussian = 0;
 	for(int i=0 ; i < m_hmmManager->getNumberHMMStatesPhysical() ; ++i) {
-		for(int j=0 ; j < hmmStates[i]->getMixture().getNumberComponents() ; ++j, ++iGaussian) {
+		for(unsigned int j=0 ; j < hmmStates[i]->getMixture().getNumberComponents() ; ++j, ++iGaussian) {
 			unsigned int iKey = Accumulator::getPhysicalAccumulatorKey(i,j);
 			MAccumulatorPhysical::iterator it = mAccumulatorPhysical.find(iKey);
 			assert(it != mAccumulatorPhysical.end());

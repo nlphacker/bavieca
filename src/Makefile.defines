@@ -30,6 +30,10 @@ OS   := $(shell uname -s)
 
 XCC          = g++
 CPPFLAGS     = -g -Wno-deprecated -msse3 -Wall -O2 -finline-functions
+# -fPIC generates Position Independent Code, which is needed to build shared libraries 
+# so they can be dynamically relocated, however it may slowdown the code, for this reason
+# it should be avoided for object files that build executables or static libraries
+CPPFLAGS_SHARED = $(CPPFLAGS) -fPIC
 AR	     = ar rs
 
 # ---------------------------------------
@@ -44,3 +48,15 @@ LIBS_DIR_CBLAS = -L$(BASE)/CBLAS/lib/ -L$(BASE)/BLAS/
 LIBS_DIR_LAPACK = -L$(BASE)/CLAPACK-3.2.1/ -L$(BASE)/CLAPACK-3.2.1/F2CLIBS
 LIB_CBLAS = -lcblas_LINUX -lblas_LINUX -lgfortran
 LIB_LAPACK = -llapack_LINUX -lblas_LINUX3 -lf2c 
+
+# ----------------------------------------------------
+# Java JNI (Java Native Interface) includes/libraries
+# ----------------------------------------------------
+
+JAVA_BASE = /usr/lib/jvm/java-1.6.0-openjdk-1.6.0.0
+INCS_DIR_JNI = -I$(JAVA_BASE)/include -I$(JAVA_BASE)/include/linux
+
+
+
+
+

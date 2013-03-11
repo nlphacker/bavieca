@@ -299,12 +299,12 @@ void FeatureExtractor::extractFeaturesSession(VUtteranceData &vUtteranceData, bo
 	
 		// CMN
 		if (m_iCepstralNormalizationMethod == CEPSTRAL_NORMALIZATION_METHOD_CMN) {
-			applyCMN(featuresUtterance,vUtteranceData.size(),m_iCoefficients,m_iCepstralCoefficients);
+			applyCMN(featuresUtterance,(int)vUtteranceData.size(),m_iCoefficients,m_iCepstralCoefficients);
 		}
 		// CMVN
 		else { 
 			assert(m_iCepstralNormalizationMethod == CEPSTRAL_NORMALIZATION_METHOD_CMVN);
-			applyCMVN(featuresUtterance,vUtteranceData.size(),m_iCoefficients,m_iCepstralCoefficients);
+			applyCMVN(featuresUtterance,(int)vUtteranceData.size(),m_iCoefficients,m_iCepstralCoefficients);
 		}
 		
 		delete [] featuresUtterance;
@@ -337,7 +337,7 @@ void FeatureExtractor::extractFeaturesSession(VUtteranceData &vUtteranceData, bo
 void FeatureExtractor::extractFeatures(const char *strFileRaw, const char *strFileFea) {
 
 	// extract the features
-	int iFeatures = -1;
+	unsigned int iFeatures = 0;
 	float *fFeatures = extractFeatures(strFileRaw,&iFeatures);
 	assert(fFeatures);
 	
@@ -348,7 +348,7 @@ void FeatureExtractor::extractFeatures(const char *strFileRaw, const char *strFi
 }
 
 // extract features from a RAW audio file (utterance-level cepstral normalization)
-float *FeatureExtractor::extractFeatures(const char *strFile, int *iFeatures) {
+float *FeatureExtractor::extractFeatures(const char *strFile, unsigned int *iFeatures) {
 
 	// load the audio
 	int iSamples = -1;
@@ -367,7 +367,7 @@ float *FeatureExtractor::extractFeatures(const char *strFile, int *iFeatures) {
 }
 
 // extract static features in stream mode (make use of "left context" speech samples)
-float *FeatureExtractor::extractFeaturesStream(short *sSamples, int iSamples, int *iFeatures) {
+float *FeatureExtractor::extractFeaturesStream(short *sSamples, unsigned int iSamples, unsigned int *iFeatures) {
 
 	float *fFeatures = NULL; 
 	//int iSamplesLeft = m_iSamplesFrame-m_iSamplesSkip;
@@ -390,7 +390,7 @@ float *FeatureExtractor::extractFeaturesStream(short *sSamples, int iSamples, in
 }
 
 // extract features (utterance or stream-based normalization)
-float *FeatureExtractor::extractFeatures(short *sSamples, int iSamples, int *iFeatures) {
+float *FeatureExtractor::extractFeatures(short *sSamples, unsigned int iSamples, unsigned int *iFeatures) {
 
 	// extract the static features (cepstral normalization takes place inside)
 	float *fFeaturesStatic = extractStaticFeatures(sSamples,iSamples,iFeatures);
@@ -410,7 +410,7 @@ float *FeatureExtractor::extractFeatures(short *sSamples, int iSamples, int *iFe
 }
 
 // extract static features
-float *FeatureExtractor::extractStaticFeatures(short *sSamples, int iSamples, int *iFeatures) {
+float *FeatureExtractor::extractStaticFeatures(short *sSamples, unsigned int iSamples, unsigned int *iFeatures) {
 
 	// mfcc
 	if (m_iType == FEATURE_TYPE_MFCC) {
@@ -427,7 +427,7 @@ float *FeatureExtractor::extractStaticFeatures(short *sSamples, int iSamples, in
 }
 
 // extract MFCC features (only the static coefficients)
-float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int iSamples, int *iFeatures) {
+float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, unsigned int iSamples, unsigned int *iFeatures) {
 
 	// (1) make a copy of the samples so they do not get modified
 	short *sSamples = new short[iSamples];
@@ -450,7 +450,7 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 		return NULL;
 	}
 	// compute the number of frames (feature vectors) to extract
-	int iFrames = 1+(iSamples-m_iSamplesFrame)/m_iSamplesSkip;
+	unsigned int iFrames = 1+(iSamples-m_iSamplesFrame)/m_iSamplesSkip;
 	// allocate memory for the frames
 	float *fMFCC = new float[iFrames*m_iCoefficients];	
 	*iFeatures = iFrames;	
@@ -466,9 +466,9 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 	double *dSamplesFrame = new double[m_iSamplesFrame];
 	
 	// process each window
-	for(int i = 0 ; i < iFrames ; ++i) {
+	for(unsigned int i = 0 ; i < iFrames ; ++i) {
 	
-		for(int j=0 ; j < m_iSamplesFrame ; ++j) {
+		for(unsigned int j=0 ; j < m_iSamplesFrame ; ++j) {
 			dSamplesFrame[j] = (double)sSamples[(i*m_iSamplesSkip)+j];
 		}
 	
@@ -479,17 +479,17 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 		double dFrameEnergy = computeLogEnergy(dSamplesFrame,m_iSamplesFrame);
 		
 		// apply the Fourier transform and get the frequencies
-		for(int j = 0 ; j < m_iSamplesFrame ; ++j) {
+		for(unsigned int j = 0 ; j < m_iSamplesFrame ; ++j) {
 			dFFT[j] = dSamplesFrame[j]; 
 		}
-		for(int j = m_iSamplesFrame ; j < m_iFFTPoints+2 ; ++j) {
+		for(unsigned int j = m_iSamplesFrame ; j < m_iFFTPoints+2 ; ++j) {
 			dFFT[j] = 0.0; 
 		}	
 		Numeric::fft(dFFT,m_iFFTPoints);
 		
 		// compute the magnitude from the real and imaginary parts
 		int iIndex = 2;
-		for(int j = 2 ; j < m_iFFTPoints/2 ; ++j, iIndex+=2) {
+		for(unsigned int j = 2 ; j < m_iFFTPoints/2 ; ++j, iIndex+=2) {
 			double dReal = dFFT[iIndex];
 			double dImaginary = dFFT[iIndex+1];
 			dFFTMagnitude[j] = (float)sqrt(dReal*dReal+dImaginary*dImaginary);
@@ -499,7 +499,7 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 		for(int j=0 ; j < m_iFilterbankFilters+1 ; ++j) {
 			dBins[j] = 0.0;
 		}
-		for(int j=2 ; j < m_iFFTPoints/2 ; ++j) {
+		for(unsigned int j=2 ; j < m_iFFTPoints/2 ; ++j) {
 			int iBin = m_iFFTPointBin[j];
 			float fValue = (float)(m_fFFTPointGain[j]*dFFTMagnitude[j]);
 			if (iBin > 0) {
@@ -570,12 +570,12 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 	// compute normalized log energy
 	fMaxFrameEnergy = max(fMFCC[m_iCepstralCoefficients], fMaxFrameEnergy);
 	fMinFrameEnergy = min(fMFCC[m_iCepstralCoefficients], fMinFrameEnergy);	
-	for(int i=1 ; i<iFrames ; i++) {	
+	for(unsigned int i=1 ; i<iFrames ; i++) {	
 		fMaxFrameEnergy = max(fMFCC[i*m_iCoefficients+m_iCepstralCoefficients], fMaxFrameEnergy);
 		fMinFrameEnergy = min(fMFCC[i*m_iCoefficients+m_iCepstralCoefficients], fMinFrameEnergy);	
 	}		
 	
-   for(int i=0 ; i<iFrames ; i++){
+   for(unsigned int i=0 ; i<iFrames ; i++){
       fMFCC[i*m_iCoefficients+m_iCepstralCoefficients] += 1.0f - fMaxFrameEnergy;
       if (fMFCC[i*m_iCoefficients+m_iCepstralCoefficients] < -5.0) {
       	fMFCC[i*m_iCoefficients+m_iCepstralCoefficients] = -5.0;
@@ -593,7 +593,7 @@ float *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOriginal, int 
 }
 
 // extract PLP features (only the static coefficients)
-float *FeatureExtractor::extractStaticFeaturesPLP(short *sSamples, int iSamples, int *iFeatures) {
+float *FeatureExtractor::extractStaticFeaturesPLP(short *sSamples, unsigned int iSamples, unsigned int *iFeatures) {
 
 	return NULL;
 }
@@ -709,7 +709,7 @@ void FeatureExtractor::computeFFTPointBin() {
 	m_iFFTPointBin = new int[m_iFFTPoints];
 	float fStep = ((float)m_iSamplingRate)/((float)m_iFFTPoints);
 	int iBin = 1;
-	for(int i=1 ; i <= m_iFFTPoints/2 ; ++i) {
+	for(unsigned int i=1 ; i <= m_iFFTPoints/2 ; ++i) {
 		while((m_fCenterFrequencyMel[iBin] < linearToMel((i-1)*fStep)) && (iBin < (m_iFilterbankFilters+1)))  {
 			++iBin;
 		}
@@ -717,7 +717,7 @@ void FeatureExtractor::computeFFTPointBin() {
 	}
 	
 	m_fFFTPointGain = new float[m_iFFTPoints];
-	for(int i=1 ; i <= m_iFFTPoints/2 ; ++i) {
+	for(unsigned int i=1 ; i <= m_iFFTPoints/2 ; ++i) {
 		int iBin = m_iFFTPointBin[i];
 		if (iBin > 0) {
 			m_fFFTPointGain[i] = (m_fCenterFrequencyMel[iBin+1]-linearToMel((i-1)*fStep))/(m_fCenterFrequencyMel[iBin+1]-m_fCenterFrequencyMel[iBin]);
@@ -817,29 +817,30 @@ float *FeatureExtractor::computeDerivatives(float *fFeatures, int iFeatures) {
 }
 
 // apply utterance-based cepstral mean normalization
-void FeatureExtractor::applyCMN(float *fFeatures, int iFeatures, int iCoefficients, int iCoefficientsNormalization) {
+void FeatureExtractor::applyCMN(float *fFeatures, unsigned int iFeatures, unsigned int iCoefficients, 
+	unsigned int iCoefficientsNormalization) {
 
 	double *dObservation = new double[iCoefficientsNormalization];
 	double *dMean = new double[iCoefficientsNormalization];
 	
 	// initialization
-	for(int i=0 ; i < iCoefficientsNormalization ; ++i) {
+	for(unsigned int i=0 ; i < iCoefficientsNormalization ; ++i) {
 		dObservation[i] = 0.0;
 	}
  
  	// compute the mean
-	for(int i=0 ; i < iFeatures ; ++i) {
-		for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
+	for(unsigned int i=0 ; i < iFeatures ; ++i) {
+		for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {
 			dObservation[j] += fFeatures[i*iCoefficients+j];
 		}
 	} 
-	for(int i=0 ; i < iCoefficientsNormalization ; ++i) {
+	for(unsigned int i=0 ; i < iCoefficientsNormalization ; ++i) {
 		dMean[i] = (dObservation[i]/((double)iFeatures));
 	}
 	
 	// substract the mean
-	for(int i=0 ; i < iFeatures ; ++i) {
-		for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
+	for(unsigned int i=0 ; i < iFeatures ; ++i) {
+		for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {
 			fFeatures[i*iCoefficients+j] -= (float)dMean[j];
 		}
 	}
@@ -849,7 +850,8 @@ void FeatureExtractor::applyCMN(float *fFeatures, int iFeatures, int iCoefficien
 }
 
 // apply utterance-based cepstral mean normalization
-void FeatureExtractor::applyCMVN(float *fFeatures, int iFeatures, int iCoefficients, int iCoefficientsNormalization) {
+void FeatureExtractor::applyCMVN(float *fFeatures, unsigned int iFeatures, unsigned int iCoefficients, 
+	unsigned int iCoefficientsNormalization) {
 
 	double *dObservation = new double[iCoefficientsNormalization];
 	double *dObservationSquare = new double[iCoefficientsNormalization];
@@ -857,7 +859,7 @@ void FeatureExtractor::applyCMVN(float *fFeatures, int iFeatures, int iCoefficie
 	double *dStandardDeviation = new double[iCoefficientsNormalization];
 	
 	// initialization
-	for(int i=0 ; i < iCoefficientsNormalization ; ++i) {
+	for(unsigned int i=0 ; i < iCoefficientsNormalization ; ++i) {
 		dObservation[i] = 0.0;
 		dObservationSquare[i] = 0.0;
 		dMean[i] = 0.0;
@@ -865,21 +867,21 @@ void FeatureExtractor::applyCMVN(float *fFeatures, int iFeatures, int iCoefficie
 	}
  
  	// accumulate statistics
-	for(int i=0 ; i < iFeatures ; ++i) {
-		for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
+	for(unsigned int i=0 ; i < iFeatures ; ++i) {
+		for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {
 			dObservation[j] += fFeatures[i*iCoefficients+j];
 			dObservationSquare[j] += fFeatures[i*iCoefficients+j]*fFeatures[i*iCoefficients+j];
 		}
 	} 
 	// compute the mean and standard deviation
-	for(int i=0 ; i < iCoefficientsNormalization ; ++i) {
+	for(unsigned int i=0 ; i < iCoefficientsNormalization ; ++i) {
 		dMean[i] = (dObservation[i]/((double)iFeatures));
 		dStandardDeviation[i] = sqrt((dObservationSquare[i]/((double)iFeatures))-(dMean[i]*dMean[i]));
 	}
 	
 	// substract the mean
-	for(int i=0 ; i < iFeatures ; ++i) {
-		for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
+	for(unsigned int i=0 ; i < iFeatures ; ++i) {
+		for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {
 			fFeatures[i*iCoefficients+j] = (float)((fFeatures[i*iCoefficients+j]-dMean[j])/dStandardDeviation[j]);
 		}
 	}	
@@ -891,38 +893,39 @@ void FeatureExtractor::applyCMVN(float *fFeatures, int iFeatures, int iCoefficie
 }
 
 // apply stream-based cepstral mean normalization
-void FeatureExtractor::applyCMNStream(float *fFeatures, int iFeatures, int iCoefficients, int iCoefficientsNormalization) {
+void FeatureExtractor::applyCMNStream(float *fFeatures, unsigned int iFeatures, unsigned int iCoefficients, 
+	unsigned int iCoefficientsNormalization) {
 	
 	double *dAcc = new double[iCoefficientsNormalization];
-	for(int i=0 ; i < iCoefficientsNormalization ; ++i) {
+	for(unsigned int i=0 ; i < iCoefficientsNormalization ; ++i) {
 		dAcc[i] = 0.0;
 	}
 	
 	// (1) compute the mean from the new vectors and those already in the buffer	
-	int iCepstralBufferElements = -1;
+	unsigned int iCepstralBufferElements = 0;
 	if (m_bCepstralBufferFull) {
 		iCepstralBufferElements = m_iCepstralBufferSize;
 	} else {
 		iCepstralBufferElements = m_iCepstralBufferPointer;
 	}
-	for(int i=0 ;  i < iCepstralBufferElements ; ++i) {
-		for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
+	for(unsigned int i=0 ;  i < iCepstralBufferElements ; ++i) {
+		for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {
 			dAcc[j] += m_fCepstralBuffer[i*iCoefficientsNormalization+j];
 		}
 	}	
-	for(int i=0 ;  i < iFeatures ; ++i) {
-		for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
+	for(unsigned int i=0 ;  i < iFeatures ; ++i) {
+		for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {
 			dAcc[j] += fFeatures[i*iCoefficients+j];
 		}
 	}	
-	int iElements = iCepstralBufferElements+iFeatures;
-	for(int i=0 ; i < iCoefficientsNormalization ; ++i) {
+	unsigned int iElements = iCepstralBufferElements+iFeatures;
+	for(unsigned int i=0 ; i < iCoefficientsNormalization ; ++i) {
 		dAcc[i] /= ((double)iElements);
 	}	
 	
 	// (2) update the cepstral buffer (unnormalized features)
-	for(int i=0 ; i < iFeatures ; ++i) {	
-		for(int j=0 ; j < iCoefficientsNormalization ; ++j) {	
+	for(unsigned int i=0 ; i < iFeatures ; ++i) {	
+		for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {	
 			m_fCepstralBuffer[m_iCepstralBufferPointer*iCoefficientsNormalization+j] = fFeatures[i*iCoefficients+j];
 		}
 		// circular buffer		
@@ -933,8 +936,8 @@ void FeatureExtractor::applyCMNStream(float *fFeatures, int iFeatures, int iCoef
 	}
 	
 	// (3) substract the mean
-	for(int i=0 ; i < iFeatures ; ++i) {	
-		for(int j=0 ; j < iCoefficientsNormalization ; ++j) {	
+	for(unsigned int i=0 ; i < iFeatures ; ++i) {	
+		for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {	
 			fFeatures[i*iCoefficients+j] -= (float)dAcc[j];
 		}		
 	}
@@ -944,7 +947,8 @@ void FeatureExtractor::applyCMNStream(float *fFeatures, int iFeatures, int iCoef
 }
 
 // compute CMN over a set of utterances (session mode)
-void FeatureExtractor::applyCMN(FeaturesUtterance *featuresUtterance, int iUtterances, int iCoefficients, int iCoefficientsNormalization) {
+void FeatureExtractor::applyCMN(FeaturesUtterance *featuresUtterance, unsigned int iUtterances, 
+	unsigned int iCoefficients, unsigned int iCoefficientsNormalization) {
 
 	assert(featuresUtterance != NULL);
 	assert(iUtterances >= 1);
@@ -954,20 +958,20 @@ void FeatureExtractor::applyCMN(FeaturesUtterance *featuresUtterance, int iUtter
 	double *dMean = new double[iCoefficientsNormalization];
 	
 	// initialize
-	for(int i=0 ; i < iCoefficientsNormalization ; ++i) {
+	for(unsigned int i=0 ; i < iCoefficientsNormalization ; ++i) {
 		dObservation[i] = 0.0;
 		dMean[i] = 0.0;
 	}
 	
 	// accumulate statistics
-	for(int iUtterance = 0 ; iUtterance < iUtterances ; ++iUtterance) { 	
+	for(unsigned int iUtterance = 0 ; iUtterance < iUtterances ; ++iUtterance) { 	
 		float *fFeatures = featuresUtterance[iUtterance].fFeatures;
 		if (fFeatures == NULL) {
 			continue;
 		}
 		// accumulate statistics
-		for(int i=0 ; i < featuresUtterance[iUtterance].iFeatures ; ++i) {
-			for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
+		for(unsigned int i=0 ; i < featuresUtterance[iUtterance].iFeatures ; ++i) {
+			for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {
 				dObservation[j] += fFeatures[i*iCoefficients+j];
 			}
 		} 
@@ -975,19 +979,19 @@ void FeatureExtractor::applyCMN(FeaturesUtterance *featuresUtterance, int iUtter
 	}
 	
 	// compute the mean and the covariance
-	for(int i=0 ; i < iCoefficientsNormalization ; ++i) {
+	for(unsigned int i=0 ; i < iCoefficientsNormalization ; ++i) {
 		dMean[i] = dObservation[i]/((double)lFeaturesTotal);
 	}	
 	
 	// substract the mean and divide by the covariance
-	for(int iUtterance = 0 ; iUtterance < iUtterances ; ++iUtterance) {
+	for(unsigned int iUtterance = 0 ; iUtterance < iUtterances ; ++iUtterance) {
 		float *fFeatures = featuresUtterance[iUtterance].fFeatures;
 		if (fFeatures == NULL) {
 			continue;
 		}
 		// accumulate statistics
-		for(int i=0 ; i < featuresUtterance[iUtterance].iFeatures ; ++i) {
-			for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
+		for(unsigned int i=0 ; i < featuresUtterance[iUtterance].iFeatures ; ++i) {
+			for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {
 				fFeatures[i*iCoefficients+j] = (float)(fFeatures[i*iCoefficients+j]-dMean[j]);
 			}	
 		}
@@ -998,7 +1002,8 @@ void FeatureExtractor::applyCMN(FeaturesUtterance *featuresUtterance, int iUtter
 }
 
 // compute CMVN over a set of utterances (session mode)
-void FeatureExtractor::applyCMVN(FeaturesUtterance *featuresUtterance, int iUtterances, int iCoefficients, int iCoefficientsNormalization) {
+void FeatureExtractor::applyCMVN(FeaturesUtterance *featuresUtterance, unsigned int iUtterances, 
+	unsigned int iCoefficients, unsigned int iCoefficientsNormalization) {
 
 	assert(featuresUtterance != NULL);
 	assert(iUtterances >= 1);
@@ -1010,7 +1015,7 @@ void FeatureExtractor::applyCMVN(FeaturesUtterance *featuresUtterance, int iUtte
 	double *dStandardDeviation = new double[iCoefficientsNormalization];	
 	
 	// initialize
-	for(int i=0 ; i < iCoefficientsNormalization ; ++i) {
+	for(unsigned int i=0 ; i < iCoefficientsNormalization ; ++i) {
 		dObservation[i] = 0.0;
 		dObservationSquare[i] = 0.0;
 		dMean[i] = 0.0;
@@ -1018,14 +1023,14 @@ void FeatureExtractor::applyCMVN(FeaturesUtterance *featuresUtterance, int iUtte
 	}
 	
 	// accumulate statistics
-	for(int iUtterance = 0 ; iUtterance < iUtterances ; ++iUtterance) { 	
+	for(unsigned int iUtterance = 0 ; iUtterance < iUtterances ; ++iUtterance) { 	
 		float *fFeatures = featuresUtterance[iUtterance].fFeatures;
 		if (fFeatures == NULL) {
 			continue;
 		}	
 		// accumulate statistics
-		for(int i=0 ; i < featuresUtterance[iUtterance].iFeatures ; ++i) {
-			for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
+		for(unsigned int i=0 ; i < featuresUtterance[iUtterance].iFeatures ; ++i) {
+			for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {
 				dObservation[j] += fFeatures[i*iCoefficients+j];
 				dObservationSquare[j] += fFeatures[i*iCoefficients+j]*fFeatures[i*iCoefficients+j];
 			}
@@ -1034,20 +1039,20 @@ void FeatureExtractor::applyCMVN(FeaturesUtterance *featuresUtterance, int iUtte
 	}
 	
 	// compute the mean and the covariance
-	for(int i=0 ; i < iCoefficientsNormalization ; ++i) {
+	for(unsigned int i=0 ; i < iCoefficientsNormalization ; ++i) {
 		dMean[i] = dObservation[i]/((double)lFeaturesTotal);
 		dStandardDeviation[i] = sqrt((dObservationSquare[i]/((double)lFeaturesTotal))-(dMean[i]*dMean[i]));
 	}	
 	
 	// substract the mean and divide by the covariance
-	for(int iUtterance = 0 ; iUtterance < iUtterances ; ++iUtterance) {
+	for(unsigned int iUtterance = 0 ; iUtterance < iUtterances ; ++iUtterance) {
 		float *fFeatures = featuresUtterance[iUtterance].fFeatures;
 		if (fFeatures == NULL) {
 			continue;
 		}
 		// accumulate statistics
-		for(int i=0 ; i < featuresUtterance[iUtterance].iFeatures ; ++i) {
-			for(int j=0 ; j < iCoefficientsNormalization ; ++j) {
+		for(unsigned int i=0 ; i < featuresUtterance[iUtterance].iFeatures ; ++i) {
+			for(unsigned int j=0 ; j < iCoefficientsNormalization ; ++j) {
 				fFeatures[i*iCoefficients+j] = (float)((fFeatures[i*iCoefficients+j]-dMean[j])/dStandardDeviation[j]);
 			}	
 		}

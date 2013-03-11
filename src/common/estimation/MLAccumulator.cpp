@@ -186,7 +186,7 @@ void MLAccumulator::accumulate() {
 	int iUtterance = 0;
 	VMLFUtterance *vMLFUtterance = m_mlfFile->getUtterances();
 	// at this point we might not know the total amount of audio but we do know the total number of utterances
-	int iUtterancesTotal = vMLFUtterance->size();
+	unsigned int iUtterancesTotal = (unsigned int)vMLFUtterance->size();
 	float fPercentageDisplayed = 0.0;
 	for(VMLFUtterance::iterator it = vMLFUtterance->begin() ; it != vMLFUtterance->end() ; ++it, ++iUtterance) {
 	
@@ -196,11 +196,11 @@ void MLAccumulator::accumulate() {
 		FeatureFile featureFileAlignment(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,
 			m_iFeatureDimensionalityAlignment);
 		featureFileAlignment.load();
-		int iFeatureVectorsAlignment = 0;
-		float *fFeaturesAlignment = (float*)featureFileAlignment.getFeatureVectors(&iFeatureVectorsAlignment);
+		unsigned int iFeatureVectorsAlignment = 0;
+		float *fFeaturesAlignment = featureFileAlignment.getFeatureVectors(&iFeatureVectorsAlignment);
 		
 		// load the features for the accumulation (if necessary)
-		int iFeatureVectorsAcc = -1;
+		unsigned int iFeatureVectorsAcc = -1;
 		float *fFeaturesAcc = NULL;
 		if (m_bSingleFeatureStream == false) {
 			ostringstream strFileFeatures;
@@ -208,7 +208,7 @@ void MLAccumulator::accumulate() {
 			FeatureFile featureFileAcc(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,
 				m_iFeatureDimensionalityAcc);
 			featureFileAcc.load();
-			fFeaturesAcc = (float*)featureFileAcc.getFeatureVectors(&iFeatureVectorsAcc);
+			fFeaturesAcc = featureFileAcc.getFeatureVectors(&iFeatureVectorsAcc);
 		} 
 		// same feature stream for estimation and parameter update (default behaviour)
 		else {

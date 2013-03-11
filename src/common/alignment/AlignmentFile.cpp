@@ -56,18 +56,18 @@ void AlignmentFile::store(VPhoneAlignment &vPhoneAlignment, const char *strAlign
 	}
 	
 	// determine the width of the phone field
-	int iPhoneCharactersMax = 0;
+	unsigned int iPhoneCharactersMax = 0;
 	for(unsigned int i=0 ; i < m_phoneSet->size() ; ++i) {
-		int iLength = strlen(m_phoneSet->getStrPhone(i));
+		unsigned int iLength = (unsigned int)strlen(m_phoneSet->getStrPhone(i));
 		if (iLength > iPhoneCharactersMax) {
 			iPhoneCharactersMax = iLength;
 		}
 	}
 	
 	// determine the width of the lexical unit field
-	int iCharactersLexUnit = 0;
+	unsigned int iCharactersLexUnit = 0;
 	for(VPhoneAlignment::iterator it = vPhoneAlignment.begin() ; it != vPhoneAlignment.end() ; ++it) {
-		int iLength = strlen(m_lexiconManager->getStrLexUnit((*it)->lexUnit->iLexUnit));
+		unsigned int iLength = (unsigned int)strlen(m_lexiconManager->getStrLexUnit((*it)->lexUnit->iLexUnit));
 		if (iLength > iCharactersLexUnit) {
 			iCharactersLexUnit = iLength;
 		}
@@ -204,9 +204,9 @@ void AlignmentFile::print(VPhoneAlignment &vPhoneAlignment) {
 	}
 	
 	// determine the width of the phone field
-	int iPhoneCharactersMax = 0;
+	unsigned int iPhoneCharactersMax = 0;
 	for(unsigned int i=0 ; i < m_phoneSet->size() ; ++i) {
-		int iLength = strlen(m_phoneSet->getStrPhone(i));
+		unsigned int iLength = (unsigned int)strlen(m_phoneSet->getStrPhone(i));
 		if (iLength > iPhoneCharactersMax) {
 			iPhoneCharactersMax = iLength;
 		}
@@ -355,9 +355,9 @@ void AlignmentFile::print(PhoneSet *phoneSet, LexiconManager *lexiconManager, VP
 	}
 	
 	// determine the width of the phone field
-	int iPhoneCharactersMax = 0;
+	unsigned int iPhoneCharactersMax = 0;
 	for(unsigned int i=0 ; i < phoneSet->size() ; ++i) {
-		int iLength = strlen(phoneSet->getStrPhone(i));
+		unsigned int iLength = (unsigned int)strlen(phoneSet->getStrPhone(i));
 		if (iLength > iPhoneCharactersMax) {
 			iPhoneCharactersMax = iLength;
 		}

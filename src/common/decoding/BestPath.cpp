@@ -69,7 +69,7 @@ void BestPath::write(ostream &os, const char *strAudioFile, const char *strSpeak
 		bool bSentenceDelimiter = m_lexiconManager->isSentenceDelimiter((*it)->lexUnit);
 		
 		// skip sentence delimiters if necessary
-		if ((bOutputSentenceDelimiters == false) && (bSentenceDelimiter == true)) {
+		if ((bOutputSentenceDelimiters == false) && (bSentenceDelimiter)) {
 			continue;	
 		}
 		// skip fillers if necessary

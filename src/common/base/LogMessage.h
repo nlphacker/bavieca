@@ -20,6 +20,7 @@
 #ifndef LOGMESSAGE_H
 #define LOGMESSAGE_H
 
+#include "Global.h"
 #include "ExceptionBase.h"
 
 #include <iostream>
@@ -35,9 +36,10 @@ namespace Bavieca {
 #endif
 
 #define BVC_MESSAGE(type) LogMessage(type,__func__,__FILE__,__LINE__).getStream()
-#define BVC_ERROR BVC_MESSAGE("Error")
-#define BVC_WARNING BVC_MESSAGE("Warning")
-#define BVC_INFORMATION BVC_MESSAGE("Information")
+#define BVC_ERROR BVC_MESSAGE("Error")								// error
+#define BVC_WARNING BVC_MESSAGE("Warning")						// warning 
+#define BVC_INFORMATION BVC_MESSAGE("Information")				// high-level information
+#define BVC_VERB BVC_MESSAGE("Verbose")							// detailed information
 
 /**
 	@author daniel <dani.bolanos@gmail.com>

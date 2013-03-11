@@ -53,7 +53,7 @@ namespace Bavieca {
 #define FORMAT_FEATURES_FILE_HTK				1
 
 /**
-	@author Daniel Bolanos <bolanos@cslr.colorado.edu>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class FeatureFile {
 
@@ -62,19 +62,19 @@ class FeatureFile {
 		string m_strFile;						// file name
 	#ifdef SIMD		
 		__attribute__((aligned(16))) float *m_fFeatureVectors;		// aligned to 16 bytes to speed up memory access
-		int m_iFeatureDimensionalityAligned16;		// dimensionality needed to store a 16 bytes aligned feature vector
+		int m_iDimAligned16;					// dimensionality needed to store a 16 bytes aligned feature vector
 	#else
 		float *m_fFeatureVectors;			// feature vectors
 	#endif
-		int m_iFeatureVectors;				// # feature vectors
+		unsigned int m_iFeatureVectors;	// # feature vectors
 		char m_iMode;							// mode
 		char m_iFormat;						// file format (default, HTK, etc)
-		int m_iFeatureDimensionality;		// dimensionality
+		int m_iDim;								// dimensionality
 
 	public:
     	
     	// constructor
-		FeatureFile(const char *strFileName, const char iMode, const char iFormat = FORMAT_FEATURES_FILE_DEFAULT, int iFeatureDimensionality = FEATURE_DIMENSIONALITY_DEFAULT);
+		FeatureFile(const char *strFileName, const char iMode, const char iFormat = FORMAT_FEATURES_FILE_DEFAULT, int iDim = FEATURE_DIMENSIONALITY_DEFAULT);
 
 		// destructor
 		~FeatureFile();
@@ -83,13 +83,13 @@ class FeatureFile {
 		void load();
 		
 		// store the features 
-		void store(float *fFeatureVectors, int iFeatureVectors);
+		void store(float *fFeatureVectors, unsigned int iFeatureVectors);
 		
 		// return a reference to the features
-		float *getFeatureVectors(int *iFeatureVectors);		
+		float *getFeatureVectors(unsigned int *iFeatureVectors);		
 		
 		// print the features (debugging)
-		static void print(float *fFeatures, int iFeatures);
+		static void print(float *fFeatures, unsigned int iFeatures, unsigned int iDim, unsigned int iDelta);
 };
 
 };	// end-of-namespace

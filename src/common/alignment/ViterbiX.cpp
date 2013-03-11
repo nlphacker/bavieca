@@ -164,7 +164,7 @@ Alignment *ViterbiX::processUtterance(VLexUnit &vLexUnitTranscription, bool bMul
 		}
 		iState = hmmStateDecoding->getState();
 		if (iStatesLeft == 0) {
-			iStatesLeft = edgePrevBest->lexUnit->vPhones.size()*NUMBER_HMM_STATES;
+			iStatesLeft = (int)(edgePrevBest->lexUnit->vPhones.size()*NUMBER_HMM_STATES);
 			if (lexUnit != NULL) {
 				alignment->addLexUnitAlignmentFront(t+1,iFrameEnd,lexUnit);
 			}

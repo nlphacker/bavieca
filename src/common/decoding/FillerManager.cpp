@@ -50,7 +50,7 @@ void FillerManager::load() {
 		float fIP = (float)atof(strIP);
 	
 		// check format
-		int iLength = strlen(strLexUnit);
+		unsigned int iLength = (unsigned int)strlen(strLexUnit);
 		if ((iLength < 3) || (strLexUnit[iLength-1] != '>') || (strLexUnit[0] != '<')) {
 			BVC_ERROR << "filler " << strLexUnit << " is not in the right format";
 		}	

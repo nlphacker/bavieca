@@ -69,11 +69,11 @@ void Alignment::store(const char *strFile) {
 			
 	IOBase::write(file.getStream(),m_iType);
 	IOBase::write(file.getStream(),m_bWordLevelAlignment);
-	int iSize = m_vFrameAlignment.size();
+	int iSize = (int)m_vFrameAlignment.size();
 	IOBase::write(file.getStream(),iSize);
 
 	for(VFrameAlignment::iterator it = m_vFrameAlignment.begin() ; it != m_vFrameAlignment.end() ; ++it) {
-		int iSize = (*it)->size();
+		int iSize = (int)(*it)->size();
 		IOBase::write(file.getStream(),iSize);
 		for(VStateOcc::iterator jt = (*it)->begin() ; jt != (*it)->end() ; ++jt) {
 			IOBase::write(file.getStream(),(*jt)->iHMMState);
@@ -83,7 +83,7 @@ void Alignment::store(const char *strFile) {
 	
 	// store the word-level alignment
 	if (m_bWordLevelAlignment) {
-		iSize = m_vWordAlignment.size();
+		iSize = (int)m_vWordAlignment.size();
 		IOBase::write(file.getStream(),iSize);
 		for(VWordAlignment::iterator it = m_vWordAlignment.begin() ; it != m_vWordAlignment.end() ; ++it) {
 			IOBase::write(file.getStream(),(*it)->iFrameBegin);

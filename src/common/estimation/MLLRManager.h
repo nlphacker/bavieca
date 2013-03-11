@@ -91,10 +91,10 @@ class MLLRManager {
 		void applyTransforms();	
 		
 		// feed adaptation data from an alignment
-		void feedAdaptationData(float *fFeatures, int iFeatures, Alignment *alignment, double *dLikelihood);	
+		void feedAdaptationData(float *fFeatures, unsigned int iFeatures, Alignment *alignment, double *dLikelihood);	
 		
 		// feed adaptation data from an alignment into the adaptation process
-		void feedAdaptationData(float *fFeatures, int iFeatures, VPhoneAlignment *vPhoneAlignment, double *dLikelihood);
+		void feedAdaptationData(float *fFeatures, unsigned int iFeatures, VPhoneAlignment *vPhoneAlignment, double *dLikelihood);
 		
 		// feed adaptation data from a batch file containing entries (rawFile alignmentFile)
 		void feedAdaptationData(const char *strBatchFile, const char *strAlignmentFormat, double *dLikelihood, bool bVerbose);

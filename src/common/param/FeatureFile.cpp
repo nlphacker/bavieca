@@ -16,7 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-
+#include <iomanip>
 #include "FeatureFile.h"
 #include "FileInput.h"
 #include "FileOutput.h"
@@ -25,20 +25,20 @@
 namespace Bavieca {
 
 // constructor
-FeatureFile::FeatureFile(const char *strFile, const char iMode, const char iFormat, int iFeatureDimensionality) {
+FeatureFile::FeatureFile(const char *strFile, const char iMode, const char iFormat, int iDim) {
 
 	m_iMode = iMode;
 	m_strFile = strFile;
 	m_iFormat = iFormat;
-	m_iFeatureDimensionality = iFeatureDimensionality;
+	m_iDim = iDim;
 	
 #ifdef SIMD
 	
 	// find the smaller multiple of 16 that is equal or above the feature vector dimensionality
-	m_iFeatureDimensionalityAligned16 = m_iFeatureDimensionality;
+	m_iDimAligned16 = m_iDim;
 	int iAux = (iFeatureDimensionality*sizeof(float))%16;
 	if (iAux > 0) {
-		m_iFeatureDimensionalityAligned16 += (16-iAux)/sizeof(float);
+		m_iDimAligned16 += (16-iAux)/sizeof(float);
 	}
 	
 #endif
@@ -59,7 +59,7 @@ void FeatureFile::load() {
 	file.open();
 	
 	// get the number of feature vectors
-	int iFeatureVectorSize = m_iFeatureDimensionality*sizeof(float);
+	int iFeatureVectorSize = m_iDim*sizeof(float);
 	int iBytes = file.size();
 	if (m_iFormat == FORMAT_FEATURES_FILE_DEFAULT) {		
 		assert(iBytes % iFeatureVectorSize == 0);	
@@ -76,22 +76,22 @@ void FeatureFile::load() {
 
 	// we need the data aligned to addresses multiple of 16 bytes so they can be loaded in the sse registers more efficiently
 	int iReturnValue = posix_memalign((void**)&m_fFeatureVectors,sizeof(__m128i),
-		m_iFeatureVectors*m_iFeatureDimensionalityAligned16*sizeof(float));
+		m_iFeatureVectors*m_iDimAligned16*sizeof(float));
 	assert(iReturnValue == 0);
 	
  	// we need to read them one by one to preserve the memory alignment
 	for(int i=0 ; i<m_iFeatureVectors ; ++i) {
-		int iOffset = i*m_iFeatureDimensionalityAligned16;
+		int iOffset = i*m_iDimAligned16;
 		IOBase::readBytes(file.getStream(),reinterpret_cast<char*>(m_fFeatureVectors+iOffset),
-			m_iFeatureDimensionality*sizeof(float));	
+			m_iDim*sizeof(float));	
 	}
 	
 #else
 
 	// read all the feature vectors at once
-	m_fFeatureVectors = new float[m_iFeatureVectors*m_iFeatureDimensionality];
+	m_fFeatureVectors = new float[m_iFeatureVectors*m_iDim];
 	IOBase::readBytes(file.getStream(),reinterpret_cast<char*>(m_fFeatureVectors),
-		m_iFeatureVectors*m_iFeatureDimensionality*sizeof(float));
+		m_iFeatureVectors*m_iDim*sizeof(float));
 	
 #endif
 
@@ -99,7 +99,7 @@ void FeatureFile::load() {
 }
 
 // store the features 
-void FeatureFile::store(float *fFeatureVectors, int iFeatureVectors) {
+void FeatureFile::store(float *fFeatureVectors, unsigned int iFeatureVectors) {
 
 	// check that the object is in the right mode
 	assert(m_iMode == MODE_WRITE);
@@ -111,15 +111,15 @@ void FeatureFile::store(float *fFeatureVectors, int iFeatureVectors) {
 
  	// we need to write them one by one because of the memory alignment
 	for(int i=0 ; i<m_iFeatureVectors ; ++i) {
-		int iOffset = i*m_iFeatureDimensionalityAligned16;
+		int iOffset = i*m_iDimAligned16;
 		IOBase::writeBytes(file.getStream(),reinterpret_cast<char*>(m_fFeatureVectors+iOffset),
-			m_iFeatureDimensionality*sizeof(float));	
+			m_iDim*sizeof(float));	
 	}
 	
 #else
 
 	IOBase::writeBytes(file.getStream(),reinterpret_cast<char*>(fFeatureVectors),
-		iFeatureVectors*m_iFeatureDimensionality*sizeof(float));
+		iFeatureVectors*m_iDim*sizeof(float));
 
 #endif
 	
@@ -127,7 +127,7 @@ void FeatureFile::store(float *fFeatureVectors, int iFeatureVectors) {
 }
 
 // return a reference to the features
-float *FeatureFile::getFeatureVectors(int *iFeatureVectors) {
+float *FeatureFile::getFeatureVectors(unsigned int *iFeatureVectors) {
 
 	*iFeatureVectors = m_iFeatureVectors;
 	
@@ -135,17 +135,19 @@ float *FeatureFile::getFeatureVectors(int *iFeatureVectors) {
 }
 
 // print the features (debugging)
-void FeatureFile::print(float *fFeatures, int iFeatures) {
+void FeatureFile::print(float *fFeatures, unsigned int iFeatures, unsigned int iDim, unsigned int iDelta) {
 
-	printf("\n");
-	for(int i=0 ; i < iFeatures ; ++i) {
-		for(int j=0 ; j < 3 ; ++j) {
-			for(int h=0 ; h < 13 ; ++h) {
-				printf(" %9.6f",fFeatures[i*(13*3)+j*13+h]);
+	assert((iDim%iDelta) == 0);
+
+	cout << endl;
+	for(unsigned int i=0 ; i < iFeatures ; ++i) {
+		for(unsigned int j=0 ; j < iDelta ; ++j) {
+			for(unsigned int h=0 ; h < iDim/iDelta ; ++h) {
+				cout << " " << FLT(9,6) << fFeatures[i*iDim+j*(iDim/iDelta)+h];
 			}
-			printf("\n");
+			cout << endl;
 		}
-		printf("\n");	
+		cout << endl;	
 	}	
 }
 

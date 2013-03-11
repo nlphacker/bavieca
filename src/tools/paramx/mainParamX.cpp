@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
 			FeatureFile featureFile(strFileInput,MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,iDimensionality);
 			featureFile.load();
 			
-			int iFeatures = -1;
+			unsigned int iFeatures = 0;
 			float *fFeatures = featureFile.getFeatureVectors(&iFeatures);	
 		
 			// apply the transformation		
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
 					FORMAT_FEATURES_FILE_DEFAULT,iDimensionality);
 				featureFile.load();
 				
-				int iFeatures = -1;
+				unsigned int iFeatures = 0;
 				float *fFeatures = featureFile.getFeatureVectors(&iFeatures);	
 			
 				// apply the transformation		

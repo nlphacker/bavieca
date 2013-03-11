@@ -51,7 +51,7 @@ typedef struct {
 typedef vector<ReferenceAlignmentElement*> VReferenceAlignmentElement;
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class ReferenceAlignment {
 

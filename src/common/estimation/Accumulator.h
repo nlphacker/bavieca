@@ -164,7 +164,7 @@ typedef hash_map<unsigned char*,Accumulator*,MAccumulatorFunctions> MAccumulator
 typedef hash_map<unsigned int,Accumulator*> MAccumulatorPhysical;
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class Accumulator {
 

@@ -46,7 +46,7 @@ typedef list<BestPathElement*> LBestPathElement;
 typedef vector<BestPathElement*> VBestPathElement;
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class BestPath {
 
@@ -83,9 +83,9 @@ class BestPath {
 		~BestPath();	
 		
 		// return the number of elements
-		inline int size() {
+		inline unsigned int size() {
 		
-			return m_lBestPathElements.size();	
+			return (unsigned int)m_lBestPathElements.size();	
 		}
 		
 		// return the path score

@@ -71,7 +71,7 @@ void MLEstimator::estimateParameters(HMMState *hmmState, Accumulator **accumulat
 	int iCovarianceModeling = hmmState->getCovarianceModelling();
 
 	// (1) update the mean and the covariance of each Gaussian component
-	for(int g = 0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
+	for(unsigned int g = 0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
 	
 		Gaussian *gaussian = hmmState->getMixture()(g);
 		Accumulator *accumulator = accumulators[g];
@@ -149,7 +149,7 @@ void MLEstimator::computeCovarianceFloor(HMMManager *hmmManager, MAccumulatorPhy
 	
 	// compute the covariance used as reference (the covariance of each mixture is weighted according to its occupation)
 	for(int i=0 ; i < iHMMStates ; ++i) {	
-		for(int g=0 ; g < hmmStates[i]->getMixture().getNumberComponents() ; ++g) {
+		for(unsigned int g=0 ; g < hmmStates[i]->getMixture().getNumberComponents() ; ++g) {
 			MAccumulatorPhysical::iterator jt = mAccumulator.find(Accumulator::getPhysicalAccumulatorKey(i,g));
 			if (jt == mAccumulator.end()) {
 				continue;

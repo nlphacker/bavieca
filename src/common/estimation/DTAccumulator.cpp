@@ -154,7 +154,7 @@ void DTAccumulator::accumulate() {
 	
 	// create accumulators for each HMM-state and Gaussian component	
 	for(int i=0 ; i < m_hmmManager->getNumberHMMStatesPhysical() ; ++i) {
-		for(int g=0 ; g < m_hmmManager->getHMMState(i)->getMixture().getNumberComponents() ; ++g) {
+		for(unsigned int g=0 ; g < m_hmmManager->getHMMState(i)->getMixture().getNumberComponents() ; ++g) {
 			unsigned int iKey = Accumulator::getPhysicalAccumulatorKey(i,g);
 			// numerator
 			Accumulator *accumulatorNum = new Accumulator(m_iFeatureDimensionality,
@@ -174,7 +174,7 @@ void DTAccumulator::accumulate() {
 	int iUtterance = 0;
 	VMLFUtterance *vMLFUtterance = m_mlfFile->getUtterances();
 	// at this point we might not know the total amount of audio but we do know the total number of utterances
-	int iUtterancesTotal = vMLFUtterance->size();
+	int iUtterancesTotal = (int)vMLFUtterance->size();
 	float fPercentageDisplayed = 0.0;
 	for(VMLFUtterance::iterator it = vMLFUtterance->begin() ; it != vMLFUtterance->end() ; ++it, ++iUtterance) {
 	
@@ -183,8 +183,8 @@ void DTAccumulator::accumulate() {
 		strFileFeatures << m_strFolderFeatures << PATH_SEPARATOR << (*it)->strFilePattern;
 		FeatureFile featureFile(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,m_iFeatureDimensionality);
 		featureFile.load();
-		int iFeatureVectors = 0;
-		float *fFeatures = (float*)featureFile.getFeatureVectors(&iFeatureVectors);
+		unsigned int iFeatureVectors = 0;
+		float *fFeatures = featureFile.getFeatureVectors(&iFeatureVectors);
 		
 		iFeatureVectorsTotal += iFeatureVectors;	
 		
@@ -368,7 +368,7 @@ void DTAccumulator::accumulate() {
 // statistics cancellation (between numerator and denominator)
 void DTAccumulator::statisticsCancellation(Alignment *alignmentNum, MOccupation *mOccupationDen) {
 
-	for(int t=0 ; t < alignmentNum->getFrames() ; ++t) {
+	for(unsigned int t=0 ; t < alignmentNum->getFrames() ; ++t) {
 		FrameAlignment *frameAlignment = alignmentNum->getFrameAlignment(t);
 		for(FrameAlignment::iterator it = frameAlignment->begin() ; it != frameAlignment->end() ; ++it) {
 			double dOccupationNum = (*it)->dOccupation;
@@ -388,7 +388,7 @@ void DTAccumulator::accumulate(Alignment *alignment, float *fFeatures, int iFeat
 
 	Accumulator *accumulator = NULL;
 	double dOccupationTotal = 0.0;
-	for(int t=0 ; t < alignment->getFrames() ; ++t) {
+	for(unsigned int t=0 ; t < alignment->getFrames() ; ++t) {
 		FrameAlignment *frameAlignment = alignment->getFrameAlignment(t);
 		for(FrameAlignment::iterator it = frameAlignment->begin() ; it != frameAlignment->end() ; ++it) {
 			double dOccupationNum = (*it)->dOccupation;

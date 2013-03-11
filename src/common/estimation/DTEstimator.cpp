@@ -98,7 +98,7 @@ void DTEstimator::estimateParameters(HMMState *hmmState, Accumulator **accumulat
 	Accumulator **accumulatorsDen, float fE, const char *strISmoothingType, float fTau, bool bUpdateCovariance) {
 	
 	// (1) update the mean and the covariance of each Gaussian component
-	for(int g = 0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
+	for(unsigned int g = 0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
 	
 		Gaussian *gaussian = hmmState->getMixture()(g);
 		Accumulator *accumulatorNum = accumulatorsNum[g];

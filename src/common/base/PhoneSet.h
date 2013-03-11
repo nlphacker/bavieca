@@ -34,14 +34,14 @@ using namespace std;
 
 namespace Bavieca {
 
-#define MAX_BASEPHONES							255		// maximum # of basephones, the 255 value is reserved for error checking
-#define MAX_PHONETIC_SYMBOL_LENGTH  		10 
+#define MAX_BASEPHONES						255		// maximum # of basephones, the 255 value is reserved for error checking
+#define MAX_PHONETIC_SYMBOL_LENGTH			10 
 
 #define PHONETIC_SYMBOL_SILENCE				"SIL"
-#define CONTEXT_PADDING							"<>"
+#define CONTEXT_PADDING						"<>"
 
 typedef struct {
-	unsigned char iIndex;		// phone index
+	unsigned char iIndex;			// phone index
 	string strPhone;				// phone name
 	bool bContext;					// whether context modeling can be applied to the phone 
 } Phone;
@@ -70,8 +70,8 @@ class PhoneSet {
  
       // return the number of phones
       inline unsigned int size() {
-	
-      	return m_vPhone.size();
+		  
+		  return (unsigned int)m_vPhone.size();
       }
 		 
 		// return whether the phone is a special phone (can not appear in lexical word transcriptions)

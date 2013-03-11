@@ -81,7 +81,7 @@ void LMManager::load() {
 	
 	double dEndTime = TimeUtils::getTimeMilliseconds();
 	double dSeconds = (dEndTime-dStartTime)/1000;	
-	cout << "LM loading time: " << dSeconds << "seconds\n";	
+	BVC_VERB << "LM loading time: " << dSeconds << "seconds";	
 	
 	m_bLMLoaded = true;
 }
@@ -492,32 +492,29 @@ void LMManager::destroy() {
 // print language model information
 void LMManager::print() {
 	
-	cout << "---- LM stats -----------------------------\n";
-	cout << " file:        " << m_strFile.c_str() << "\n";
-	cout << " format:      " << m_strFormat.c_str() << "\n";
-	cout << " ngram order: " << getStrNGram() << "\n";
+	BVC_VERB << "---- LM stats -----------------------------";
+	BVC_VERB << " file:        " << m_strFile.c_str();
+	BVC_VERB << " format:      " << m_strFormat.c_str();
+	BVC_VERB << " ngram order: " << getStrNGram();
 	if (m_iNGram >= LM_NGRAM_UNIGRAM) {
-		cout << "  # unigrams: " << m_iUnigrams;
+		BVC_VERB << "  # unigrams: " << m_iUnigrams;
 		if (m_iUnigramsDropped > 0) {
-			cout << " (" << m_iUnigramsDropped << " not in lexicon)"; 
+			BVC_VERB << " (" << m_iUnigramsDropped << " not in lexicon)"; 
 		}
-		cout << "\n";
 	} 
 	if (m_iNGram >= LM_NGRAM_BIGRAM) {
-		cout << "  # bigrams:  " << m_iBigrams;
+		BVC_VERB << "  # bigrams:  " << m_iBigrams;
 		if (m_iBigramsDropped > 0) {
-			cout << " (" << m_iBigramsDropped << " not in lexicon)"; 
+			BVC_VERB << " (" << m_iBigramsDropped << " not in lexicon)"; 
 		}
-		cout << "\n";
 	} 
 	if (m_iNGram >= LM_NGRAM_TRIGRAM) {
-		cout << "  # trigrams: " << m_iTrigrams;
+		BVC_VERB << "  # trigrams: " << m_iTrigrams;
 		if (m_iTrigramsDropped > 0) {
-			cout << " (" << m_iTrigramsDropped << " not in lexicon)"; 
+			BVC_VERB << " (" << m_iTrigramsDropped << " not in lexicon)"; 
 		}
-		cout << "\n";
 	}
-	cout << "-------------------------------------------------------------\n";
+	BVC_VERB << "-------------------------------------------------------------";
 }
 
 // compute a trigram language model score (log-likelihood)
@@ -889,7 +886,7 @@ void LMManager::buildLMGraph() {
 				}
 			
 				// get the position of the bigram in the global array of bigrams
-				int iIndex = &(m_unigrams[i].bigrams[j])-m_bigrams;
+				int iIndex = (int)(&(m_unigrams[i].bigrams[j])-m_bigrams);
 				assert((iIndex >= 0) && (iIndex < m_iBigrams));	
 				
 				LMStateTemp *state = &states[iStateID];
@@ -944,7 +941,7 @@ void LMManager::buildLMGraph() {
 			for(int j=0 ; j < m_unigrams[i].iBigrams ; ++j) {
 			
 				// get the position of the bigram in the global array of bigrams
-				int iIndex = &(m_unigrams[i].bigrams[j])-m_bigrams;
+				int iIndex = (int)(&(m_unigrams[i].bigrams[j])-m_bigrams);
 				assert((iIndex >= 0) && (iIndex < m_iBigrams));	
 				// skip non existent bigrams
 				if (stateMapBigram[iIndex] == NULL) {
@@ -1006,7 +1003,7 @@ void LMManager::buildLMGraph() {
 					BVC_WARNING << "unable to connect bigram (" << str1 << "," << str2 << ") to bigram (" << str2 << "," << str3 << ") through trigram (" << str1 << "," << str2 << "," << str3 << "), destination bigram was not found: trigram ignored!";
 					continue;
 				}	
-				int iIndex = (bigramAux-m_bigrams);
+				int iIndex = (int)(bigramAux-m_bigrams);
 				assert((iIndex >= 0) && (iIndex < m_iBigrams));
 				
 				// skip non existent bigrams states
@@ -1029,7 +1026,7 @@ void LMManager::buildLMGraph() {
 				}	
 			}
 		}
-		printf("states created: %d\n",iStatesCreated);
+		BVC_VERB << "states created: " << iStatesCreated;
 		/*for(int i=0 ; i < iStatesCreated ; ++i) {
 			printStateTransitions(&states[i]);
 		}*/
@@ -1069,8 +1066,8 @@ void LMManager::buildLMGraph() {
 		}	
 		assert(iStatesSeen == iStatesCreated);
 		assert(iTransitionSeen == iArcsCreated);
-		printf("building G: states created: %d states seen: %d\n",iStatesCreated,iStatesSeen);
-		printf("building G: trans created: %d tran seen: %d\n",iArcsCreated,iTransitionSeen);
+		BVC_VERB << "building G: states created: " << iStatesCreated << " states seen: " << iStatesSeen;
+		BVC_VERB << "building G: trans created: " << iArcsCreated << " tran seen: " << iTransitionSeen;
 		delete [] bStateProcessed;
 		
 		delete [] stateMapUnigram;	
@@ -1080,32 +1077,30 @@ void LMManager::buildLMGraph() {
 	}	
 	// fourgram: one state per existing trigram + one state per existing bigram + one state per existing unigram
 	else {
-		assert(m_iNGram == LM_NGRAM_FOURGRAM);
-		
 		// not supported	
-		BVC_ERROR << "fourgram language model not supported";
+		BVC_ERROR << "language model: n-gram order " << m_iNGram << " is not supported" << endl;
 	}
 	
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	
-	printf("-- G graph -----------------------------\n");
-	printf(" n-gram: %s\n",getStrNGram(m_iNGram));
-	printf(" # states:      %12u\n",iStatesCreated);
-	printf(" # transitions: %12u\n",iArcsCreated);
-	printf(" building time: %.2f seconds\n",(dTimeEnd-dTimeBegin)/1000.0);
-	if (stateFinal == NULL) {
-		printf(" warning: no final state was found!!\n");
+	BVC_VERB << "-- G graph -----------------------------";
+	BVC_VERB << " n-gram:        " << getStrNGram(m_iNGram);
+	BVC_VERB << " # states:      " << iStatesCreated;
+	BVC_VERB << " # transitions: " << iArcsCreated;
+	BVC_VERB << " building time: " << (dTimeEnd-dTimeBegin)/1000.0 << " seconds";
+	if (!stateFinal) {
+		BVC_VERB << " warning: no final state was found!!";
 	} else {
-		printf(" final state found\n");
+		BVC_VERB << " final state found";
 	}
-	printf("----------------------------------------\n");
+	BVC_VERB << "----------------------------------------";
 		
 	// compact the graph in order to optimize lookups
 	
 	// count arcs
 	m_iArcs = 0;
 	for(unsigned int i=0 ; i<iStatesCreated ; ++i) {
-		m_iArcs += states[i].lArc.size();
+		m_iArcs += (int)states[i].lArc.size();
 	}
 	m_iStates = iStatesCreated;
 	
@@ -1136,7 +1131,7 @@ void LMManager::buildLMGraph() {
 			iStateCreated[iStateTemp] = iState;
 			iState++;
 			iArcBase = iArc;
-			iArc += states[iStateTemp].lArc.size();
+			iArc += (int)states[iStateTemp].lArc.size();
 		} else {		
 			stateAux = &m_states[iStateCreated[iStateTemp]]; 
 			iArcBase = iFirstArc[iStateCreated[iStateTemp]];
@@ -1148,7 +1143,7 @@ void LMManager::buildLMGraph() {
 			if (iStateCreated[(*jt)->stateDest->iState] == -1) {
 				iStateCreated[(*jt)->stateDest->iState] = iState;
 				iFirstArc[iState] = iArc;
-				iArc += (*jt)->stateDest->lArc.size();
+				iArc += (int)(*jt)->stateDest->lArc.size();
 				iState++;
 			}
 			m_arcs[iArcBase+i].iLexUnit = (*jt)->iLexUnit;
@@ -1180,63 +1175,55 @@ int LMManager::getInitialState() {
 	return m_iLMStateInitial;
 }
 
-// update the language model state with the given lexical unit and returns the new lm state
+// update the language model state with the given lexical unit and return the new lm state
 int LMManager::updateLMState(int iLMStatePrev, int iLexUnit, float *fScore) {
 
-	switch(m_iNGram) {
-		// zerogram (uniform distribution), only one state
-		case LM_NGRAM_ZEROGRAM: {
-			*fScore = 0.0;
-			return 0;
-		}	
-		// unigram, just one state
-		case LM_NGRAM_UNIGRAM: {
-			*fScore = m_unigrams[iLexUnit].fProbability;
-			return 0;
-		}
+	// zerogram (uniform distribution), only one state
+	if (m_iNGram == LM_NGRAM_ZEROGRAM) {
+		*fScore = 0.0;
+		return 0;
+	}	
+	// unigram, just one state
+	else if (m_iNGram == LM_NGRAM_UNIGRAM) {
+		*fScore = m_unigrams[iLexUnit].fProbability;
+		return 0;
+	}
 		// higher-order n-grams
-		case LM_NGRAM_BIGRAM:
-		case LM_NGRAM_TRIGRAM:
-		case LM_NGRAM_FOURGRAM: {
+	else {
+		assert((m_iNGram == LM_NGRAM_BIGRAM) || 
+		(m_iNGram == LM_NGRAM_TRIGRAM) || 
+		(m_iNGram == LM_NGRAM_FOURGRAM));
 		
-			//m_lexiconManager->print(m_lexiconManager->getLexUnit(iLexUnit));
+		//m_lexiconManager->print(m_lexiconManager->getLexUnit(iLexUnit));
+	
+		assert((iLMStatePrev >= 0) && (iLMStatePrev < m_iStates));
+		LMState *state = &m_states[iLMStatePrev];
+		*fScore = 0.0;
+		int iPasses = 0;
 		
-			assert((iLMStatePrev >= 0) && (iLMStatePrev < m_iStates));
-			LMState *state = &m_states[iLMStatePrev];
-			*fScore = 0.0;
-			int iPasses = 0;
+		while(1) {
+		
+			int iFirst = state->iArcBase;
+			int iLast = (state+1)->iArcBase-1;
+			int iMiddle;
+			while(iFirst <= iLast) {
+				iMiddle = (iFirst+iLast)/2;
+				if (m_arcs[iMiddle].iLexUnit == iLexUnit) {
+					*fScore += m_arcs[iMiddle].fScore;
+					return m_arcs[iMiddle].iStateDest;				
+				} else if (m_arcs[iMiddle].iLexUnit < iLexUnit) {
+					iFirst = iMiddle+1;
+				} else {
+					iLast = iMiddle-1;
+				}
+			}	
 			
-			while(1) {
-			
-				int iFirst = state->iArcBase;
-				int iLast = (state+1)->iArcBase-1;
-				int iMiddle;
-				while(iFirst <= iLast) {
-					iMiddle = (iFirst+iLast)/2;
-					if (m_arcs[iMiddle].iLexUnit == iLexUnit) {
-						*fScore += m_arcs[iMiddle].fScore;
-						return m_arcs[iMiddle].iStateDest;				
-					} else if (m_arcs[iMiddle].iLexUnit < iLexUnit) {
-						iFirst = iMiddle+1;
-					} else {
-						iLast = iMiddle-1;
-					}
-				}	
+			LMArc *arcBackoff = &m_arcs[(state+1)->iArcBase-1];
+			assert(arcBackoff->iLexUnit == BACKOFF_ARC);
+			*fScore += arcBackoff->fScore;
+			state = &m_states[arcBackoff->iStateDest];
 				
-				LMArc *arcBackoff = &m_arcs[(state+1)->iArcBase-1];
-				/*if (arcBackoff->iLexUnit != BACKOFF_ARC) {
-					m_lexiconManager->print(m_lexiconManager->getLexUnit(iLexUnit));
-				}*/
-				assert(arcBackoff->iLexUnit == BACKOFF_ARC);
-				*fScore += arcBackoff->fScore;
-				state = &m_states[arcBackoff->iStateDest];
-					
-				++iPasses;
-			}
-		}
-		default: {
-			assert(0);
-			return -1;
+			++iPasses;
 		}
 	}
 }
@@ -1275,7 +1262,7 @@ float LMManager::toFinalState(int iLMState) {
 	} 
 	// not supported
 	else {
-		assert(0);
+		BVC_ERROR << "language model: n-gram order " << m_iNGram << " not supported" << endl;  
 		return -FLT_MAX;
 	}
 }

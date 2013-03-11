@@ -80,9 +80,9 @@ void PhoneSet::load() {
 			}
 		} 
       m_phones.push_back(strPhone);
-      m_mPhone.insert(map<string,int>::value_type(strPhone,m_phones.size()-1));
+      m_mPhone.insert(map<string,int>::value_type(strPhone,(int)(m_phones.size()-1)));
    
-      phone->iIndex = m_phones.size()-1;
+      phone->iIndex = (unsigned char)(m_phones.size()-1);
       phone->strPhone = strPhone;
       m_vPhone.push_back(phone);	
 	}

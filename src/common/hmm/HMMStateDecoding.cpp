@@ -655,7 +655,7 @@ float HMMStateDecoding::computeEmissionProbabilityNearestNeighborSIMD(float *fFe
 }*/
 
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 __attribute__((aligned(16))) float *fStaticFeatures = NULL;
 __attribute__((aligned(16))) float *fStaticMean = NULL;
 __attribute__((aligned(16))) float *fStaticCovariance = NULL;

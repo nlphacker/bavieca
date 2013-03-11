@@ -228,7 +228,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 	// (2) create the trellis
 	
 	// print the HMM-state composite	
-	int iHMMStates = vHMMStateDecodingComposite.size();
+	int iHMMStates = (int)vHMMStateDecodingComposite.size();
 	
 	// allocate memory for the trellis (try to reuse a cached trellis first)
 	VNode *nodeTrellis = NULL;
@@ -354,8 +354,8 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 	int iHMMStatePrev = iHMMStates-1;
 	bool bNewPhone = false;
 	float fLikelihoodPhone = *fLikelihood;
-	int iLexUnitIndex = vLexUnit.size()-1; 
-	int iPhonesLexUnit = vLexUnit[iLexUnitIndex]->vPhones.size();
+	int iLexUnitIndex = (int)(vLexUnit.size()-1); 
+	int iPhonesLexUnit = (int)vLexUnit[iLexUnitIndex]->vPhones.size();
 	int iPhoneIndexLexUnit = iPhonesLexUnit-1;									// phone index within the current lexical unit
 	// create the first alignment unit
 	VPhoneAlignment *vPhoneAlignment = new VPhoneAlignment();
@@ -380,7 +380,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 					assert(0);
 				}
 				assert(iLexUnitIndex >= 0);
-				iPhonesLexUnit = vLexUnit[iLexUnitIndex]->vPhones.size();
+				iPhonesLexUnit = (int)vLexUnit[iLexUnitIndex]->vPhones.size();
 				iPhoneIndexLexUnit = iPhonesLexUnit-1;
 			}
 			// complete the last phone alignment data structure

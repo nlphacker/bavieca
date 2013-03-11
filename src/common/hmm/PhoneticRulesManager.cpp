@@ -161,15 +161,15 @@ void PhoneticRulesManager::store(FileOutput &file) {
    int iPhones = m_phoneSet->size();
    IOBase::write(file.getStream(),iPhones); 
    for(int i=0 ; i<iPhones ; ++i) {
-   	IOBase::writeString(file.getStream(),m_phoneSet->getStrPhone(i),strlen(m_phoneSet->getStrPhone(i)));
+   	IOBase::writeString(file.getStream(),m_phoneSet->getStrPhone(i),(int)strlen(m_phoneSet->getStrPhone(i)));
    }
 
    // (2) phonetic rules
-   int iRules = m_vPhoneticRule.size();
+   int iRules = (int)m_vPhoneticRule.size();
 	IOBase::write(file.getStream(),iRules);
    unsigned int iRule = 0;
    for(VPhoneticRule::iterator it = m_vPhoneticRule.begin() ; it != m_vPhoneticRule.end() ; ++it, ++iRule) {
-   	IOBase::writeString(file.getStream(),(*it)->strName,strlen((*it)->strName));
+   	IOBase::writeString(file.getStream(),(*it)->strName,(int)strlen((*it)->strName));
 		// rule data (includes the context-padding symbol)
 		for(int i=0 ; i<iPhones+1 ; ++i) {
 			unsigned char iAnswer = ((*it)->bPhone[i]) ? PHONETIC_RULE_YES : PHONETIC_RULE_NO;

@@ -65,7 +65,7 @@ typedef deque<LexUnitAlignment*> VLexUnitAlignment;
 typedef list<LexUnitAlignment*> LLexUnitAlignment;
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class AlignmentFile {
 

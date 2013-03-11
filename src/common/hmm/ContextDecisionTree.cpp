@@ -399,7 +399,7 @@ int ContextDecisionTree::getHMMIndex(unsigned char *iPhoneLeft, unsigned char iP
 				break;
 			}
 		}
-		if (bAnswer == true) {
+		if (bAnswer) {
 			node = node->dtnodeYes;
 		} else {
 			node = node->dtnodeNo;
@@ -469,7 +469,8 @@ void ContextDecisionTree::clusterNode(DTNode *node, float fMinimumClusterOccupat
 	// compute the likelihood gain resulting from applying the best rule
 	double dLikelihoodGain = dLikelihoodRuleBest-node->dLikelihood;
 	if (dLikelihoodGain < 0.0) {
-		printf("Unexpected: likelihoodGain= %f (%f %f)\n",dLikelihoodGain,dLikelihoodRuleBest,node->dLikelihood);
+		BVC_WARNING << "Unexpected: likelihoodGain= " << dLikelihoodGain 
+			<< " (" << dLikelihoodRuleBest << "," << node->dLikelihood << ")" << endl;
 	}
 	//assert(fLikelihoodGain >= 0.0);
 	
@@ -528,7 +529,7 @@ void ContextDecisionTree::clusterNode(DTNode *node, float fMinimumClusterOccupat
 		Accumulator *accumulatorAux = NULL;
 		while(accumulator != NULL) {	
 			accumulatorAux = accumulator->getNext();
-			if (question(ruleBest,accumulator) == true) {	
+			if (question(ruleBest,accumulator)) {	
 				accumulator->setNext(node->dtnodeYes->accumulator);
 				node->dtnodeYes->accumulator = accumulator;
 			} else {
@@ -676,7 +677,7 @@ bool ContextDecisionTree::computeLikelihoodRule(DTNode *node, Rule *rule, double
 	Accumulator *accumulator = node->accumulator;
 	while(accumulator != NULL) {	
 		// positive answer
-		if (question(rule,accumulator) == true) {
+		if (question(rule,accumulator)) {
 			m_vObservationCluster->add(accumulator->getObservation());
 			m_vObservationSquareCluster->add(accumulator->getObservationSquareDiag());
 			m_dOccupationCluster += accumulator->getOccupation();
@@ -868,7 +869,7 @@ int ContextDecisionTree::compactTreeLeaves(float fMinimumLikelihoodGainClusterin
 	LDTNode lLeaves;
 	getTreeLeaves(m_dtnodeRoot,lLeaves);
 	
-	int iLeavesStart = lLeaves.size();
+	int iLeavesStart = (int)lLeaves.size();
 	
 	// for each leaf in the tree check if there is any other leaf to merge it with
 	for(LDTNode::iterator it = lLeaves.begin() ; it != lLeaves.end() ; ) {
@@ -936,7 +937,7 @@ int ContextDecisionTree::compactTreeLeaves(float fMinimumLikelihoodGainClusterin
 		}
 	}	
 	
-	int iLeavesEnd = lLeaves.size();	
+	int iLeavesEnd = (int)lLeaves.size();	
 	assert(iLeavesStart >= iLeavesEnd);
 
 	return iLeavesEnd;

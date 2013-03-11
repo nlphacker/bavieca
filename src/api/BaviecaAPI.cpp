@@ -49,7 +49,8 @@ namespace Bavieca {
 BaviecaAPI::BaviecaAPI(const char *strFileConfiguration) {
 
 	assert(strFileConfiguration);
-	m_strFileConfiguration = strFileConfiguration;
+	m_strFileConfiguration = new char[strlen(strFileConfiguration)+1];
+	strcpy(m_strFileConfiguration,strFileConfiguration);
 	
 	m_configuration = NULL;
 	m_featureExtractor = NULL;
@@ -67,10 +68,11 @@ BaviecaAPI::BaviecaAPI(const char *strFileConfiguration) {
 
 // destructor
 BaviecaAPI::~BaviecaAPI() {
+	delete [] m_strFileConfiguration;
 }
 
 // initialize API (overriding parameters as needed)
-bool BaviecaAPI::initialize(unsigned char iFlags, ParamValueI *paramValue, int iParameters) {
+bool BaviecaAPI::initialize(unsigned char iFlags, ParamValuesI *paramValues) {
 
 	assert(m_bInitialized == false);
 
@@ -79,15 +81,14 @@ bool BaviecaAPI::initialize(unsigned char iFlags, ParamValueI *paramValue, int i
 		m_iFlags = iFlags;
 	
 		// (1) load configuration parameters
-		m_configuration = new ConfigurationBavieca(m_strFileConfiguration.c_str());
+		m_configuration = new ConfigurationBavieca(m_strFileConfiguration);
 		m_configuration->load();
 		
 		// (2) override parameters if needed
-		if (iParameters > 0) {	
-			assert(paramValue);
-			for(int i=0 ; i < iParameters ; ++i) {
-				assert(paramValue[i].strParameter && paramValue[i].strValue);
-				m_configuration->setParameterValue(paramValue[i].strParameter,paramValue[i].strValue);
+		if (paramValues) {	
+			for(unsigned int i=0 ; i < paramValues->size() ; ++i) {
+				m_configuration->setParameterValue(paramValues->getParamValue(i)->getParameter(),
+					paramValues->getParamValue(i)->getValue());
 			}
 		}
 		
@@ -321,7 +322,7 @@ void BaviecaAPI::uninitialize() {
 }
 
 // extract features from the audio
-float *BaviecaAPI::extractFeatures(short *sSamples, int iSamples, int *iFeatures) {
+float *BaviecaAPI::extractFeatures(short *sSamples, unsigned int iSamples, unsigned int *iFeatures) {
 
 	assert(m_bInitialized);
 	
@@ -338,7 +339,8 @@ int BaviecaAPI::getFeatureDim() {
 
 // free features extracted using extractFeatures(...)
 void BaviecaAPI::free(float *fFeatures) {
-	delete [] fFeatures;	
+
+	delete [] fFeatures;		
 }
 
 // start a SAD session
@@ -357,48 +359,40 @@ void BaviecaAPI::sadEndSession() {
 }
 
 // proces the given features
-void BaviecaAPI::sadFeed(float *fFeatures, int iFeatures) {
+void BaviecaAPI::sadFeed(float *fFeatures, unsigned int iFeatures) {
 
 	assert(m_bInitialized);
 	m_sadModule->processFeatures(fFeatures,iFeatures);
 }
 
 // recover speech segments by doing back-tracking on the grid
-SpeechSegmentI *BaviecaAPI::sadRecoverSpeechSegments(int *iSegments) {
+SpeechSegmentsI *BaviecaAPI::sadRecoverSpeechSegments() {
 
 	//m_sadModule->printGrid();
 	assert(m_bInitialized);
-	SpeechSegmentI *speechSegmentI;
 	VSpeechSegment vSpeechSegment;
 	m_sadModule->recoverSpeechSegments(vSpeechSegment);
 	if (vSpeechSegment.empty()) {
-		*iSegments = 0;
 		return NULL;
 	}	
-	speechSegmentI = new SpeechSegmentI[vSpeechSegment.size()];
+	vector<SpeechSegmentI*> vSpeechSegmentI;
 	int i = 0;
 	for(VSpeechSegment::iterator it = vSpeechSegment.begin() ; it != vSpeechSegment.end() ; ++it, ++i) {
-		speechSegmentI[i].iFrameStart = (*it)->iFrameStart;
-		speechSegmentI[i].iFrameEnd = (*it)->iFrameEnd;
+		vSpeechSegmentI.push_back(new SpeechSegmentI((*it)->iFrameStart,(*it)->iFrameEnd));
 		delete *it;
 	}
-	*iSegments = vSpeechSegment.size();
-	return speechSegmentI;
-}
 
-// free speech segments returned by sarRecoverSpeechSegments(...)
-void BaviecaAPI::free(SpeechSegmentI *speechSegments) {
-	delete [] speechSegments;
+	return new SpeechSegmentsI(vSpeechSegmentI);
 }
-
 
 // forced alignment between features and audio
-WordAlignmentI *BaviecaAPI::align(float *fFeatures, int iFeatures, const char *strText, 
-	bool bMultiplePronunciations, int *iWords) {
+AlignmentI *BaviecaAPI::align(float *fFeatures, unsigned int iFeatures, const char *strText, 
+	bool bMultiplePronunciations) {
 
 	assert(m_bInitialized);
 	VLexUnit vLexUnit;
 	bool bAllKnown;
+	
 	if (m_lexiconManager->getLexUnits(strText,vLexUnit,bAllKnown) == false) {
 		return NULL;
 	}
@@ -416,55 +410,40 @@ WordAlignmentI *BaviecaAPI::align(float *fFeatures, int iFeatures, const char *s
 	if (alignment == NULL) {
 		return NULL;
 	}
+
 	VPhoneAlignment *vPhoneAlignment = alignment->getPhoneAlignment(m_lexiconManager);
 	if (vPhoneAlignment == NULL) {
 		return NULL;
 	}
+
 	VLexUnitAlignment *vLexUnitAlignment = AlignmentFile::getVLexUnitAlignment(*vPhoneAlignment);
 	assert(vLexUnitAlignment);
 	assert(vLexUnitAlignment->size() >= vLexUnit.size());
-	WordAlignmentI *wordAlignmentI = new WordAlignmentI[vLexUnitAlignment->size()];
+	vector<WordAlignmentI*> vWordAlignmentI;
 	int iPhone = 0;
 	int i=0;
 	for(VLexUnitAlignment::iterator it = vLexUnitAlignment->begin() ; it != vLexUnitAlignment->end() ; ++it, ++i) {
 		const char *strLexUnit = m_lexiconManager->getStrLexUnitPron((*it)->lexUnit->iLexUnitPron);
-		wordAlignmentI[i].strWord = new char[strlen(strLexUnit)+1];
-		strcpy(wordAlignmentI[i].strWord,strLexUnit);
-		wordAlignmentI[i].iFrameStart = (*it)->iBegin;
-		wordAlignmentI[i].iFrameEnd = (*it)->iEnd;
 		// phone-alignment
-		wordAlignmentI[i].iPhones = (*it)->lexUnit->vPhones.size();
-		wordAlignmentI[i].phoneAlignment = new PhoneAlignmentI[wordAlignmentI[i].iPhones];
-		for(int j=0 ; j<wordAlignmentI[i].iPhones; ++j) {
-			assert(iPhone < (int)vPhoneAlignment->size());
+		vector<PhoneAlignmentI*> vPhoneAlignmentI;
+		for(unsigned int j=0 ; j<(*it)->lexUnit->vPhones.size() ; ++j) {
 			const char *strPhone = m_phoneSet->getStrPhone((*vPhoneAlignment)[iPhone]->iPhone);
 			assert(strPhone);
-			wordAlignmentI[i].phoneAlignment[j].strPhone = new char[strlen(strPhone)+1];
-			strcpy(wordAlignmentI[i].phoneAlignment[j].strPhone,strPhone);
-			wordAlignmentI[i].phoneAlignment[j].iFrameStart = (*vPhoneAlignment)[iPhone]->iStateBegin[0];
-			wordAlignmentI[i].phoneAlignment[j].iFrameEnd = (*vPhoneAlignment)[iPhone]->iStateEnd[NUMBER_HMM_STATES-1];
+			PhoneAlignmentI *phoneAlignmentI = new PhoneAlignmentI(strPhone,
+				(*vPhoneAlignment)[iPhone]->iStateBegin[0],
+				(*vPhoneAlignment)[iPhone]->iStateEnd[NUMBER_HMM_STATES-1]);
+			vPhoneAlignmentI.push_back(phoneAlignmentI);
 			++iPhone;
 		}
+		WordAlignmentI *wordAlignmentI = new WordAlignmentI(strLexUnit,(*it)->iBegin,(*it)->iEnd,vPhoneAlignmentI);
+		vWordAlignmentI.push_back(wordAlignmentI);
 	}	
 	
-	*iWords = vLexUnitAlignment->size();
 	AlignmentFile::destroyPhoneAlignment(vPhoneAlignment);
 	AlignmentFile::destroyLexUnitAlignment(vLexUnitAlignment);
 	delete alignment;
 	
-	return wordAlignmentI;
-}
-
-// free word alignments returned by align(...)
-void BaviecaAPI::free(WordAlignmentI *wordAlignments, int iWords) {
-	for(int i=0 ; i < iWords ; ++i) {
-		delete [] wordAlignments[i].strWord;
-		for(int j=0 ; j < wordAlignments[i].iPhones ; ++j) {
-			delete [] wordAlignments[i].phoneAlignment[j].strPhone;
-		}
-		delete [] wordAlignments[i].phoneAlignment;
-	}
-	delete [] wordAlignments;
+	return new AlignmentI(vWordAlignmentI);
 }
 
 // DECODING ------------------------------------------------------------------------------------------
@@ -478,7 +457,7 @@ void BaviecaAPI::decBeginUtterance() {
 }
 
 // process feature vectors from an utterance
-void BaviecaAPI::decProcess(float *fFeatures, int iFeatures) {
+void BaviecaAPI::decProcess(float *fFeatures, unsigned int iFeatures) {
 
 	assert(m_bInitialized);
 	assert(m_iFlags & INIT_DECODER);
@@ -486,36 +465,23 @@ void BaviecaAPI::decProcess(float *fFeatures, int iFeatures) {
 }
 
 // get decoding results
-WordHypothesisI *BaviecaAPI::decGetHypothesis(int *iWords, const char *strFileHypothesisLattice) {
+HypothesisI *BaviecaAPI::decGetHypothesis(const char *strFileHypothesisLattice) {
 
 	assert(m_bInitialized);
 	assert(m_iFlags & INIT_DECODER);
 	
 	// best path
-	WordHypothesisI *wordHypothesisI = NULL;
+	vector<WordHypothesisI*> vWordHypothesisI;
 	BestPath *bestPath = m_dynamicDecoder->getBestPath();
 	if (bestPath != NULL) {
 		VLexUnit vLexUnit;
 		LBestPathElement *lBestPathElements = bestPath->getBestPathElements();
-		// (1) count standard lexical units
-		int iStandard = 0;
-		for(LBestPathElement::iterator it = lBestPathElements->begin() ; it != lBestPathElements->end() ; ++it) {
-			if (m_lexiconManager->isStandard((*it)->lexUnit)) {
-				++iStandard;
-			}
-		}
-		*iWords = iStandard;
-		// (2) extract standard lexical units with alignment information
-		wordHypothesisI = new WordHypothesisI[iStandard];
-		int i=0;
+		// extract standard lexical units with alignment information
 		for(LBestPathElement::iterator it = lBestPathElements->begin() ; it != lBestPathElements->end() ; ++it) {
 			if (m_lexiconManager->isStandard((*it)->lexUnit)) {
 				const char *strLexUnit = m_lexiconManager->getStrLexUnitPron((*it)->lexUnit->iLexUnitPron);
-				wordHypothesisI[i].strWord = new char[strlen(strLexUnit)+1];
-				strcpy(wordHypothesisI[i].strWord,strLexUnit);
-				wordHypothesisI[i].iFrameStart = (*it)->iFrameStart;
-				wordHypothesisI[i].iFrameEnd = (*it)->iFrameEnd;	
-				++i;
+				WordHypothesisI *wordHypothesisI = new WordHypothesisI(strLexUnit,(*it)->iFrameStart,(*it)->iFrameEnd);
+				vWordHypothesisI.push_back(wordHypothesisI);
 			}
 		}
 		delete bestPath;
@@ -532,7 +498,7 @@ WordHypothesisI *BaviecaAPI::decGetHypothesis(int *iWords, const char *strFileHy
 		}
 	}
 
-	return wordHypothesisI;
+	return new HypothesisI(vWordHypothesisI);
 }
 
 // signal end of utterance
@@ -543,16 +509,8 @@ void BaviecaAPI::decEndUtterance() {
 	m_dynamicDecoder->endUtterance();
 }
 
-// free word hypotheses returned by getHypothesis(...)
-void BaviecaAPI::free(WordHypothesisI *wordHypothesis, int iWords) {
-	for(int i=0 ; i < iWords ; ++i) {
-		delete [] wordHypothesis[i].strWord;
-	}
-	delete [] wordHypothesis;
-}
-
 // return a word-level assessment given a hypothesis and a reference text
-TAElementI *BaviecaAPI::getAssessment(WordHypothesisI *wordHypothesis, int iWordsHyp, const char *strReference, int *iTAElements) {
+TextAlignmentI *BaviecaAPI::getAssessment(HypothesisI *hypothesisI, const char *strReference) {
 
 	// get lexical units from reference (there might be out-of-vocabulary words <unk>)
 	VLexUnit vLexUnitRef;
@@ -563,8 +521,8 @@ TAElementI *BaviecaAPI::getAssessment(WordHypothesisI *wordHypothesis, int iWord
 	
 	// get lexical units from the hypothesis
 	VLexUnit vLexUnitHyp;
-	for(int i=0 ; i < iWordsHyp ; ++i) {
-		LexUnit *lexUnit = m_lexiconManager->getLexUnitPronunciation(wordHypothesis[i].strWord);
+	for(unsigned int i=0 ; i < hypothesisI->size() ; ++i) {
+		LexUnit *lexUnit = m_lexiconManager->getLexUnitPronunciation(hypothesisI->getWordHypothesis(i)->getWord());
 		assert(lexUnit);
 		vLexUnitHyp.push_back(lexUnit);
 	}	
@@ -573,57 +531,37 @@ TAElementI *BaviecaAPI::getAssessment(WordHypothesisI *wordHypothesis, int iWord
 	TextAligner textAligner(m_lexiconManager);
 	TextAlignment *textAlignment = textAligner.align(vLexUnitHyp,vLexUnitRef);
 	VTAElement &vTAElement = textAlignment->getAlignment();
-	TAElementI *taElementI = new TAElementI[vTAElement.size()]; 
 	int i=0;
+	vector<TextAlignmentElementI*> vElements;
+	int iEvent;
 	for(VTAElement::iterator it = vTAElement.begin() ; it != vTAElement.end() ; ++it,++i) {
 		if ((*it)->iAlignmentEvent == TEXT_ALIGNMENT_EVENT_CORRECT) {
-			taElementI[i].iEvent = TAE_CORRECT;
+			iEvent = TAE_CORRECT;
 		} else if ((*it)->iAlignmentEvent == TEXT_ALIGNMENT_EVENT_SUBSTITUTION) {		
-			taElementI[i].iEvent = TAE_SUBSTITUTION;
+			iEvent = TAE_SUBSTITUTION;
 		} else if ((*it)->iAlignmentEvent == TEXT_ALIGNMENT_EVENT_DELETION) {
-			taElementI[i].iEvent = TAE_DELETION;
-		} else if ((*it)->iAlignmentEvent == TEXT_ALIGNMENT_EVENT_INSERTION) {
-			taElementI[i].iEvent = TAE_INSERTION;
+			iEvent = TAE_DELETION;
+		} else {
+			assert((*it)->iAlignmentEvent == TEXT_ALIGNMENT_EVENT_INSERTION);
+			iEvent = TAE_INSERTION;
 		}
-		taElementI[i].iIndexRef = (*it)->iIndexReference;
+		const char *strWordRef = NULL;
+		const char *strWordHyp = NULL;
 		if ((*it)->iIndexReference != -1) {
-			const char *strLexUnit = m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference);
-			taElementI[i].strWordRef = new char[strlen(strLexUnit)+1];
-			strcpy(taElementI[i].strWordRef,strLexUnit);
-		} else {
-			taElementI[i].strWordRef = NULL;
+			strWordRef = m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference);
 		}
-		taElementI[i].iIndexHyp = (*it)->iIndexHypothesis;
 		if ((*it)->iIndexHypothesis != -1) {
-			const char *strLexUnit = m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis);
-			taElementI[i].strWordHyp = new char[strlen(strLexUnit)+1];
-			strcpy(taElementI[i].strWordHyp,strLexUnit);
-		} else {
-			taElementI[i].strWordHyp = NULL;
+			strWordHyp = m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis);
 		}
+		vElements.push_back(new TextAlignmentElementI(iEvent,(*it)->iIndexReference,strWordRef,(*it)->iIndexHypothesis,strWordHyp));
 	}	
-	*iTAElements = vTAElement.size();
 	delete textAlignment;
 	
-	return taElementI;
-}
-
-// free text alignment elements returned by getAssessment(...)
-void BaviecaAPI::free(TAElementI *taElements, int iElements) {
-	for(int i=0 ; i < iElements ; ++i) {
-		if (taElements[i].strWordRef) {
-			delete [] taElements[i].strWordRef;
-		}
-		if (taElements[i].strWordHyp) {
-			delete [] taElements[i].strWordHyp;
-		}
-	}
-	assert(taElements);
-	delete [] taElements;
+	return new TextAlignmentI(vElements);
 }
 
 // feed data into speaker adaptation
-void BaviecaAPI::mllrFeed(const char *strReference, float *fFeatures, int iFeatures) {
+void BaviecaAPI::mllrFeed(const char *strReference, float *fFeatures, unsigned int iFeatures) {
 
 
 }

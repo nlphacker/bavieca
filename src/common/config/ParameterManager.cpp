@@ -65,7 +65,7 @@ bool ParameterManager::defineParameter(const char *strName, const char *strDescr
 	}
 	
 	Parameter *parameter = new Parameter;
-	parameter->iOrder = m_mParameter.size();
+	parameter->iOrder = (int)m_mParameter.size();
 	parameter->strName = strName;
 	parameter->strDescription = strDescription;
 	parameter->strValue = "";
@@ -358,10 +358,10 @@ VString *ParameterManager::getItemList(const char *strItems) {
 	VString *vString = new VString;
 	
 	// parse the string of allowed values
-	int iLength = strlen(strItems);
+	unsigned int iLength = (unsigned int)strlen(strItems);
 	char strValue[1000];
 	int iCharacters = 0;
-	for(int i=0 ; i<iLength ; ++i) {
+	for(unsigned int i=0 ; i<iLength ; ++i) {
 		if (isspace(strItems[i]) != 0) {
 			return NULL;
 		}
@@ -387,15 +387,15 @@ VString *ParameterManager::getItemList(const char *strItems) {
 // return the range of values from the given string
 AllowedRange *ParameterManager::getRange(const char *strRange) {
 	
-	int iLength = strlen(strRange);
+	unsigned int iLength = (unsigned int)strlen(strRange);
 	if ((strRange[0] != '[') || (strRange[iLength-1] != ']')) {
-		return false;
+		return NULL;
 	}
 	const char *strSeparator = strchr(strRange,'|');
 	if (strSeparator == NULL) {
 		return NULL;
 	}
-	int iLenMin = strSeparator-strRange-1;
+	int iLenMin = (int)(strSeparator-strRange-1);
 	int iLenMax = iLength-iLenMin-3;
 	if ((iLenMin < 1) || (iLenMax < 1)) {
 		return NULL;

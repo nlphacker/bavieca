@@ -49,34 +49,34 @@ createDirectories:
 #-----------------------------------------------
 
 aligner: $(OBJ_DIR)/mainAligner.o
-	g++ $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/aligner $(OBJ_DIR)/mainAligner.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}  
+	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/aligner $(OBJ_DIR)/mainAligner.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}  
 
 contextclustering: $(OBJ_DIR)/mainContextClustering.o
-	g++ $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/contextclustering $(OBJ_DIR)/mainContextClustering.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
+	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/contextclustering $(OBJ_DIR)/mainContextClustering.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
 
 dtaccumulator: $(OBJ_DIR)/mainDTAccumulator.o
-	g++ $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/dtaccumulator $(OBJ_DIR)/mainDTAccumulator.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
+	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/dtaccumulator $(OBJ_DIR)/mainDTAccumulator.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
 
 dtestimator: $(OBJ_DIR)/mainDTEstimator.o
-	g++ $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/dtestimator $(OBJ_DIR)/mainDTEstimator.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
+	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/dtestimator $(OBJ_DIR)/mainDTEstimator.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
 
 dynamicdecoder: $(OBJ_DIR)/mainDynamicDecoder.o
-	g++ $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/dynamicdecoder $(OBJ_DIR)/mainDynamicDecoder.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
+	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/dynamicdecoder $(OBJ_DIR)/mainDynamicDecoder.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
 
 fmllrestimator: $(OBJ_DIR)/mainfMLLREstimator.o
-	g++ $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/fmllrestimator $(OBJ_DIR)/mainfMLLREstimator.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
+	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/fmllrestimator $(OBJ_DIR)/mainfMLLREstimator.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
 
 gmmeditor: $(OBJ_DIR)/mainGMMEditor.o
-	g++ $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/gmmeditor $(OBJ_DIR)/mainGMMEditor.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}
+	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/gmmeditor $(OBJ_DIR)/mainGMMEditor.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}
 
 hldaestimator: $(OBJ_DIR)/mainHLDAEstimator.o
-	g++ $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/hldaestimator $(OBJ_DIR)/mainHLDAEstimator.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
+	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/hldaestimator $(OBJ_DIR)/mainHLDAEstimator.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS} 
 
 hmminitializer: $(OBJ_DIR)/mainHMMInitializer.o
-	g++ $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/hmminitializer $(OBJ_DIR)/mainHMMInitializer.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}
+	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/hmminitializer $(OBJ_DIR)/mainHMMInitializer.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}
 
 hmmx: $(OBJ_DIR)/mainHMMX.o
-	g++ $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/hmmx $(OBJ_DIR)/mainHMMX.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}
+	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/hmmx $(OBJ_DIR)/mainHMMX.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}
 
 latticeeditor: $(OBJ_DIR)/mainLatticeEditor.o
 	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/latticeeditor $(OBJ_DIR)/mainLatticeEditor.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}

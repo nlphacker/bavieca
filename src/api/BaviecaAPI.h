@@ -16,28 +16,18 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-
 #ifndef BAVIECAAPI_H
 #define BAVIECAAPI_H
 
 using namespace std;
 
 #include <string>
+#include <vector>
 
 #include <stdlib.h>
 #include <assert.h>
 
 namespace Bavieca {
-
-// under windows it is necessary to export the public interface
-#ifdef _WIN32
-//#define DLLEXPORT extern "C" __declspec(dllexport)
-//#define DLLEXPORT __declspec(dllexport)
-//#define DLLEXPORT __declspec(dllimport)
-#define DLLEXPORT
-#elif __linux__
-#define DLLEXPORT
-#endif
 
 class BestPath;
 class ConfigurationBavieca;
@@ -61,65 +51,32 @@ enum {INIT_SAD=1, INIT_ALIGNER=2, INIT_DECODER=4, INIT_ADAPTATION=8};
 // text alignment events
 enum {TAE_CORRECT=1, TAE_SUBSTITUTION=2, TAE_DELETION=4, TAE_INSERTION=8};
 
-// keep original alignment and align structure members on 8-byte boundaries
-#pragma pack(push,8)
+// helper classes
+class AlignmentI;
+class TextAlignmentI;
+class ParamValuesI;
+class PhoneAlignmentI;
+class WordAlignmentI;
+class AlignmentI;
+class HypothesisI;
+class WordHypothesisI;
+class SpeechSegmentsI;
 
-// speech segment
-typedef struct {
-	int iFrameStart;			// starting time frame (zero-based hundredths of a second)
-	int iFrameEnd;				// ending time frame	(zero-based hundredths of a second)
-} SpeechSegmentI;
-
-// phone alignment
-typedef struct {
-	char *strPhone;
-	int iFrameStart;
-	int iFrameEnd;
-} PhoneAlignmentI;
-
-// word alignmnet
-typedef struct {
-	char *strWord;				// word
-	int iFrameStart;
-	int iFrameEnd;	
-	int iPhones;				// number of phonemes in the word
-	PhoneAlignmentI *phoneAlignment;			// phone alignments
-} WordAlignmentI;
-
-// configuration parameters (for overriding)
-typedef struct {
-	const char *strParameter;
-	const char *strValue;
-} ParamValueI;
-
-// word hypothesis
-typedef struct {
-	char *strWord;				// word
-	int iFrameStart;
-	int iFrameEnd;
-} WordHypothesisI;
-
-// text alignment
-typedef struct {
-	unsigned char iEvent;
-	int iIndexRef;
-	char *strWordRef;
-	int iIndexHyp;
-	char *strWordHyp;
-} TAElementI;
-
-// restore original alignment
-#pragma pack(pop)
 
 /**
 	@author daniel <dani.bolanos@gmail.com>
 */
-class DLLEXPORT BaviecaAPI {
+
+#ifdef _WIN32
+class extern "C" __declspec(dllexport) BaviecaAPI {
+#elif defined __linux__ || defined __APPLE__ || defined SWIG
+class BaviecaAPI {
+#endif
 
 	private:
 	
 		unsigned char m_iFlags;					// initialization mode
-		string m_strFileConfiguration;
+		char *m_strFileConfiguration;
 		bool m_bInitialized;
 		
 		ConfigurationBavieca *m_configuration;
@@ -138,90 +95,441 @@ class DLLEXPORT BaviecaAPI {
 	public:
 
 		// constructor (receives default configuration parameters)
-		DLLEXPORT BaviecaAPI(const char *strFileConfiguration);
+		BaviecaAPI(const char *strFileConfiguration);
 
 		// destructor
-		DLLEXPORT ~BaviecaAPI();
+		~BaviecaAPI();
 		
 		// API INITIALIZATION ------------------------------------------------------------------------------------
 		
 		// initialize API (overriding parameters as needed)
-		DLLEXPORT bool initialize(unsigned char iFlags, ParamValueI *paramValue = NULL, int iParameters = 0);
+		bool initialize(unsigned char iFlags, ParamValuesI *paramValues = NULL);
 		
 		// uninitialize the API	
-		DLLEXPORT void uninitialize();
+		void uninitialize();
 		
 		// FEATURE EXTRACTION -------------------------------------------------------------------------------------
 		
 		// extract features from the audio
-		DLLEXPORT float *extractFeatures(short *sSamples, int iSamples, int *iFeatures);
+		float *extractFeatures(short *sSamples, unsigned int iSamples, unsigned int *iFeatures);
 		
 		// return feature dimensionality
-		DLLEXPORT int getFeatureDim();
+		int getFeatureDim();
 		
 		// free features extracted using extractFeatures(...)
-		DLLEXPORT void free(float *fFeatures);
+		void free(float *fFeatures);
 		
 		// SPEECH ACTIVITY DETECTION ------------------------------------------------------------------------------
 		
 		// start a SAD session
-		DLLEXPORT void sadBeginSession();
+		void sadBeginSession();
 		
 		// terminate a SAD session
-		DLLEXPORT void sadEndSession();
+		void sadEndSession();
 		
 		// proces the given features
-		DLLEXPORT void sadFeed(float *fFeatures, int iFeatures);
+		void sadFeed(float *fFeatures, unsigned int iFeatures);
 		
 		// recover speech segments by doing back-tracking on the grid
-		DLLEXPORT SpeechSegmentI *sadRecoverSpeechSegments(int *iSegments);	
-		
-		// free speech segments returned by sarRecoverSpeechSegments(...)
-		DLLEXPORT void free(SpeechSegmentI *speechSegments);
+		SpeechSegmentsI *sadRecoverSpeechSegments();	
 		
 		// FORCED ALIGNMENT --------------------------------------------------------------------------------------
 		
 		// forced alignment between features and audio
-		DLLEXPORT WordAlignmentI *align(float *fFeatures, int iFeatures, const char *strText, 
-			bool bMultiplePronunciations, int *iWords);
-			
-		// free word alignments returned by align(...)
-		DLLEXPORT void free(WordAlignmentI *wordAlignments, int iWords);
+		AlignmentI *align(float *fFeatures, unsigned int iFeatures, const char *strText, bool bMultiplePronunciations);
 			
 		// DECODING ----------------------------------------------------------------------------------------------
 		
 		// signals beginning of utterance
-		DLLEXPORT void decBeginUtterance();
+		void decBeginUtterance();
 		
 		// process feature vectors from an utterance
-		DLLEXPORT void decProcess(float *fFeatures, int iFeatures);
+		void decProcess(float *fFeatures, unsigned int iFeatures);
 		
 		// get decoding results
-		DLLEXPORT WordHypothesisI *decGetHypothesis(int *iWords, const char *strFileHypothesisLattice = NULL);
+		HypothesisI *decGetHypothesis(const char *strFileHypothesisLattice = NULL);
 		
 		// signals end of utterance
-		DLLEXPORT void decEndUtterance();
-		
-		// free word hypotheses returned by getHypothesis(...)
-		DLLEXPORT void free(WordHypothesisI *wordHypothesis, int iWords);
+		void decEndUtterance();
 		
 		// return a word-level assessment given a hypothesis and a reference text
-		DLLEXPORT TAElementI *getAssessment(WordHypothesisI *wordHypothesis, int iWordsHyp, const char *strReference,
-			int *iTAElements);
-			
-		// free text alignment elements returned by getAssessment(...)
-		DLLEXPORT void free(TAElementI *taElements, int iElements);	
+		TextAlignmentI *getAssessment(HypothesisI *hypothesis, const char *strReference);
 				
 		// SPEAKER ADAPTATION ------------------------------------------------------------------------------------
 		
 		// feed data into speaker adaptation
-		DLLEXPORT void mllrFeed(const char *strReference, float *fFeatures, int iFeatures);
+		void mllrFeed(const char *strReference, float *fFeatures, unsigned int iFeatures);
 		
 		// adapt current acoustic models using fed adaptation data
-		DLLEXPORT void mllrAdapt();
+		void mllrAdapt();
 
+};
+
+// helper-classes
+
+class SpeechSegmentI {
+
+	private:
+
+		int m_iFrameStart;     // starting time frame (zero-based hundredths of a second)
+		int m_iFrameEnd;       // ending time frame (zero-based hundredths of a second)
+
+	public:
+
+		SpeechSegmentI(int iFrameStart, int iFrameEnd) {
+
+			m_iFrameStart = iFrameStart;
+			m_iFrameEnd = iFrameEnd;
+		}
+
+		int getFrameStart() {
+			return m_iFrameStart;
+		}
+		int getFrameEnd() {
+			return m_iFrameEnd;
+		}
+};
+
+class SpeechSegmentsI {
+
+	friend class BaviecaAPI;
+
+	private: 
+
+		vector<SpeechSegmentI*> m_vSpeechSegmentsI;
+
+		SpeechSegmentsI(vector<SpeechSegmentI*> &vSpeechSegmentsI) {			
+			m_vSpeechSegmentsI.assign(vSpeechSegmentsI.begin(),vSpeechSegmentsI.end());
+		}
+
+	public:
+
+		~SpeechSegmentsI() {
+			for(vector<SpeechSegmentI*>::iterator it = m_vSpeechSegmentsI.begin() ; it != m_vSpeechSegmentsI.end() ; ++it) {
+				delete *it;
+			}
+			m_vSpeechSegmentsI.clear();
+		}
+
+		unsigned int size() {
+			return (unsigned int)m_vSpeechSegmentsI.size();
+		}
+	
+		SpeechSegmentI *getSpeechSegment(unsigned int iSegment) {
+			if (iSegment < size()) {
+				return m_vSpeechSegmentsI[iSegment];
+			}
+			return NULL;
+		}
+};
+
+// configuration parameters (for overriding)
+class ParamValueI {
+
+	private:
+	
+		string m_strParameter;
+		string m_strValue;
+
+	public:
+
+		ParamValueI(const char *strParameter, const char *strValue) {
+				
+			assert((strParameter) && (strValue)); 
+			m_strParameter = strParameter;
+			m_strValue = strValue;
+		}
+
+		const char *getParameter() {
+			return m_strParameter.c_str();
+		}
+		const char *getValue() {
+			return m_strValue.c_str();
+		}
+};
+
+class ParamValuesI {
+
+	friend class BaviecaAPI;
+
+	private: 
+
+		vector<ParamValueI*> m_vParamValuesI;
+
+		ParamValuesI(vector<ParamValueI*> &vParamValuesI) {			
+			m_vParamValuesI.assign(vParamValuesI.begin(),vParamValuesI.end());
+		}
+
+	public:
+
+		~ParamValuesI() {
+			for(vector<ParamValueI*>::iterator it = m_vParamValuesI.begin() ; it != m_vParamValuesI.end() ; ++it) {
+				delete *it;
+			}
+			m_vParamValuesI.clear();
+		}
+
+		unsigned int size() {
+			return (unsigned int)m_vParamValuesI.size();
+		}
+
+		ParamValueI *getParamValue(unsigned int i) {
+			if (i < size()) {
+				return m_vParamValuesI[i];
+			}
+			return NULL;
+		}
+};
+
+class WordHypothesisI {
+
+	private:
+
+		string m_strWord;
+		int m_iFrameStart;
+		int m_iFrameEnd;
+
+	public:
+
+		WordHypothesisI(const char *strWord, int iFrameStart, int iFrameEnd) {
+
+			m_strWord = (strWord) ? strWord : "";
+			m_iFrameStart = iFrameStart;
+			m_iFrameEnd = iFrameEnd;
+		}
+
+		~WordHypothesisI() {
+		}
+
+		const char *getWord() {
+			return m_strWord.c_str();
+		}
+		int getFrameStart() {
+			return m_iFrameStart;
+		}
+		int getFrameEnd() {
+			return m_iFrameEnd;
+		}
+};
+
+class HypothesisI {
+
+	friend class BaviecaAPI;
+
+	private: 
+
+		vector<WordHypothesisI*> m_vWordHypothesisI;
+
+		HypothesisI(vector<WordHypothesisI*> &vWordHypothesisI) {			
+			m_vWordHypothesisI.assign(vWordHypothesisI.begin(),vWordHypothesisI.end());
+		}
+
+	public:
+
+		~HypothesisI() {
+			for(vector<WordHypothesisI*>::iterator it = m_vWordHypothesisI.begin() ; it != m_vWordHypothesisI.end() ; ++it) {
+				delete *it;
+			}
+			m_vWordHypothesisI.clear();
+		}
+
+		unsigned int size() {
+			return (unsigned int)m_vWordHypothesisI.size();
+		}
+	
+		WordHypothesisI *getWordHypothesis(unsigned int iWord) {
+			if (iWord < size()) {
+				return m_vWordHypothesisI[iWord];
+			}
+			return NULL;
+		}
+};
+
+// phone alignment
+class PhoneAlignmentI {
+
+	private:
+
+		string m_strPhone;
+		int m_iFrameStart;
+		int m_iFrameEnd;
+
+	public:
+
+		PhoneAlignmentI(const char *strPhone, int iFrameStart, int iFrameEnd) {
+			m_strPhone = strPhone ? strPhone : "";
+			m_iFrameStart = iFrameStart;
+			m_iFrameEnd = iFrameEnd;
+		}
+
+		const char *getPhone() {
+			return m_strPhone.c_str();
+		}
+		int getFrameStart() {
+			return m_iFrameStart;
+		}
+		int getFrameEnd() {
+			return m_iFrameEnd;
+		}
+};
+
+// word alignmnet
+class WordAlignmentI {
+
+	friend class AlignmentI;
+	friend class BaviecaAPI;
+
+	private:
+
+		string m_strWord;								// word
+		int m_iFrameStart;								// start time frame
+		int m_iFrameEnd;								// end time frame
+		vector<PhoneAlignmentI*> m_vPhoneAlignmentI;	// phone alignments
+
+		WordAlignmentI(const char *strWord, int iFrameStart, int iFrameEnd, vector<PhoneAlignmentI*> &vPhoneAlignmentI) {
+			m_strWord = strWord ? strWord : "";
+			m_iFrameStart = iFrameStart;
+			m_iFrameEnd = iFrameEnd;
+			m_vPhoneAlignmentI.assign(vPhoneAlignmentI.begin(),vPhoneAlignmentI.end());
+		}
+
+	public:
+
+		~WordAlignmentI() {
+			for(vector<PhoneAlignmentI*>::iterator it = m_vPhoneAlignmentI.begin() ; it != m_vPhoneAlignmentI.end() ; ++it) {
+				delete *it;
+			}
+			m_vPhoneAlignmentI.clear();
+		}
+
+		const char *getWord() {
+			return m_strWord.c_str();
+		}
+		int getFrameStart() {
+			return m_iFrameStart;
+		}
+		int getFrameEnd() {
+			return m_iFrameEnd;
+		}
+		unsigned int size() {
+			return (unsigned int)m_vPhoneAlignmentI.size();
+		}
+
+		PhoneAlignmentI *getPhoneAlignment(unsigned int iPhone) {
+			if (iPhone < size()) {
+				return m_vPhoneAlignmentI[iPhone];
+			} 
+			return NULL;			
+		}
+};
+
+class AlignmentI {
+
+	friend class BaviecaAPI;
+
+	private:
+
+		vector<WordAlignmentI*> m_vWordAlignmentI;
+
+		AlignmentI(vector<WordAlignmentI*> &vWordAlignmentI) {	
+			m_vWordAlignmentI.assign(vWordAlignmentI.begin(),vWordAlignmentI.end());
+		}
+
+	public:
+
+		~AlignmentI() {
+			for(vector<WordAlignmentI*>::iterator it = m_vWordAlignmentI.begin() ; it != m_vWordAlignmentI.end() ; ++it) {
+				delete *it;
+			}
+			m_vWordAlignmentI.clear();
+		}
+
+		unsigned int size() {
+			return (unsigned int)m_vWordAlignmentI.size();
+		}
+	
+		WordAlignmentI *getWordAlignment(unsigned int iWord) {
+
+			if (iWord < size()) {
+				return m_vWordAlignmentI[iWord];
+			}
+			return NULL;
+		}
+};
+
+// text alignment element
+class TextAlignmentElementI {
+
+	private:
+
+		unsigned char m_iEvent;
+		int m_iIndexRef;
+		string m_strWordRef;
+		int m_iIndexHyp;
+		string m_strWordHyp;
+
+	public:
+
+		TextAlignmentElementI(unsigned char iEvent, int iIndexRef, const char *strWordRef, int iIndexHyp, const char *strWordHyp) {
+			m_iEvent = iEvent;
+			m_iIndexRef = iIndexRef;
+			m_strWordRef = (strWordRef) ? strWordRef : "";
+			m_iIndexHyp = iIndexHyp;
+			m_strWordHyp = (strWordHyp) ? strWordHyp : "";
+		}
+
+		unsigned char getEvent() {
+			return m_iEvent;
+		}
+		unsigned int getIndexRef() {
+			return m_iIndexRef;
+		}
+		const char *getWordRef() {
+			return m_strWordRef.c_str();
+		}
+		unsigned int getIndexHyp() {
+			return m_iIndexHyp;
+		}
+		const char *getWordHyp() {
+			return m_strWordHyp.c_str();
+		}
+};
+
+// text alignment
+class TextAlignmentI {
+
+	friend class BaviecaAPI;
+
+	private:
+
+		std::vector<TextAlignmentElementI*> m_vElements;
+
+		TextAlignmentI(vector<TextAlignmentElementI*> &vElements) {
+			m_vElements.assign(vElements.begin(),vElements.end());
+		}
+
+	public:
+
+		~TextAlignmentI() {
+			for(std::vector<TextAlignmentElementI*>::iterator it = m_vElements.begin() ; it != m_vElements.end() ; ++it) {
+				delete *it;
+			}
+			m_vElements.clear();
+		}
+
+		unsigned int size() {
+			return (unsigned int)m_vElements.size();
+		}
+
+		TextAlignmentElementI *getElement(unsigned int iElement) {
+			if (iElement < size()) {
+				return m_vElements[iElement];
+			}
+			return NULL;
+		}
 };
 
 };	// end-of-namespace
 
 #endif
+

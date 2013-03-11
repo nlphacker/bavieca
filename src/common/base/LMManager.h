@@ -122,7 +122,7 @@ typedef struct {
 } LMArc;
 
 /**
-	@author Daniel Bolanos <bolanos@cslr.colorado.edu>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class LMManager {
 

@@ -156,7 +156,7 @@ typedef hash_map<const char*,LexUnitX*,MLexUnitFunctions> MLexUnit;
 typedef map<LexUnit*,LexUnit*> MLexUnitLexUnit;
 
 /**
-	@author root <root@ears.colorado.edu>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class LexiconManager {
    
@@ -178,7 +178,7 @@ class LexiconManager {
 		// attach an index to the lexical unit
 		inline void attachIndex(LexUnit *lexUnit) {
 		
-			lexUnit->iIndex = m_vLexUnitLexiconFile.size();
+			lexUnit->iIndex = (int)m_vLexUnitLexiconFile.size();
 			m_vLexUnitLexiconFile.push_back(lexUnit);
 		}
    
@@ -232,15 +232,15 @@ class LexiconManager {
       }
 		
 		// return the vocabulary size (excluding alternative pronunciations)
-		inline int getVocabularySize() {
+		inline unsigned int getVocabularySize() {
 		
-			return m_lexiconX.size();
+			return (unsigned int)m_lexiconX.size();
 		}
 		
 		// return the size of the lexicon (vocabulary size including alternative pronunciations)
-		inline int getLexiconSize() {
+		inline unsigned int getLexiconSize() {
 
-			return m_lexicon.size();
+			return (unsigned int)m_lexicon.size();
 		}
 		
 		// return the lexical unit identifier attached to a lexical unit

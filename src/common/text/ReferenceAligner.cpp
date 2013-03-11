@@ -65,8 +65,8 @@ ReferenceAlignment *ReferenceAligner::align(BestPath *bestPath, ReferenceText *r
    int j;
    
    // create the grid
-   int rows = hypothesis.size()+1;
-   int cols = referenceText->size()+1;
+   int rows = (int)(hypothesis.size()+1);
+   int cols = (int)(referenceText->size()+1);
 
    int i,pen;
    GridElement **grid=(GridElement**)malloc(rows*sizeof(GridElement*));
@@ -157,7 +157,7 @@ ReferenceAlignment *ReferenceAligner::align(BestPath *bestPath, ReferenceText *r
       if(g->flag&WA_DEL) {
          ++iDeletions;
          //m_wordsIncorrect.push_back(reference[g->ref]); 
-         assert((g->ref >= 0) && (g->ref < (*referenceText).size()));
+         assert((g->ref >= 0) && (g->ref < (int)(*referenceText).size()));
          referenceAlignment->addElement(ALIGNMENT_EVENT_DELETION,
          										g->ref,
          										(*referenceText)[g->ref]->iLexUnit,

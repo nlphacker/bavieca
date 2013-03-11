@@ -45,7 +45,7 @@ class PhoneSet;
 #define AM_INITIALIZATION_METHOD_ALIGNMENT	"alignment"
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class HMMInitializer {
 

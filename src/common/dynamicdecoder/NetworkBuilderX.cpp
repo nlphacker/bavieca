@@ -20,6 +20,7 @@
 #include "NetworkBuilderX.h"
 #include "PhoneSet.h"
 #include "TimeUtils.h"
+#include "LogMessage.h"
 
 #include <iomanip>
 
@@ -96,8 +97,8 @@ DynamicNetworkX *NetworkBuilderX::build() {
    unsigned int iPhonesLongestLexicalUnit = 0;
    for (VLexUnit::iterator it = lexicon->begin() ; it != lexicon->end() ; ++it) {
 		// keep the max number of phones
-		if ((*it)->vPhones.size() > iPhonesLongestLexicalUnit) {
-			iPhonesLongestLexicalUnit = (*it)->vPhones.size();
+		if ((unsigned int)(*it)->vPhones.size() > iPhonesLongestLexicalUnit) {
+			iPhonesLongestLexicalUnit = (int)(*it)->vPhones.size();
 		}
    }
 
@@ -134,7 +135,7 @@ DynamicNetworkX *NetworkBuilderX::build() {
    		BVC_ERROR << "two lexical units with different insertion penalties share their initial phone";
    	}
    	
-   	int iPhones = (*it)->vPhones.size();
+   	int iPhones = (int)(*it)->vPhones.size();
    	int iContextLength = min(iContextSizeCW,(int)(*it)->vPhones.size());
    	int iPhonesWW = min(iContextSizeWW+1,(int)(*it)->vPhones.size());
    	
@@ -229,18 +230,16 @@ DynamicNetworkX *NetworkBuilderX::build() {
    delete [] iContextBeg; 
    delete [] iContextBegPartial;
    delete [] iContextEnd;
-   delete [] iContextEndPartial;	
-	
-	cout << "left contexts:     " << setw(9) << mContextLeft.size() << endl;
-	cout << "right contexts:    " << setw(9) << mContextRight.size() << endl;
-	cout << "word begs:         " << setw(9) << mContextBeg.size() << endl;
-	cout << "word ends:         " << setw(9) << mContextEnd.size() << endl;
-	cout << "word begs partial: " << setw(9) << mContextBegV.size() << endl;
-	cout << "word ends partial: " << setw(9) << mContextEndV.size() << endl;
+   delete [] iContextEndPartial;
+	 	
+	BVC_VERB << "left contexts:     " << setw(9) << mContextLeft.size();
+	BVC_VERB << "right contexts:    " << setw(9) << mContextRight.size();
+	BVC_VERB << "word begs:         " << setw(9) << mContextBeg.size();
+	BVC_VERB << "word ends:         " << setw(9) << mContextEnd.size();
+	BVC_VERB << "word begs partial: " << setw(9) << mContextBegV.size();
+	BVC_VERB << "word ends partial: " << setw(9) << mContextEndV.size();
 	   
    map<int,bool> mHMMUsed;
-   
-	double dTimeBeginFI = TimeUtils::getTimeMilliseconds(); 
 	
 	// (1) HEAD-NETWORK
 	// - use auxiliar FI-nodes and MI-nodes, they are useful for minimization. They will be removed
@@ -360,22 +359,14 @@ DynamicNetworkX *NetworkBuilderX::build() {
    delete [] iPhoneRight;
    delete [] iPhoneLeft; 
    delete [] fiNodeMergeInfo;
-	 
-	double dTimeEndFI = TimeUtils::getTimeMilliseconds();
 	
-	cout << "nodes FI: " << mNodesFI.size() << endl;
-   
-   printf("FI-done: %f12.4\n",(dTimeEndFI-dTimeBeginFI)/1000.0);
-   
 	print();
-	
-	//exit(-1);
 	
 	// (2) TAIL-NETWORK
 	// - use auxiliar FI-nodes and MI-nodes, they are useful for minimization. They will be removed
 	//   when connecting the head-network to the other subnetworks 
    
-   int iLeft = mContextEndV.size();
+   int iLeft = (int)mContextEndV.size();
    
    NodeMergeInfo *foNodeMergeInfo = new NodeMergeInfo[m_iNodesTempFO];
    int iIndex=0;
@@ -467,7 +458,7 @@ DynamicNetworkX *NetworkBuilderX::build() {
    }
 	
 	// minimize backwards from the FI nodes
-	printf("merging backward\n");
+	BVC_VERB << "merging backward";
 	mergeBackwardFI(vNodesFIUnique,foNodeMergeInfo);
 	
 	// keep surviving FO-nodes
@@ -485,19 +476,11 @@ DynamicNetworkX *NetworkBuilderX::build() {
 	
 	print();
 	
-	//exit(-1);
-	
 	for(VNodeTempX::iterator it = vNodesFIUnique.begin() ; it != vNodesFIUnique.end() ; ++it) {
 		newArcTempX(m_nodeTempRoot,*it,ARC_TYPE_NULL,NULL,NULL);
 	}
 	
-	double dTimeEndFO = TimeUtils::getTimeMilliseconds();
-   
-   printf("FO-done: %f12.4\n",(dTimeEndFO-dTimeEndFI)/1000.0);
-   
 	print();
-	
-	//exit(-1);
 	
 	VLexUnit *vLexUnitMonophone = new VLexUnit[iBasePhones];
    
@@ -508,11 +491,9 @@ DynamicNetworkX *NetworkBuilderX::build() {
    	if (((*it)->iType != LEX_UNIT_TYPE_STANDARD) && ((*it)->iType != LEX_UNIT_TYPE_FILLER)) {
    		continue;
    	}
-   	
-   	//m_lexiconManager->print(*it);
   	
    	// get the number of phones in the word
-   	int iPhones = (*it)->vPhones.size();
+   	int iPhones = (int)(*it)->vPhones.size();
    	
    	// (7.1) monophone lexical units
    	if (iPhones == 1) {
@@ -632,26 +613,14 @@ DynamicNetworkX *NetworkBuilderX::build() {
 				delete [] iPhoneRight;
 			}
 			
-			/*if (nodePrev == nodeMI) {
-				for(LArcTempX::iterator kt = nodeMI->lArcPrev.begin() ; kt != nodeMI->lArcPrev.end() ; ++kt) {
-					newArcTempX((*kt)->nodeSource,nodeFO,ARC_TYPE_WORD,NULL,*it,false,-1);
-				}
-			} else {*/
-				// create the WI arc to the FO-node
-				newArcTempX(nodePrev,nodeFO,ARC_TYPE_WORD,NULL,*it);
-			//}
-			
-			/*for(LArcTempX::iterator kt = nodeFO->lArcNext.begin() ; kt != nodeFO->lArcNext.end() ; ++kt) {
-				newArcTempX(nodePrev,(*kt)->nodeDest,ARC_TYPE_WORD,NULL,*it,false,-1);
-			}*/
+			// create the WI arc to the FO-node
+			newArcTempX(nodePrev,nodeFO,ARC_TYPE_WORD,NULL,*it);
 		}
 	}
 	
 	// deal with monophone lexical units
 	unsigned char *iKeyFI = new unsigned char[iContextSizeCW+iContextSizeWW+1];
 	unsigned char *iKeyFIDest = new unsigned char[iContextSizeCW+iContextSizeWW+1];
-	//unsigned char *iKeyMI = new unsigned char[iContextSizeWW+1];
-	
 	
 	double dTimeBeginMonophones = TimeUtils::getTimeMilliseconds();
    
@@ -662,7 +631,7 @@ DynamicNetworkX *NetworkBuilderX::build() {
 			continue;
 		}
 		
-		printf("phone: %s\n",m_phoneSet->getStrPhone(iPhone));
+		BVC_VERB << "phone: " << m_phoneSet->getStrPhone(iPhone);
 		int iHMMNodes = 0;
 		
 		hash_map<int,NodeTempX*> mFIWordNode;
@@ -723,13 +692,8 @@ DynamicNetworkX *NetworkBuilderX::build() {
 					vNodeWord.push_back(nodeWord);
 					NodeTempX *nodeWord2 = newNodeTempX(NODE_TYPE_NULL,m_iDepthFI+1+NUMBER_HMM_STATES,NULL);
 					mFIWordNode[nodeFIDest->iNode] = nodeWord;
-					//printf("fi-id: %d\n",nodeFIDest->iNode);
 					for(VLexUnit::iterator it = vLexUnitMonophone[iPhone].begin(); 
 						it != vLexUnitMonophone[iPhone].end() ; ++it) {
-						//for(LArcTempX::iterator mt = nodeFIDest->lArcNext.begin() ; mt != nodeFIDest->lArcNext.end() ; ++mt) {
-						//	newArcTempX(nodeWord,(*mt)->nodeDest,ARC_TYPE_WORD,NULL,*it,false,-1);
-						//}
-						//newArcTempX(nodeWord,nodeFIDest,ARC_TYPE_WORD,NULL,*it,false,-1);	
 						newArcTempX(nodeWord,nodeWord2,ARC_TYPE_WORD,NULL,*it);	
 					}
 					newArcTempX(nodeWord2,nodeFIDest,ARC_TYPE_NULL,NULL,NULL);	
@@ -801,9 +765,8 @@ DynamicNetworkX *NetworkBuilderX::build() {
 			delete [] kt->first;
 		}
 		
-		cout << "hmm-nodes: " << iHMMNodes << endl;
-		
-		cout << "elements: " << mFIWordNode.size();
+		BVC_VERB << "hmm-nodes: " << iHMMNodes;
+		BVC_VERB << "elements: " << mFIWordNode.size();
 		
 		// backward-merge from word nodes
 		mergeBackwardWordNodes(vNodeWord);
@@ -814,7 +777,7 @@ DynamicNetworkX *NetworkBuilderX::build() {
 	
 	double dTimeEndMonophones = TimeUtils::getTimeMilliseconds();
    
-   printf("monophones: %f12.4\n",(dTimeEndMonophones-dTimeBeginMonophones)/1000.0);
+   BVC_VERB << "monophones: " << (dTimeEndMonophones-dTimeBeginMonophones)/1000.0;
    
    // checks
    int iIgnoredMI = 0;
@@ -844,19 +807,16 @@ DynamicNetworkX *NetworkBuilderX::build() {
 			assert(nodeMI->lArcNext.empty() == false);
 		}
 	}
-	printf("ignored MI: %d FO: %d\n",iIgnoredMI,iIgnoredFO);
-   
-   //exit(-1);
+	BVC_VERB << "ignored MI: " << iIgnoredMI << " FO: " << iIgnoredFO;
    
    //removeMINodes(mContextBeg);
    
-   cout << "HMMs: " << m_hmmManager->getNumberHMMStatesPhysical() << " used: " << mHMMUsed.size() << endl;
+   BVC_VERB << "HMMs: " << m_hmmManager->getNumberHMMStatesPhysical() << " used: " << mHMMUsed.size();
 	
  
-   cout << "FI-nodes: " << mNodesFI.size() << endl;
-   cout << "MI-nodes: " << mContextBeg.size() << endl;
-   cout << "FO-nodes: " << mContextEnd.size() << endl;
-   //exit(-1);
+   BVC_VERB << "FI-nodes: " << mNodesFI.size();
+   BVC_VERB << "MI-nodes: " << mContextBeg.size();
+   BVC_VERB << "FO-nodes: " << mContextEnd.size();
    
    // Forward-merge
    print();
@@ -925,9 +885,9 @@ DynamicNetworkX *NetworkBuilderX::build() {
    dynamicNetwork->setIP(fPhoneIP,iBasePhones);
 	
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
-	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;		
+	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;
 	
-	printf("building time: %.2f seconds\n",dTimeSeconds);	
+	BVC_VERB << "building time: " << dTimeSeconds << " seconds";	
 
 	return dynamicNetwork;
 }
@@ -990,8 +950,6 @@ void NetworkBuilderX::pushWordLabels() {
 		vNodeWord.push_back(nodeAux);	
 	}
 	
-	cout << "-> word nodes: " << vNodeWord.size() << endl;
-	
 	// (2) shift each of the word arcs
 	int iShiftsTotal = 0;
 	for(VNodeTempX::iterator it = vNodeWord.begin() ; it != vNodeWord.end() ; ++it) {
@@ -1018,14 +976,14 @@ void NetworkBuilderX::pushWordLabels() {
 		assert(arc->iType == ARC_TYPE_NULL);
 		//assert(arcReplace->nodeSource->lArcNext.size() == 1);
 		assert(arcReplace->nodeSource->iDepth >= m_iDepthMI);
-		iShiftsTotal += iShifts*(*it)->lArcNext.size();
+		iShiftsTotal += (int)(iShifts*(*it)->lArcNext.size());
 		
 		assert((*it)->iType == NODE_TYPE_HMM);
 		
 		// a NULL node needs to be created so a word-arc does not go to a hmm-arc 
 		// since we want to keep the hmm's in the arcs instead of in the nodes.
 		// the reason is to prevent cache-misses during token propagation
-		// a node is only checked if it actually gets activated
+		// a node is only accessed if it actually gets activated
 		NodeTempX *nodeNull = newNodeTempX(NODE_TYPE_NULL,arcReplace->nodeDest->iDepth);
 
 		// (a) extract word-arcs from original place	
@@ -1073,7 +1031,7 @@ void NetworkBuilderX::pushWordLabels() {
 		nodeDest->lArcPrev.push_back(arcReplace);	
 	}
 	
-	printf("# shifts: %d\n",iShiftsTotal);
+	BVC_VERB << "# shifts: " << iShiftsTotal;
 }
 
 // compact the network
@@ -1094,7 +1052,7 @@ DynamicNetworkX *NetworkBuilderX::compact() {
 	while(vNodes.empty() == false) {
 		NodeTempX *nodeAux = vNodes.back();
 		vNodes.pop_back();
-		iArcs += nodeAux->lArcNext.size();	
+		iArcs += (int)nodeAux->lArcNext.size();	
 		for(LArcTempX::iterator it = nodeAux->lArcNext.begin() ; it != nodeAux->lArcNext.end() ; ++it) {
 			// add to the queue if not seen yet
 			if (bNodesSeen[(*it)->nodeDest->iNode] == false) {	
@@ -1107,7 +1065,7 @@ DynamicNetworkX *NetworkBuilderX::compact() {
 	delete [] bNodesSeen;
 
 	// count the number of outgoing arcs in the network
-	int iNodes = vNodesAll.size();
+	int iNodes = (int)vNodesAll.size();
 	int iArcsNull = 0;
 	int iArcsHMM = 0;
 	int iArcsWord = 0;
@@ -1136,7 +1094,7 @@ DynamicNetworkX *NetworkBuilderX::compact() {
 			iNodeCreated[(*it)->iNode] = iNode;
 			iNode++;
 			iArcBase = iArc;
-			iArc += (*it)->lArcNext.size();
+			iArc += (int)(*it)->lArcNext.size();
 		} else {		
 			nodeAux = &nodes[iNodeCreated[(*it)->iNode]]; 
 			iArcBase = iFirstArc[iNodeCreated[(*it)->iNode]];
@@ -1169,7 +1127,7 @@ DynamicNetworkX *NetworkBuilderX::compact() {
 			if (iNodeCreated[(*jt)->nodeDest->iNode] == -1) {
 				iNodeCreated[(*jt)->nodeDest->iNode] = iNode;
 				iFirstArc[iNode] = iArc;
-				iArc += (*jt)->nodeDest->lArcNext.size();
+				iArc += (int)(*jt)->nodeDest->lArcNext.size();
 				iNode++;
 			}
 			// null-arc, if it goes to an HMM-node, then convert it to an HMM-arc and keep the hmm
@@ -1213,15 +1171,15 @@ DynamicNetworkX *NetworkBuilderX::compact() {
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;		
 	
-	cout << "- compacting summary ---------------------" << endl;
-	cout << "# nodes:           " << setw(12) << iNodes << endl;
-	cout << "# arcs:            " << setw(12) << iArcs << endl;
-	cout << "  - null arcs:     " << setw(12) << iArcsNull << endl;
-	cout << "  - hmm arcs:      " << setw(12) << iArcsHMM << endl;
-	cout << "  - word arcs:     " << setw(12) << iArcsWord << endl;	
-	cout << "network size:      " << setw(12) << (iNodes*sizeof(DNode)+iArcs*sizeof(DArc)) << " bytes" << endl;
-	cout << "processing time:   " << setw(12) << dTimeSeconds << " seconds" << endl;
-	cout << "------------------------------------------" << endl;
+	BVC_VERB << "- compacting summary ---------------------";
+	BVC_VERB << "# nodes:           " << setw(12) << iNodes;
+	BVC_VERB << "# arcs:            " << setw(12) << iArcs;
+	BVC_VERB << "  - null arcs:     " << setw(12) << iArcsNull;
+	BVC_VERB << "  - hmm arcs:      " << setw(12) << iArcsHMM;
+	BVC_VERB << "  - word arcs:     " << setw(12) << iArcsWord;	
+	BVC_VERB << "network size:      " << setw(12) << (iNodes*sizeof(DNode)+iArcs*sizeof(DArc)) << " bytes";
+	BVC_VERB << "processing time:   " << setw(12) << dTimeSeconds << " seconds";
+	BVC_VERB << "------------------------------------------";
 
 	return new DynamicNetworkX(nodes,iNodes,arcs,iArcs,m_iLATree,m_iLANodes);
 }
@@ -1229,20 +1187,20 @@ DynamicNetworkX *NetworkBuilderX::compact() {
 // print network stats
 void NetworkBuilderX::print() {
 
-	cout << "-- temporal network stats ---------------" << endl;
-	cout << "# nodes:       " << setw(6) << m_iNodesTemp << endl;
-	cout << " -root-nodes   " << setw(6) << m_iNodesTempRoot << endl;
-	cout << " -FI-nodes:    " << setw(6) << m_iNodesTempFI << endl;
-	cout << " -MI-nodes:    " << setw(6) << m_iNodesTempMI << endl;
-	cout << " -FO-nodes:    " << setw(6) << m_iNodesTempFO << endl;
-	cout << " -hmm-nodes:   " << setw(6) << m_iNodesTempHMM << endl;
-	cout << " -word-nodes:  " << setw(6) << m_iNodesTempWord << endl;
-	cout << " -null-nodes:  " << setw(6) << m_iNodesTempNull << endl;
-	cout << "-----------------------------------------" << endl;
-	cout << "# arcs:        " << setw(6) << m_iArcsTemp << endl;
-	cout << " -null-arcs:   " << setw(6) << m_iArcsNull << endl;
-	cout << " -word-arcs:   " << setw(6) << m_iArcsWord << endl;
-	cout << "-----------------------------------------" << endl;
+	BVC_VERB << "-- temporal network stats ---------------";
+	BVC_VERB << "# nodes:       " << setw(6) << m_iNodesTemp;
+	BVC_VERB << " -root-nodes   " << setw(6) << m_iNodesTempRoot;
+	BVC_VERB << " -FI-nodes:    " << setw(6) << m_iNodesTempFI;
+	BVC_VERB << " -MI-nodes:    " << setw(6) << m_iNodesTempMI;
+	BVC_VERB << " -FO-nodes:    " << setw(6) << m_iNodesTempFO;
+	BVC_VERB << " -hmm-nodes:   " << setw(6) << m_iNodesTempHMM;
+	BVC_VERB << " -word-nodes:  " << setw(6) << m_iNodesTempWord;
+	BVC_VERB << " -null-nodes:  " << setw(6) << m_iNodesTempNull;
+	BVC_VERB << "-----------------------------------------";
+	BVC_VERB << "# arcs:        " << setw(6) << m_iArcsTemp;
+	BVC_VERB << " -null-arcs:   " << setw(6) << m_iArcsNull;
+	BVC_VERB << " -word-arcs:   " << setw(6) << m_iArcsWord;
+	BVC_VERB << "-----------------------------------------";
 }
 
 // merge nodes forward
@@ -1378,12 +1336,11 @@ void NetworkBuilderX::mergeForward() {
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;		
 	
-	cout << "- forward merging summary ----------------" << endl;
-	cout << "# nodes processed: " << setw(12) << iNodesProcessed << endl;
-	cout << "# nodes merged:    " << setw(12) << iNodesMerged << endl;
-	cout << "# arcs merged:     " << setw(12) << iArcsMerged << endl;
-	cout << "processing time:   " << setw(12) << dTimeSeconds << " seconds" << endl;	
-	//cout << "fi seen:           " << setw(12) << mSeen.size() << endl;
+	BVC_VERB << "- forward merging summary ----------------";
+	BVC_VERB << "# nodes processed: " << setw(12) << iNodesProcessed;
+	BVC_VERB << "# nodes merged:    " << setw(12) << iNodesMerged;
+	BVC_VERB << "# arcs merged:     " << setw(12) << iArcsMerged;
+	BVC_VERB << "processing time:   " << setw(12) << dTimeSeconds << " seconds";	
 }
 
 
@@ -1544,11 +1501,11 @@ void NetworkBuilderX::removeFINodes() {
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;		
 	
-	printf("- removal summary ----------------\n");
-	printf("# nodes processed: %12d\n",iNodesProcessed);
-	printf("# nodes merged:    %12d\n",iNodesMerged);
-	printf("# arcs merged:     %12d\n",iArcsMerged);
-	printf("processing time:   %12.2f seconds\n",dTimeSeconds);
+	BVC_VERB << "- removal summary ----------------";
+	BVC_VERB << "# nodes processed: " << iNodesProcessed;
+	BVC_VERB << "# nodes merged:    " << iNodesMerged;
+	BVC_VERB << "# arcs merged:     " << iArcsMerged;
+	BVC_VERB << "processing time:   " << dTimeSeconds << " seconds";
 }
 
 
@@ -1670,11 +1627,11 @@ void NetworkBuilderX::mergeBackward() {
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;		
 	
-	printf("- backward merging summary ---------------\n");
-	printf("# nodes processed: %12d\n",iNodesProcessed);
-	printf("# nodes merged:    %12d\n",iNodesMerged);
-	printf("# arcs merged:     %12d\n",iArcsMerged);
-	printf("processing time:   %12.2f seconds\n",dTimeSeconds);
+	BVC_VERB << "- backward merging summary ---------------";
+	BVC_VERB << "# nodes processed: " << iNodesProcessed;
+	BVC_VERB << "# nodes merged:    " << iNodesMerged;
+	BVC_VERB << "# arcs merged:     " << iArcsMerged;
+	BVC_VERB << "processing time:   " << dTimeSeconds << " seconds";
 }
 
 // merge nodes backward starting from the given group of MI-nodes
@@ -1933,11 +1890,11 @@ void NetworkBuilderX::mergeBackwardFI(VNodeTempX &vNodeTempFI, NodeMergeInfo *fo
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;		
 	
-	printf("- backward merging summary ---------------\n");
-	printf("# nodes processed: %12d\n",iNodesProcessed);
-	printf("# nodes merged:    %12d\n",iNodesMerged);
-	printf("# arcs merged:     %12d\n",iArcsMerged);
-	printf("processing time:   %12.2f seconds\n",dTimeSeconds);
+	BVC_VERB << "- backward merging summary ---------------";
+	BVC_VERB << "# nodes processed: " << iNodesProcessed;
+	BVC_VERB << "# nodes merged:    " << iNodesMerged;
+	BVC_VERB << "# arcs merged:     " << iArcsMerged;
+	BVC_VERB << "processing time:   " << dTimeSeconds << " seconds";
 }
 
 // merge nodes backward starting from the given group of MI-nodes
@@ -2063,11 +2020,11 @@ void NetworkBuilderX::mergeBackwardWordNodes(VNodeTempX &vNodeWord) {
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;		
 	
-	printf("- backward merging summary ---------------\n");
-	printf("# nodes processed: %12d\n",iNodesProcessed);
-	printf("# nodes merged:    %12d\n",iNodesMerged);
-	printf("# arcs merged:     %12d\n",iArcsMerged);
-	printf("processing time:   %12.2f seconds\n",dTimeSeconds);
+	BVC_VERB << "- backward merging summary ---------------";
+	BVC_VERB << "# nodes processed: " << iNodesProcessed;
+	BVC_VERB << "# nodes merged:    " << iNodesMerged;
+	BVC_VERB << "# arcs merged:     " << iArcsMerged;
+	BVC_VERB << "processing time:   " << dTimeSeconds;
 }
 
 
@@ -2116,7 +2073,7 @@ int *NetworkBuilderX::buildLMLookAheadTree(int *iNodes) {
 		}
 	}
 	
-	cout << "arcs initialized: " << iArcsInitialized << endl;
+	BVC_VERB << "arcs initialized: " << iArcsInitialized;
 	
 	// (2) traverse the graph backwards starting at the word-arcs	
 	// tree traversal is breadth-first so look-ahead indices are topologically sorted
@@ -2200,17 +2157,17 @@ int *NetworkBuilderX::buildLMLookAheadTree(int *iNodes) {
 	}
 	delete [] iCheck;
 	
-	cout << "predecessors: " << mPredecessor.size() << endl;
-	cout << "arcs processed: " << iArcsProcessed << endl;
+	BVC_VERB << "predecessors: " << mPredecessor.size();
+	BVC_VERB << "arcs processed: " << iArcsProcessed;
 	
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;		
 	
-	cout << "-- building look-ahead tree --------------------------\n";
-	cout << "# word arcs:     " << vArcWord.size() << " (words in vocabulary)\n";
-	cout << "processing time: " << dTimeSeconds << " seconds\n";	
-	cout << "# look-ahead nodes: " << iLANode << endl;	
-	cout << "------------------------------------------------------\n";
+	BVC_VERB << "-- building look-ahead tree --------------------------";
+	BVC_VERB << "# word arcs:     " << vArcWord.size() << " (words in vocabulary)";
+	BVC_VERB << "processing time: " << dTimeSeconds << " seconds";	
+	BVC_VERB << "# look-ahead nodes: " << iLANode;	
+	BVC_VERB << "------------------------------------------------------";
 
 	*iNodes = iLANode;
 	return iLATree;

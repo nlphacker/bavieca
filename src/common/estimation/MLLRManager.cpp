@@ -112,7 +112,7 @@ void MLLRManager::applyTransforms() {
 }
 
 // feed adaptation data from an alignment
-void MLLRManager::feedAdaptationData(float *fFeatures, int iFeatures, Alignment *alignment, double *dLikelihood) {
+void MLLRManager::feedAdaptationData(float *fFeatures, unsigned int iFeatures, Alignment *alignment, double *dLikelihood) {
 
 	// sanity check
 	assert(iFeatures == alignment->getFrames());
@@ -120,7 +120,7 @@ void MLLRManager::feedAdaptationData(float *fFeatures, int iFeatures, Alignment 
 	m_iAdaptationFrames += iFeatures;
 
 	*dLikelihood = 0.0;
-	for(int t=0 ; t<iFeatures ; ++t) {
+	for(unsigned int t=0 ; t<iFeatures ; ++t) {
 		FrameAlignment *frameAlignment = alignment->getFrameAlignment(t);
 		float *fFeatureVector = fFeatures+(t*m_iDim);
 		for(FrameAlignment::iterator it = frameAlignment->begin() ; it != frameAlignment->end() ; ++it) {
@@ -190,9 +190,8 @@ void MLLRManager::feedAdaptationData(const char *strBatchFile, const char *strAl
 	
 	*dLikelihood = 0.0;
 	
-	//for(int i=0 ; i < batchFile->size() ; ++i) {	
-	for(int i=0 ; i < 5 ; ++i) {	
-		
+	for(unsigned int i=0 ; i < batchFile.size() ; ++i) {	
+	
 		// load the alignment
 		Alignment *alignment = NULL;
 		// text format
@@ -212,7 +211,7 @@ void MLLRManager::feedAdaptationData(const char *strBatchFile, const char *strAl
 		// load the feature vectors
 		FeatureFile featureFile(batchFile.getField(i,"features"),MODE_READ);
 		featureFile.load();
-		int iFeatureVectors = -1;
+		unsigned int iFeatureVectors = 0;
 		float *fFeatures = featureFile.getFeatureVectors(&iFeatureVectors);
 		
 		// check consistency	

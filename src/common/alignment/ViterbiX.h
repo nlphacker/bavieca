@@ -101,9 +101,9 @@ class ViterbiX {
 			}
 			
 			// determine the width of the phone field
-			int iPhoneCharactersMax = 0;
+			unsigned int iPhoneCharactersMax = 0;
 			for(unsigned int i=0 ; i < m_phoneSet->size() ; ++i) {
-				int iLength = strlen(m_phoneSet->getStrPhone(i));
+				unsigned int iLength = (unsigned int)strlen(m_phoneSet->getStrPhone(i));
 				if (iLength > iPhoneCharactersMax) {
 					iPhoneCharactersMax = iLength;
 				}

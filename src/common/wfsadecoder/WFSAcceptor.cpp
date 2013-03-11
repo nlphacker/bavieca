@@ -62,10 +62,10 @@ bool WFSAcceptor::acceptSequence(vector<unsigned int> vInputSymbols) {
 		vStates1 = vStates2;
 		vStates2 = aux;
 		if (vStates1->empty()) {
-			printf("%u not seen!\n",vInputSymbols[i]);
+			cout << vInputSymbols[i] << "not seen!" << endl;
 			return false;
 		} else {
-			printf("%u seen\n",vInputSymbols[i]);
+			cout << vInputSymbols[i] << " seen" << endl;
 		}
 	}
 
@@ -178,7 +178,7 @@ WFSAcceptor *WFSAcceptor::load(LexiconManager *lexiconManager, const char *strFi
 			m_wfsAcceptor->m_transitions[iTransitionOffset].state = m_wfsAcceptor->m_states+iStateDest;
 			// check the transition
 			if (m_wfsAcceptor->checkTransition(&m_wfsAcceptor->m_transitions[iTransitionOffset]) == false) {
-				return false;
+				return NULL;
 			}
 			if (m_wfsAcceptor->m_transitions[iTransitionOffset].iSymbol & FAKE_TRANSITION) {
 				m_wfsAcceptor->m_transitions[iTransitionOffset].state = NULL;

@@ -95,7 +95,7 @@ void GMMEditor::mixtureMerge(HMMState *hmmState, float fMinimumGaussianOccupatio
 	bool bMerged = false;
 	do {	
 		bMerged = false;	
-		for(int g = 0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
+		for(unsigned int g = 0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
 			Gaussian *gaussian1 = hmmState->getMixture()(g);
 			GaussianInfo *gaussianInfo1 = &mGaussianInfo[gaussian1];
 			if ((gaussianInfo1->dOccupation < fMinimumGaussianOccupation) || 
@@ -116,7 +116,7 @@ void GMMEditor::mixtureMerge(HMMState *hmmState, float fMinimumGaussianOccupatio
 					double dCovarianceDet1 = gaussian1->covarianceDiag().sumLog();
 					// find the closest gaussian	
 					double dDistanceSmallest = DBL_MAX;
-					for(int h = 0 ; h < hmmState->getMixture().getNumberComponents() ; ++h) {
+					for(unsigned int h = 0 ; h < hmmState->getMixture().getNumberComponents() ; ++h) {
 						if (h == g) {
 							continue;
 						}
@@ -147,7 +147,7 @@ void GMMEditor::mixtureMerge(HMMState *hmmState, float fMinimumGaussianOccupatio
 				assert(iGaussianClosest != -1);
 				// merge the gaussians
 				int h = iGaussianClosest;
-				assert(g != h);
+				assert(g != (unsigned int)h);
 				Gaussian *gaussian2 = hmmState->getMixture()(h);
 				GaussianInfo *gaussianInfo2 = &mGaussianInfo[gaussian2];
 				// compute the counts
@@ -184,11 +184,11 @@ void GMMEditor::mixtureMerge(HMMState *hmmState, float fMinimumGaussianOccupatio
 		}
 	} while(bMerged);
 	
-	assert((int)mGaussianInfo.size() == hmmState->getMixture().getNumberComponents());
+	assert(mGaussianInfo.size() == hmmState->getMixture().getNumberComponents());
 	
 	// sanity check: make sure all the gaussians have an occupancy and weight above the threshold
 	if (hmmState->getMixture().getNumberComponents() > 1) {
-		for(int g = 0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
+		for(unsigned int g = 0 ; g < hmmState->getMixture().getNumberComponents() ; ++g) {
 			Gaussian *gaussian = hmmState->getMixture()(g);
 			GaussianInfo *gaussianInfo = &mGaussianInfo[gaussian];	
 			assert(gaussian->weight() >= fMinimumGaussianWeight);
@@ -246,7 +246,7 @@ int GMMEditor::mixtureIncrement(HMMState *hmmState, int iIncrement, int iSplitti
 	
 	// initialize splitting weights if needed
 	if (iSplittingCriterion == SPLITTING_CRITERION_HEAVIEST_MIXTURE_COMPONENT) {
-		for(int m = 0 ; m < hmmState->getMixture().getNumberComponents() ; ++m) {
+		for(unsigned int m = 0 ; m < hmmState->getMixture().getNumberComponents() ; ++m) {
 			Gaussian *gaussian = hmmState->getMixture()(m);
 			// the weight for mixture increment determines which Gaussian will be split next
 			// a Gaussian that has already been split gets its weight substracted by one, what makes it
@@ -266,7 +266,7 @@ int GMMEditor::mixtureIncrement(HMMState *hmmState, int iIncrement, int iSplitti
 					double dGeometricMean = 0.0;
 					double dGeometricMeanHighest = -DBL_MAX;
 					// for each gaussian compute the geometric mean of the variance
-					for(int m = 0 ; m < hmmState->getMixture().getNumberComponents() ; ++m) {
+					for(unsigned int m = 0 ; m < hmmState->getMixture().getNumberComponents() ; ++m) {
 						Gaussian *gaussian = hmmState->getMixture()(m);
 						GaussianInfo *gaussianInfo = &mGaussianInfo[gaussian];
 						// do not split gaussians that were just merged
@@ -293,7 +293,7 @@ int GMMEditor::mixtureIncrement(HMMState *hmmState, int iIncrement, int iSplitti
 					// find the heaviest mixture
 					float fWeightMax = -FLT_MAX;
 					int iComponentHeaviest = -1;
-					for(int m = 0 ; m < hmmState->getMixture().getNumberComponents() ; ++m) {
+					for(unsigned int m = 0 ; m < hmmState->getMixture().getNumberComponents() ; ++m) {
 						Gaussian *gaussian = hmmState->getMixture()(m);
 						GaussianInfo *gaussianInfo = &mGaussianInfo[gaussian];
 						// do not split gaussians that were just merged
@@ -371,7 +371,7 @@ int GMMEditor::mixtureIncrement(HMMState *hmmState, int iIncrement, int iSplitti
 		++iAdded; 
 	}
 	
-	assert(hmmState->getMixture().getNumberComponents() == (int)mGaussianInfo.size());
+	assert(hmmState->getMixture().getNumberComponents() == mGaussianInfo.size());
 	
 	return iAdded;
 }
@@ -420,7 +420,7 @@ int GMMEditor::mixtureDouble(HMMState *hmmState, float fMinimumGaussianOccupatio
 		++iAdded;
 	}	
 	
-	assert(hmmState->getMixture().getNumberComponents() == (int)mGaussianInfo.size());
+	assert(hmmState->getMixture().getNumberComponents() == mGaussianInfo.size());
 	
 	return iAdded;
 }

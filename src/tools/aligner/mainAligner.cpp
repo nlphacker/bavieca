@@ -133,8 +133,8 @@ int main(int argc, char *argv[]) {
 			// load the features
 			FeatureFile featureFile(strFileFeatures.c_str(),MODE_READ);
 			featureFile.load();
-			int iFeatureVectors = 0;
-			float *fFeatureVectors = (float*)featureFile.getFeatureVectors(&iFeatureVectors);	
+			unsigned int iFeatureVectors = 0;
+			float *fFeatureVectors = featureFile.getFeatureVectors(&iFeatureVectors);	
 			
 			// load the lexical units
 			LexUnitsFile lexUnitsFile(&lexiconManager,strFileText.c_str());
@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
 						continue;
 					}	
 				}			
-				int iFeatureVectors = 0;
+				unsigned int iFeatureVectors = 0;
 				float *fFeatureVectors = featureFile.getFeatureVectors(&iFeatureVectors);	
 						
 				// load the lexical units
@@ -324,8 +324,8 @@ int main(int argc, char *argv[]) {
 						continue;
 					}	
 				}
-				int iFeatureVectors = 0;
-				float *fFeatureVectors = (float*)featureFile.getFeatureVectors(&iFeatureVectors);	
+				unsigned int iFeatureVectors = 0;
+				float *fFeatureVectors = featureFile.getFeatureVectors(&iFeatureVectors);	
 				
 				Alignment *alignment = viterbiX.processUtterance((*it)->vLexUnit,bMultiplePronunciations,
 					vLexUnitOptional,fFeatureVectors,iFeatureVectors,&dUtteranceLikelihood,iErrorCode);				

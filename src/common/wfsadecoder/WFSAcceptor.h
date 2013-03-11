@@ -20,9 +20,11 @@
 #ifndef WFSACCEPTOR_H
 #define WFSACCEPTOR_H
 
-#include "Global.h"
+#include <iomanip>
 
+#include "Global.h"
 #include "LexiconManager.h"
+#include "LogMessage.h"
 
 using namespace std;
 
@@ -111,11 +113,11 @@ class WFSAcceptor {
 		
 			float fSizeMB = (m_iStates*sizeof(StateX)+m_iTransitions*sizeof(TransitionX))/(1024.0*1024.0);
 		
-			printf("--- acceptor -------------------------\n");
-			printf(" # states:      %10u\n",m_iStates);
-			printf(" # transitions: %10u\n",m_iTransitions);
-			printf(" size:          %10.2f MB\n",fSizeMB);
-			printf("--------------------------------------\n");
+			BVC_VERB << "--- acceptor -------------------------";
+			BVC_VERB << " # states:      " << setw(10) << m_iStates;
+			BVC_VERB << " # transitions: " << setw(10) << m_iTransitions;
+			BVC_VERB << " size:          " << FLT(10,2) << fSizeMB << " MB";
+			BVC_VERB << "--------------------------------------";
 		}
 		
 		// store the acceptor to a file

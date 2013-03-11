@@ -112,7 +112,6 @@ class DynamicDecoderX {
 		LMManager *m_lmManager;
 		unsigned char m_iNGram;
 		DynamicNetworkX *m_dynamicNetwork;
-		bool m_bVerbose;
 		
 		// feature dimensionality
 		int m_iDim;
@@ -460,7 +459,7 @@ class DynamicDecoderX {
 		
 			// (a) count lexical-units
 			entry->iLexUnits = 0;
-			int iHistoryItemAux = historyItem-m_historyItems;
+			int iHistoryItemAux = (int)(historyItem-m_historyItems);
 			do {
 				if (isStandard((iHistoryItemAux+m_historyItems)->iLexUnitPron)) {
 					entry->iLexUnits++;
@@ -471,7 +470,7 @@ class DynamicDecoderX {
 			// (b) copy lexical units
 			entry->iLexUnit = new int[entry->iLexUnits];
 			int iIndex = 0;
-			iHistoryItemAux = historyItem-m_historyItems;
+			iHistoryItemAux = (int)(historyItem-m_historyItems);
 			do {
 				if (isStandard((iHistoryItemAux+m_historyItems)->iLexUnitPron)) {
 					entry->iLexUnit[iIndex++] = m_lexiconManager->getLexUnitPron((iHistoryItemAux+m_historyItems)->iLexUnitPron)->iLexUnit;
@@ -492,7 +491,7 @@ class DynamicDecoderX {
 		// - ignores alternative pronunciations
 		inline bool compareWordSequencesStandard(WSHashEntry *entry, HistoryItem *historyItem) {
 			
-			int iHistoryItem = historyItem-m_historyItems;
+			int iHistoryItem = (int)(historyItem-m_historyItems);
 			int iIndex = 0;
 			
 			do {
@@ -568,14 +567,15 @@ class DynamicDecoderX {
 		// print a token set
 		inline void printWGToken(WGToken *wgToken) {
 		
-			printf("------------------------------------------------------\n");
+			cout << "------------------------------------------------------" << endl;
 			for(int i=0 ; i < m_iMaxWordSequencesState ; ++i) {
 				if (wgToken[i].iWordSequence == -1) {
 					break;
 				}
-				printf("%10d %12.4f %d\n",wgToken[i].iWordSequence,wgToken[i].fScore,wgToken[i].iHistoryItem);
+				cout << setw(10) << wgToken[i].iWordSequence << " " << 
+					FLT(12,4) << wgToken[i].fScore << " " << wgToken[i].iHistoryItem << endl;
 			}
-			printf("------------------------------------------------------\n");
+			cout << "------------------------------------------------------" << endl;
 		}		
 		
 		// compute the load factor of the hash table containing unque word sequences (debugging)

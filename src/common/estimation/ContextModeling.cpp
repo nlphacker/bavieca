@@ -77,7 +77,7 @@ bool ContextModeling::clusterContextDependentUnits(MAccumulatorLogical &mAccumul
 	// (1) get the logical accumulators
 	int m_iAccumulators = -1;
 	//MAccumulator &mAccumulators = m_hmmManager->getAccumulators();
-	m_iAccumulators = mAccumulators.size(); 
+	m_iAccumulators = (int)mAccumulators.size(); 
 	
 	// (2) create a list containing all the aplicable rules
 
@@ -90,7 +90,7 @@ bool ContextModeling::clusterContextDependentUnits(MAccumulatorLogical &mAccumul
 	if (vPhoneticRule->empty()) {
 		return false;
 	}
-	int iPhoneticRules = vPhoneticRule->size();
+	int iPhoneticRules = (int)vPhoneticRule->size();
 	
 	// calculate the total number of rules
 	int iRules = m_iContextSizeWW*2*iPhoneticRules + NUMBER_HMM_STATE_POSITIONS; // left/right context rules and within-word position rules
@@ -230,7 +230,7 @@ bool ContextModeling::clusterContextDependentUnits(MAccumulatorLogical &mAccumul
 					m_phoneSet->getStrPhone(iBasePhone),iState,dOccupationRoot,dLikelihoodRoot,
 					dLikelihoodAfterClustering,dPercentIncrease,iLeavesData,
 					Accumulator::getContextModelingOrder(m_iContextModelingOrderWW));
-				BVC_INFORMATION << strInformation;
+				BVC_VERB << strInformation;
 			}
 		}
 		

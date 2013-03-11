@@ -50,7 +50,7 @@ typedef struct {
 typedef vector<MLFUtterance*> VMLFUtterance;
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class MLFFile {
 

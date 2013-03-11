@@ -58,11 +58,11 @@ void HMMInitializer::computeGlobalDistribution(VMLFUtterance *vMLFUtterance, con
 		ossFileFeatures << strFolderFeatures << PATH_SEPARATOR << (*it)->strFilePattern;
 		FeatureFile featureFile(ossFileFeatures.str().c_str(),MODE_READ);
 		featureFile.load();
-		int iFeatures;
+		unsigned int iFeatures = 0;
 		float *fFeatures = featureFile.getFeatureVectors(&iFeatures);
 		
 		// update counters
-		for(int i = 0 ; i < iFeatures ; ++i) {
+		for(unsigned int i = 0 ; i < iFeatures ; ++i) {
 			
 			VectorStatic<float> vFeatures(fFeatures+(i*m_iDim),m_iDim);
 			vObservation.add(1.0,vFeatures);

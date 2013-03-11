@@ -697,7 +697,7 @@ class HypothesisLattice {
 			historyItem->edge = edge;	
 			historyItem->iReference = iReference;
 		
-			return historyItem-m_historyItems;
+			return (int)(historyItem-m_historyItems);
 		}
 		
 		// delete a history item

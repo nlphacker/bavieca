@@ -80,7 +80,7 @@ void ConfigurationFile::load() {
 void ConfigurationFile::print() {
 
 	for(MParameterValue::iterator it = m_mParameterValue.begin() ; it != m_mParameterValue.end() ; ++it) {
-		printf("%-20s %20s\n",it->first.c_str(),it->second.c_str());
+		BVC_VERB << it->first.c_str() << " -> " << it->second.c_str();
 	}
 }
 

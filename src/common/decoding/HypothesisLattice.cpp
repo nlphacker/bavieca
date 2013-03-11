@@ -96,7 +96,7 @@ void HypothesisLattice::buildContainer(LNode *lnodeInitial, LNode *lnodeFinal) {
 	}
 		
 	// create an array of nodes	
-	m_iNodes = mLNode.size();
+	m_iNodes = (int)mLNode.size();
 	m_lnodes = new LNode*[m_iNodes];
 	int i=0;
 	for(MLNode::iterator it = mLNode.begin() ; it != mLNode.end() ; ++it, ++i) {
@@ -105,7 +105,7 @@ void HypothesisLattice::buildContainer(LNode *lnodeInitial, LNode *lnodeFinal) {
 	}
 
 	// create an array of edges
-	m_iEdges = vLEdge.size();
+	m_iEdges = (int)vLEdge.size();
 	m_ledges = new LEdge*[m_iEdges];
 	for(int i=0 ; i<m_iEdges ; ++i) {
 		m_ledges[i] = vLEdge[i];
@@ -341,14 +341,14 @@ void HypothesisLattice::storeBinaryFormat(const char *strFile) {
 	
 	// print the lattice properties
 	// # properties
-	int iProperties = m_mProperties.size();
+	int iProperties = (int)m_mProperties.size();
 	IOBase::write(file.getStream(),iProperties);
 	// actual properties
 	for(MProperty::iterator it = m_mProperties.begin() ; it != m_mProperties.end() ; ++it) {
 		// property
-		IOBase::writeString(file.getStream(),it->first.c_str(),it->first.length());
+		IOBase::writeString(file.getStream(),it->first.c_str(),(unsigned int)it->first.length());
 		// value
-		IOBase::writeString(file.getStream(),it->second.c_str(),it->second.length());
+		IOBase::writeString(file.getStream(),it->second.c_str(),(unsigned int)it->second.length());
 	}	
 	
 	// print the edges
@@ -1331,7 +1331,7 @@ void HypothesisLattice::hmmMarking(HMMManager *hmmManager) {
 		}
 		
 		// build the left context that will be propagated from the edge (cross-word)
-		edgeAux->iPhones = edgeAux->lexUnit->vPhones.size();
+		edgeAux->iPhones = (int)edgeAux->lexUnit->vPhones.size();
 		unsigned char *iContextLeftProp = newBlankContext();
 		for(int i=0 ; i < min((int)m_iContextSizeCW,(int)(edgeAux->iPhones)) ; ++i) {
 			iContextLeftProp[m_iContextSizeCW-i-1] = edgeAux->lexUnit->vPhones[edgeAux->iPhones-1-i];
@@ -1423,7 +1423,7 @@ void HypothesisLattice::hmmMarking(HMMManager *hmmManager) {
 		}
 		
 		// build the right context that will be propagated from the edge (cross-word)
-		edgeAux->iPhones = edgeAux->lexUnit->vPhones.size();
+		edgeAux->iPhones = (int)edgeAux->lexUnit->vPhones.size();
 		unsigned char *iContextRightProp = newBlankContext();
 		for(int i=0 ; i < min((int)m_iContextSizeCW,(int)(edgeAux->iPhones)) ; ++i) {
 			iContextRightProp[i] = edgeAux->lexUnit->vPhones[i];
@@ -1498,7 +1498,7 @@ void HypothesisLattice::hmmMarking(HMMManager *hmmManager) {
 		
 		//m_lexiconManager->print(edge->lexUnit);
 		
-		edge->iPhones = edge->lexUnit->vPhones.size();
+		edge->iPhones = (int)edge->lexUnit->vPhones.size();
 		if (edge->iPhones == 0) {
 			m_lexiconManager->print(edge->lexUnit);
 		}
@@ -1719,13 +1719,13 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 		
 		// - find out what the best score is
 		float fScoreBest = FLT_MAX;
-		int iReferenceBest = INT_MIN;
+		//int iReferenceBest = INT_MIN;
 		if (m_tokenBest.node != NULL) {
 			fScoreBest = m_tokenBest.fScore;
 		}	
 		for(int i=0 ; i < m_iActiveTokensNext ; ++i) {	
 			if (m_tokenNext[i].fScore < fScoreBest) {
-				iReferenceBest = m_tokenNext[i].iReference;
+				//iReferenceBest = m_tokenNext[i].iReference;
 				fScoreBest = m_tokenNext[i].fScore;
 			}
 			//printf("active: %6d (score: %6.2f) reference: %6d node: %x event: %d\n",m_tokenNext[i].node->iNode,m_tokenNext[i].fScore,m_tokenNext[i].iReference,m_tokenNext[i].node,m_tokenNext[i].historyItem->iAlignmentEvent);
@@ -1761,7 +1761,7 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 	
 	// do back-tracing on the best token to compute the Lattice WER
 	LatticeWER *latticeWER = new LatticeWER;
-	latticeWER->iWordsReference = vLexUnitReference.size();
+	latticeWER->iWordsReference = (int)vLexUnitReference.size();
 	latticeWER->iInsertions = 0;
 	latticeWER->iDeletions = 0;
 	latticeWER->iSubstitutions = 0;
@@ -1959,7 +1959,6 @@ BestPath *HypothesisLattice::rescore(const char *strRescoringMethod) {
 
 	// determine the function to use for getting the edge log-weight
 	bool bLikelihood = false;
-	bool bPostetiors = false;
 	if (strcmp(strRescoringMethod,RESCORING_METHOD_LIKELIHOOD) == 0) {
 		bLikelihood = true;
 		// check lattice properties
@@ -1970,7 +1969,7 @@ BestPath *HypothesisLattice::rescore(const char *strRescoringMethod) {
 		}
 	} else {
 		assert(strcmp(strRescoringMethod,RESCORING_METHOD_POSTERIORS) == 0);
-		bPostetiors = true;
+		bLikelihood = false;
 		// check lattice properties
 		if (!isProperty(LATTICE_PROPERTY_PP)) {
 			BVC_ERROR << "pp-based rescoring needs posterior probabilities";
@@ -2287,7 +2286,7 @@ void HypothesisLattice::clearBestPath() {
 void HypothesisLattice::addPath(Alignment *alignment, bool bIsBest) {
 
 	// check consistency
-	if (alignment->getFrames() != m_iFrames) {
+	if (alignment->getFrames() != (unsigned int)m_iFrames) {
 		BVC_ERROR << "inconsistent number of frames: lattice has " << m_iFrames << ", path to insert has " << alignment->getFrames();
 	}
 

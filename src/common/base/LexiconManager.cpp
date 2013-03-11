@@ -310,7 +310,7 @@ LexUnit *LexiconManager::processLine(const char *strLine, int iLine, char *strLe
 		int iSize = 0;
 		MLexUnit::iterator it = m_mLexUnit->find(strLexUnit);
 		if (it != m_mLexUnit->end()) {
-			iSize = it->second->vLexUnitPronunciations.size();
+			iSize = (int)it->second->vLexUnitPronunciations.size();
 			if (iSize != iPronunciation) {
 				bCorrectId = false;
 			}
@@ -335,7 +335,7 @@ LexUnit *LexiconManager::processLine(const char *strLine, int iLine, char *strLe
 		MLexUnit::iterator it = m_mLexUnit->find(strLexUnit);
 		if (it != m_mLexUnit->end()) {
 			// get the next available pronunciation id
-			iPronunciation = it->second->vLexUnitPronunciations.size();
+			iPronunciation = (int)it->second->vLexUnitPronunciations.size();
 			BVC_WARNING << "lexical unit \"" << strLexUnit << "\" at line " << iLine 
 				<< " was previously defined in the lexicon, renamed to: \"" 
 				<< strLexUnit << "(" << iPronunciation+1 << ")\"";
@@ -396,7 +396,7 @@ void LexiconManager::attachLexUnitPenalties(float fInsertionPenaltyStandard, flo
 // return the lexical-unit type
 unsigned char LexiconManager::getLexicalUnitType(const char *strLexUnit) {
 
-	int iLength = strlen(strLexUnit);
+	unsigned int iLength = (unsigned int)strlen(strLexUnit);
 	assert(iLength > 0);
 
 	// beginning/end of sentence
@@ -538,7 +538,7 @@ bool LexiconManager::createLexicon(const char *strFile, MLexUnitInt &mLexUnitSee
 	// get the lenght of the longest lexical unit (for formatting purposes)
 	int iLengthMax = -1;
 	for(MLexUnitInt::iterator it = mLexUnitSeen.begin() ; it != mLexUnitSeen.end() ; ++it) {		
-		int iLen = strlen(getStrLexUnit(it->first->iLexUnit));
+		int iLen = (int)strlen(getStrLexUnit(it->first->iLexUnit));
 		if (it->first->iPronunciation > 0) {
 			iLen += 3;
 		}
@@ -610,7 +610,7 @@ bool LexiconManager::getLexUnits(const char *strText, VLexUnit &vLexUnit, bool &
 
 	bAllKnown = true;
 	// process the text character by character
-	int iLength = strlen(strText);
+	int iLength = (int)strlen(strText);
 	char strLexUnit[MAX_LEXUNIT_LENGTH+1];
 	int iCharacters = 0;
 	for(int i=0 ; i<iLength ; ++i) {
@@ -653,7 +653,7 @@ bool LexiconManager::getLexUnits(const char *strText, VLexUnitX &vLexUnitX, bool
 
 	bAllKnown = true;
 	// process the text character by character
-	int iLength = strlen(strText);
+	int iLength = (int)strlen(strText);
 	char strLexUnit[MAX_LEXUNIT_LENGTH+1];
 	int iCharacters = 0;
 	for(int i=0 ; i<iLength ; ++i) {
@@ -735,14 +735,14 @@ void LexiconManager::arrangeLexUnits(vector<string> &vStrLexUnit) {
 		if ((*it)->iLexUnit == -1) {
 			// IMPORTANT: sentence delimiters and unknown need to be preserved (are needed by the decoder)
 			if ((strcmp((*it)->strLexUnit,LEX_UNIT_UNKNOWN) == 0) || (strcmp((*it)->strLexUnit,LEX_UNIT_BEGINNING_SENTENCE) == 0) || (strcmp((*it)->strLexUnit,LEX_UNIT_END_SENTENCE) == 0)) {
-				(*it)->iLexUnit = vLexUnitX.size();
+				(*it)->iLexUnit = (int)vLexUnitX.size();
 				assert((*it)->vLexUnitPronunciations.size() == 1);
 				(*it)->vLexUnitPronunciations.front()->iLexUnit = (*it)->iLexUnit;
 				vLexUnitX.push_back(*it);
 			} 
 			// fillers: such as <UHM>, <BR>, etc
 			else if ((*it)->vLexUnitPronunciations.front()->iType == LEX_UNIT_TYPE_FILLER) {
-				(*it)->iLexUnit = vLexUnitX.size();
+				(*it)->iLexUnit = (int)vLexUnitX.size();
 				for(VLexUnit::iterator jt = (*it)->vLexUnitPronunciations.begin() ; jt != (*it)->vLexUnitPronunciations.end() ; ++jt) {
 					(*jt)->iLexUnit = (*it)->iLexUnit;
 				}

@@ -43,7 +43,6 @@ DynamicDecoderX::DynamicDecoderX(PhoneSet *phoneSet, HMMManager *hmmManager,
 	m_fLMScalingFactor = fLMScalingFactor;
 	m_iNGram = iNGram;
 	m_dynamicNetwork = dynamicNetwork;
-	m_bVerbose = true;
 	
 	// feature dimensionality
 	m_iDim = m_hmmManager->getFeatureDimensionality();
@@ -289,8 +288,8 @@ void DynamicDecoderX::process(float *fFeatures, int iFeatures) {
 		// root node expansion	
 		expandRoot(fFeatures);
 		// output search status
-		printf("t= %5d nodes= %6d bestScore= %12.4f we: %12.4f\n",
-			m_iTimeCurrent,m_iNodesActiveCurrent,m_fScoreBest,m_fScoreBestWE);
+		BVC_VERB << "t= " << setw(5) << m_iTimeCurrent << " nodes= " << setw(6) << m_iNodesActiveCurrent << 
+			" bestScore= " << FLT(12,4) << m_fScoreBest << " we: " << FLT(12,4) << m_fScoreBestWE;
 		++m_iTimeCurrent;
 		++t;
 	}
@@ -306,8 +305,8 @@ void DynamicDecoderX::process(float *fFeatures, int iFeatures) {
 		
 		// output search status
 		if (m_iTimeCurrent % 100 == 0) {
-			printf("t= %5d nodes= %6d bestScore= %12.4f we: %12.4f\n",
-				m_iTimeCurrent,m_iNodesActiveCurrent,m_fScoreBest,m_fScoreBestWE);
+			BVC_VERB << "t= " << setw(5) << m_iTimeCurrent << " nodes= " << setw(6) << m_iNodesActiveCurrent << 
+				" bestScore= " << FLT(12,4) << m_fScoreBest << " we: " << FLT(12,4) << m_fScoreBestWE;
 			//printHashsStats();
 			//printHashContents();
 		}
@@ -318,9 +317,8 @@ void DynamicDecoderX::process(float *fFeatures, int iFeatures) {
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;
 	
-	if (m_bVerbose) {
-		printf("decoding time: %.2f seconds (RTF: %5.2f)\n",dTimeSeconds,dTimeSeconds/(((float)iFeatures)/100.0));
-	}
+	BVC_VERB << "decoding time: " << FLT(8,2) << dTimeSeconds << " seconds (RTF: " <<  
+		FLT(5,2) << dTimeSeconds/(((float)iFeatures)/100.0) << ")";	
 }
 
 // root-node expansion
@@ -371,7 +369,7 @@ void DynamicDecoderX::expandRoot(float *fFeatureVector) {
 			token->iLMState = iLMStateInitial;
 			token->iLexUnitPron = m_iLexUnitPronUnknown;
 			token->iNode = arc->iNodeDest;
-			token->iHistoryItem = historyItemBegSentence-m_historyItems;
+			token->iHistoryItem = (int)(historyItemBegSentence-m_historyItems);
 			token->iLANode = -1;
 			token->fLAScores = NULL;
 			
@@ -382,7 +380,7 @@ void DynamicDecoderX::expandRoot(float *fFeatureVector) {
 				(token->iWGToken+m_wgTokens)[0].iWordSequence = -2;
 				(token->iWGToken+m_wgTokens)[0].iLexUnitPron = m_iLexUnitPronUnknown;
 				(token->iWGToken+m_wgTokens)[0].fScore = fScore;
-				(token->iWGToken+m_wgTokens)[0].iHistoryItem = historyItemBegSentence-m_historyItems;
+				(token->iWGToken+m_wgTokens)[0].iHistoryItem = (int)(historyItemBegSentence-m_historyItems);
 				(token->iWGToken+m_wgTokens)[1].iWordSequence = -1;
 			} else {
 				token->iWGToken = -1;
@@ -456,7 +454,7 @@ void DynamicDecoderX::expand(float *fFeatureVector, int t) {
 				tokenAux->state = token->state;
 				tokenAux->iLMState = token->iLMState;
 				tokenAux->iLexUnitPron = token->iLexUnitPron;
-				tokenAux->iNode = node-m_nodes;
+				tokenAux->iNode = (int)(node-m_nodes);
 				tokenAux->iHistoryItem = token->iHistoryItem;
 				tokenAux->iLANode = token->iLANode;
 				tokenAux->fLAScores = token->fLAScores;
@@ -991,7 +989,7 @@ void DynamicDecoderX::expandToHMMNewWord(DNode *node, DArc *arcNext, LexUnit *le
 			tokenAux->state = arcNext->state;
 			tokenAux->iLMState = iLMState;
 			tokenAux->iLexUnitPron = lexUnit->iLexUnitPron;
-			tokenAux->iNode = nodeNext-m_nodes;
+			tokenAux->iNode = (int)(nodeNext-m_nodes);
 			tokenAux->iLANode = -1;
 			tokenAux->fLAScores = NULL;
 			// (a) not an end-of-word
@@ -1511,7 +1509,6 @@ void DynamicDecoderX::pruning() {
 	// swap the token tables
 	swapTokenTables();
 }
-
 		
 // return the BestPath
 BestPath *DynamicDecoderX::getBestPath() {
@@ -1620,10 +1617,8 @@ BestPath *DynamicDecoderX::getBestPath() {
 	
 	// TODO attach lm-scores and compute real am-scores by substracting lm-score and insertion penalty
 	
-	if (m_bVerbose) {
-		printf("best score:    %12.4f\n",m_fScoreBest);
-		printf("best WE score: %12.4f %12.4f\n",fScoreBestWE,m_fScoreBestWE);
-	}
+	BVC_VERB	<< "best score:    " << FLT(12,4) << m_fScoreBest;
+	BVC_VERB	<< "best WE score: " << FLT(12,4) << fScoreBestWE << " " << FLT(12,4) << m_fScoreBestWE;
 	
 	return bestPath;
 }
@@ -1848,7 +1843,7 @@ void DynamicDecoderX::historyItemGarbageCollectionLattice() {
 				if (historyItem->iActive != m_iTimeCurrent) {
 					historyItem->iActive = m_iTimeCurrent;
 					assert(historyItem->iWGToken >= -1);
-					iHistoryItemActive[iHistoryItemActiveSize++] = historyItem-m_historyItems;
+					iHistoryItemActive[iHistoryItemActiveSize++] = (int)(historyItem-m_historyItems);
 					++iItemsActive;
 				}
 			}
@@ -1883,7 +1878,7 @@ void DynamicDecoderX::historyItemGarbageCollectionLattice() {
 				if (historyItem->iActive != m_iTimeCurrent) {
 					historyItem->iActive = m_iTimeCurrent;
 					assert(historyItem->iWGToken >= -1);
-					iHistoryItemActive[iHistoryItemActiveSize++] = historyItem-m_historyItems;	
+					iHistoryItemActive[iHistoryItemActiveSize++] = (int)(historyItem-m_historyItems);	
 					++iItemsActive;
 				}
 			}
@@ -1922,7 +1917,7 @@ void DynamicDecoderX::historyItemGarbageCollectionLattice() {
 					HistoryItem *historyItem2 = m_historyItems+(historyItem->iWGToken+m_wgTokens)[i].iHistoryItem;	
 					if (historyItem2->iActive != m_iTimeCurrent) {
 						historyItem2->iActive = m_iTimeCurrent;
-						iHistoryItemActive[iHistoryItemActiveSize++] = historyItem2-m_historyItems;	
+						iHistoryItemActive[iHistoryItemActiveSize++] = (int)(historyItem2-m_historyItems);	
 						++iItemsActive;
 					}
 				}
@@ -2270,7 +2265,7 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
  	double dTimeEnd = TimeUtils::getTimeMilliseconds();
  	double dTime = (dTimeEnd-dTimeBegin)/1000.0;
  	
- 	printf("Lattice building time: %8.4fs\n",dTime);
+ 	BVC_VERB << "Lattice building time: " << FLT(8,4) << dTime << "s";
 
 	return hypothesisLattice;
 }
@@ -2426,14 +2421,16 @@ void DynamicDecoderX::printHashsStats() {
 	int iCollisions = 0;
 	float fLoadFactor = computeLoadFactorHashWordSequences(&iBucketsUsed,&iCollisions);
 	
-	printf("- hash table containing word-sequences ---\n");
-	printf(" # buckets:      %8d\n",m_iWSHashBuckets);
-	printf(" # entries:      %8d\n",m_iWSHashEntries);
-	printf(" # buckets used: %8d (%5.2f%%)\n",iBucketsUsed,100.0*((float)iBucketsUsed)/((float)m_iWSHashBuckets));
-	printf(" # collisions:   %8d (%5.2f%%)\n",iCollisions,100.0*((float)iCollisions)/((float)(iBucketsUsed+iCollisions)));
-	printf(" # elements:     %8d\n",iBucketsUsed+iCollisions);
-	printf(" load factor:    %8.4f\n",fLoadFactor);
-	printf("------------------------------------------\n");
+	BVC_VERB << "- hash table containing word-sequences ---";
+	BVC_VERB << " # buckets:      " << setw(8) << m_iWSHashBuckets;
+	BVC_VERB << " # entries:      " << setw(8) << m_iWSHashEntries;
+	BVC_VERB << " # buckets used: " << setw(8) << iBucketsUsed << " (" << FLT(5,2) << 
+		100.0*((float)iBucketsUsed)/((float)m_iWSHashBuckets) << "%%)";
+	BVC_VERB << " # collisions:   " << setw(8) << iCollisions << " (" << FLT(5,2) <<
+		100.0*((float)iCollisions)/((float)(iBucketsUsed+iCollisions)) << "%%)";
+	BVC_VERB << " # elements:     " << setw(8) << iBucketsUsed+iCollisions;
+	BVC_VERB << " load factor:    " << FLT(8,4) << fLoadFactor;
+	BVC_VERB << "------------------------------------------";
 }
 
 // print the hash-contents (debugging)
@@ -2442,9 +2439,9 @@ void DynamicDecoderX::printHashContents() {
 	for(unsigned int i=0 ; i < m_iWSHashEntries ; ++i) {
 		WSHashEntry *entry = &m_wshashEntries[i];
 		if (entry->iTime != -1) {
-			printf("[BUCKET]\n");
+			BVC_VERB << "[BUCKET]";
 			do {
-				printf("entry:\n");
+				BVC_VERB << "entry:";
 				for(int j=0 ; j < entry->iLexUnits ; ++j) {
 					m_lexiconManager->print(m_lexiconManager->getLexUnit(entry->iLexUnit[j]));
 				}
@@ -2531,7 +2528,7 @@ void DynamicDecoderX::pruneExtraTokens(DNode *node) {
 	
 	if (node->iActiveTokensNext >= m_iTokensNodeMax) {
 		for(int i=0 ; i < iNumberBins ; ++i) {
-			printf("%3d -> %4d\n",i,iBins[i]);
+			BVC_VERB << setw(3) << i << " -> " << setw(4) << iBins[i];
 		}
 	}
 	

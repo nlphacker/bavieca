@@ -41,7 +41,7 @@ class Transform;
 #define HMM_PURPOSE_EVALUATION			1
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class HMMManager {
 
@@ -198,7 +198,7 @@ class HMMManager {
 		inline void getAccumulators(int iHMMState, VAccumulator *vAccumulator) {
 		
 			HMMState *hmmState = getHMMState(iHMMState);
-			for(int g=0 ; g<hmmState->getMixture().getNumberComponents() ; ++g) {
+			for(unsigned int g=0 ; g<hmmState->getMixture().getNumberComponents() ; ++g) {
 				vAccumulator->push_back(getAccumulator(iHMMState,g));
 			}
 		}	

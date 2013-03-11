@@ -41,7 +41,7 @@ namespace Bavieca {
 #define RETURN_CODE_NOT_FOLDER			2
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class FileUtils {
 

@@ -64,7 +64,7 @@ class HMMState;
 typedef vector<HMMState*> VHMMState;
 
 /**
-	@author root <root@localhost.localdomain>
+	@author daniel <dani.bolanos@gmail.com>
 */
 class HMMState {
 

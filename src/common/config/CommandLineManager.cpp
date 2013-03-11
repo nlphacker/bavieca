@@ -38,11 +38,12 @@ CommandLineManager::~CommandLineManager()
 // display the application usage including parameter sintax
 void CommandLineManager::displayApplicationUsage() {
 
-	printf("\n");
-	printf(" %s (version: %s, author: %s)\n",m_strApplicationName.c_str(),m_strVersion.c_str(),m_strAuthor.c_str());
-	printf("\n");
-	printf(" usage: %s [parameters]\n",m_strApplicationName.c_str());
-	printf(" parameters:\n");
+	cout << endl;
+	cout << " " << m_strApplicationName.c_str() << " (version: " << m_strVersion.c_str() 
+		<< ", author: " << m_strAuthor.c_str() << ")" << endl;
+	cout << endl;
+	cout << " usage: " << m_strApplicationName.c_str() << " [parameters]" << endl;
+	cout << " parameters:" << endl;
 	string strType;
 	
 	bool bOptionalParameters = false;
@@ -54,7 +55,7 @@ void CommandLineManager::displayApplicationUsage() {
 		}	
 		getStrType(it->second,strType);
 		if (strType.length() > iMaxLength) {
-			iMaxLength = strType.length();
+			iMaxLength = (int)strType.length();
 		}
 	}
 	
@@ -65,18 +66,18 @@ void CommandLineManager::displayApplicationUsage() {
 				printf("  %-12s %-*s %-s",it->second->strName.c_str(),max(iMaxLength,24u),strType.c_str(),
 					it->second->strDescription.c_str());
 				if (it->second->strDefaultValue.compare("") == 0) {
-					printf("\n");
+					cout << endl;
 				} else {
-					printf(" (default: %s)\n",it->second->strDefaultValue.c_str());
+					cout << " (default: " << it->second->strDefaultValue.c_str() << " )" << endl;
 				}
 				break;
 			}
 		}
 	}
-	if (bOptionalParameters == true) {
-		printf("\n (*optional)\n");
+	if (bOptionalParameters) {
+		cout << endl << " (*optional)" << endl;
 	}
-	printf("\n");
+	cout << endl;
 }
 
 // get the parameter type as a string

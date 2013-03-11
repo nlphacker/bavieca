@@ -16,7 +16,6 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-
 #include <iostream>
 #include <cstdlib>
 
@@ -276,10 +275,10 @@ int main(int argc, char *argv[]) {
 		// apply feture transforms
 		int iDimFea = featureExtractor.getFeatureDimensionality();
 		for(VTransform::iterator it = vTransformFeatures.begin() ; it != vTransformFeatures.end() ; ++it) {
-			printf("%d -> %d\n",iDimFea,(*it)->getRows());
+			BVC_VERB << "(input dim: " << iDimFea << ") -> (output dim: " << (*it)->getRows() << ")";
 			for(VUtteranceData::iterator jt = vUtteranceData.begin() ; jt != vUtteranceData.end() ; ++jt) {
 				float *fFeaturesX = new float[jt->features.iFeatures*(*it)->getRows()];
-				for(int i=0 ; i < jt->features.iFeatures ; ++i) {
+				for(unsigned int i=0 ; i < jt->features.iFeatures ; ++i) {
 					assert(0);
 					//(*it)->apply(jt->features.fFeatures+(i*iDimFea),fFeaturesX+(i*(*it)->getRows()));
 					// this needs to be fixed
@@ -372,11 +371,14 @@ int main(int argc, char *argv[]) {
 		double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;
 		double dRTF = dTimeSeconds/(((float)iFeatureVectorsTotal)/100.0);
 		
-		printf("- summary ------------------------------------\n");
-		printf("# utterances: %d speech time: %.2f seconds\n",iUtterances,((float)iFeatureVectorsTotal)/100.0);
-		printf("decoding time: %.2f seconds (RTF: %5.2f)\n",dTimeSeconds,dRTF);
-		printf("likelihood: %.4f (per frame: %8.4f)\n",dLikelihoodTotal,dLikelihoodTotal/((float)iFeatureVectorsTotal));
-		printf("----------------------------------------------\n");
+		BVC_INFORMATION << "- summary ------------------------------------" << endl;
+		BVC_INFORMATION << "# utterances: " << iUtterances << " speech time: " << FLT(8,2) << 
+			((float)iFeatureVectorsTotal)/100.0 << " seconds" << endl;
+		BVC_INFORMATION << "decoding time: " << FLT(8,2) << dTimeSeconds << " seconds (RTF: " << 
+			FLT(5,2) << dRTF << ")" << endl;
+		BVC_INFORMATION << "likelihood: " << FLT(12,4) << dLikelihoodTotal << " (per frame: " << 
+			FLT(8,4) << dLikelihoodTotal/((float)iFeatureVectorsTotal) << ")" << endl;
+		BVC_INFORMATION << "----------------------------------------------" << endl;
 		
 		// uninitialize the decoder
 		decoder.uninitialize();
@@ -385,12 +387,12 @@ int main(int argc, char *argv[]) {
 		if (bOutputAlignment) {
 			delete viterbi;
 		}
-		
-		return 0;	
 	} 
 	catch (ExceptionBase &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;
 	}	
+	
+	return 0;
 }

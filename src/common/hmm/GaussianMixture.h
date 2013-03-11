@@ -196,22 +196,22 @@ class GaussianMixture {
 			}
 		}
 		
-		inline int getNumberComponents() {
+		inline unsigned int getNumberComponents() {
 		
-			return m_vGaussian.size();
+			return (unsigned int)m_vGaussian.size();
 		}
 		
 		// return the number of free parameters associated to this HMM-state
-		inline int getNumberFreeParameters() {
+		inline unsigned int getNumberFreeParameters() {
 		
 			// digonal covariance
 			if (m_iCovarianceType == COVARIANCE_MODELLING_TYPE_DIAGONAL) {
-				return (m_vGaussian.size()*(2*m_iDim+1));	
+				return (unsigned int)(m_vGaussian.size()*(2*m_iDim+1));	
 			} 
 			// full covariance
 			else {
 				assert(m_iCovarianceType == COVARIANCE_MODELLING_TYPE_FULL);
-				return (m_vGaussian.size()*(m_iDim+((m_iDim*(m_iDim+1))/2)+1));
+				return (unsigned int)(m_vGaussian.size()*(m_iDim+((m_iDim*(m_iDim+1))/2)+1));
 			}	
 		}
 		

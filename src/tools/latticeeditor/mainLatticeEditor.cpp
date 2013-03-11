@@ -156,8 +156,6 @@ int main(int argc, char *argv[]) {
 					const char *strFileLatticeInput = batchFile.getField(i,"lattice");
 					const char *strUtteranceId = batchFile.getField(i,"utteranceID");
 					
-					printf("id: %s\n",strUtteranceId);
-					
 					// load the lattice
 					HypothesisLattice hypothesisLattice(&phoneSet,&lexiconManager,bVerbose);
 					hypothesisLattice.load(strFileLatticeInput);	
@@ -229,7 +227,7 @@ int main(int argc, char *argv[]) {
 				const char *strFileFeatures = batchFile.getField(i,"features");
 				const char *strFileLatticeOutput = batchFile.getField(i,"latticeOut");
 				
-				printf("lattice #: %d (%s)\n",i,strFileLatticeInput);
+				BVC_VERB << "lattice #: " << i << " (" << strFileLatticeInput << ")";
 				
 				// load the lattice
 				HypothesisLattice hypothesisLattice(&phoneSet,&lexiconManager,bVerbose);
@@ -239,9 +237,9 @@ int main(int argc, char *argv[]) {
 				// load the features
 				FeatureFile featureFile(strFileFeatures,MODE_READ);
 				featureFile.load();
-				int iFeatures = -1;
+				unsigned int iFeatures = -1;
 				float *fFeatures = featureFile.getFeatureVectors(&iFeatures);
-				if (iFeatures != hypothesisLattice.getFrames()) {
+				if (iFeatures != (unsigned int)hypothesisLattice.getFrames()) {
 					BVC_ERROR << "features and lattice do not match";
 				}
 				
@@ -262,7 +260,8 @@ int main(int argc, char *argv[]) {
 				double dTime = (dTimeEnd-dTimeBegin)/1000.0;
 				double dRTF = dTime/(hypothesisLattice.getFrames()/100.0);
 				
-				printf("Lattice processing time: %.4fs (RTF= %5.4f) frames: %d\n",dTime,dRTF,hypothesisLattice.getFrames());
+				BVC_VERB << "Lattice processing time: " << FLT(8,4) << dTime 
+					<< "s (RTF= " << FLT(5,4) << dRTF << ") frames: " << hypothesisLattice.getFrames() ;
 					
 				delete [] fFeatures;
 			}
@@ -301,7 +300,8 @@ int main(int argc, char *argv[]) {
 				double dTime = (dTimeEnd-dTimeBegin)/1000.0;
 				double dRTF = dTime/(hypothesisLattice.getFrames()/100.0);
 				
-				printf("Lattice processing time: %.4fs (RTF= %5.4f) frames: %d\n",dTime,dRTF,hypothesisLattice.getFrames());
+				BVC_VERB << "Lattice processing time: " << FLT(8,4) << dTime 
+					<< "s (RTF= " << FLT(5,4) << dRTF << ") frames: " << hypothesisLattice.getFrames();
 			}
 		}
 		// add a path to the lattice in case it is not already there
@@ -356,7 +356,8 @@ int main(int argc, char *argv[]) {
 				double dTime = (dTimeEnd-dTimeBegin)/1000.0;
 				double dRTF = dTime/(hypothesisLattice.getFrames()/100.0);
 				
-				printf("Lattice processing time: %.4fs (RTF= %5.4f) frames: %d\n",dTime,dRTF,hypothesisLattice.getFrames());
+				BVC_VERB << "Lattice processing time: " << FLT(8,4) << dTime 
+					<< "s (RTF= " << FLT(5,4) << dRTF << ") frames: " << hypothesisLattice.getFrames();
 				
 				delete alignment;
 			}
@@ -413,7 +414,8 @@ int main(int argc, char *argv[]) {
 				double dTime = (dTimeEnd-dTimeBegin)/1000.0;
 				double dRTF = dTime/(hypothesisLattice.getFrames()/100.0);
 				
-				printf("Lattice processing time: %.4fs (RTF= %5.4f) frames: %d\n",dTime,dRTF,hypothesisLattice.getFrames());
+				BVC_VERB << "Lattice processing time: " << FLT(8,4) << dTime 
+					<< "s (RTF= " << FLT(5,4) << dRTF << ") frames: " << hypothesisLattice.getFrames();
 			}
 		}
 		// compacting
@@ -446,7 +448,8 @@ int main(int argc, char *argv[]) {
 				double dTime = (dTimeEnd-dTimeBegin)/1000.0;
 				double dRTF = dTime/(hypothesisLattice.getFrames()/100.0);
 				
-				printf("Lattice processing time: %.4fs (RTF= %5.4f) frames: %d\n",dTime,dRTF,hypothesisLattice.getFrames());
+				BVC_VERB << "Lattice processing time: " << FLT(8,4) << dTime 
+					<< "s (RTF= " << FLT(5,4) << dRTF << ") frames: " << hypothesisLattice.getFrames();
 			}
 		}
 		// rescoring
@@ -530,7 +533,8 @@ int main(int argc, char *argv[]) {
 				double dTime = (dTimeEnd-dTimeBegin)/1000.0;
 				double dRTF = dTime/(hypothesisLattice.getFrames()/100.0);
 				
-				printf("Lattice processing time: %.4fs (RTF= %5.4f) frames: %d\n",dTime,dRTF,hypothesisLattice.getFrames());
+				BVC_VERB << "Lattice processing time: " << FLT(8,4) << dTime 
+					<< "s (RTF= " << FLT(5,4) << dRTF << ") frames: " << hypothesisLattice.getFrames();
 			}
 			if (bTrn) {
 				fileHyp->close();
@@ -541,9 +545,8 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		// unsupported action
-		else {	
-			printf("action not supported\n");
-			return -1;
+		else {
+			BVC_ERROR << "action: \"" << strAction << "\" not supported";
 		}
 	
 	} catch (ExceptionBase &e) {

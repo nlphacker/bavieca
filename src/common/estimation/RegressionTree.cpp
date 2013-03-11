@@ -116,7 +116,7 @@ void RegressionTree::build(int iBaseClasses, unsigned char iClusteringMethod, un
 			m_iGaussianBaseClass[gaussians[j].iId] = -1;
 		}
 	}	
-	m_iGaussians = m_nodeRoot->vGaussian.size();
+	m_iGaussians = (int)m_nodeRoot->vGaussian.size();
 	
 	// important: the number of gaussians is an upper bound to the number of base-classes
 	if (m_iGaussians < m_iBaseClasses) {
@@ -267,10 +267,10 @@ void RegressionTree::build(int iBaseClasses, unsigned char iClusteringMethod, un
 	int iBaseClass = 0;
 	for(LRTNode::iterator it = lLeafNode.begin() ; it != lLeafNode.end() ; ++it, ++iBaseClass) {
 		(*it)->iBaseClass = iBaseClass;
-		for(VGaussianStats::iterator jt = (*it)->vGaussianStats.begin() ; jt != (*it)->vGaussianStats.end() ; ++jt) {
-			m_iGaussianBaseClass[(*jt)->gaussian->iId] = iBaseClass;
+		for(VGaussianDecoding::iterator jt = (*it)->vGaussian.begin() ; jt != (*it)->vGaussian.end() ; ++jt) {
+			m_iGaussianBaseClass[(*jt)->iId] = iBaseClass;
 		}
-		m_baseClasses[iBaseClass] = (*it);
+		m_baseClasses[iBaseClass] = (*it);	
 		// allocate memory for the statistics
 		(*it)->matrixObservationTranspose = new Matrix<double>(m_iDim);
 	}	
@@ -289,10 +289,10 @@ void RegressionTree::build(int iBaseClasses, unsigned char iClusteringMethod, un
 	for(LRTNode::iterator it = lLeafNode.begin() ; it != lLeafNode.end() ; ++it) {
 		fClusterSizeAverage += (*it)->vGaussian.size();
 		if ((*it)->vGaussian.size() > iClusterSizeMaximum) {
-			iClusterSizeMaximum = (*it)->vGaussian.size();
+			iClusterSizeMaximum = (int)(*it)->vGaussian.size();
 		}
 		if ((*it)->vGaussian.size() < iClusterSizeMinimum) {
-			iClusterSizeMinimum = (*it)->vGaussian.size();
+			iClusterSizeMinimum = (int)(*it)->vGaussian.size();
 		}
 		fDepthAverage += (*it)->iDepth;
 		if ((*it)->iDepth > iDepthMaximum) {
@@ -355,7 +355,7 @@ bool RegressionTree::kMeansClustering(RTNode *cluster, int iMinimumComponentsClu
 
 	// (1) get the initial centroids
 	// (1.1) choose a random point as the first centroid
-	int iGaussians = cluster->vGaussian.size();
+	int iGaussians = (int)cluster->vGaussian.size();
 	int iIndex1 = getRandomNumber(0,iGaussians-1);
 	for(int i=0 ; i<m_iDim ; ++i) {
 		fCentroid1[i] = cluster->vGaussian[iIndex1]->fMean[i];
@@ -408,7 +408,7 @@ bool RegressionTree::kMeansClustering(RTNode *cluster, int iMinimumComponentsClu
 				}	
 				iClusterElements1++;
 			} else {
-				m_iGaussianBaseClass[(*it)->iId] = 0;
+				m_iGaussianBaseClass[(*it)->iId] = 1;
 				fDistortion2 += fDistance2;
 				for(int i=0;i<m_iDim;++i) {
 					dAccumulator2[i] += (*it)->fMean[i];
@@ -523,7 +523,7 @@ bool RegressionTree::expectationMaximizationClustering(RTNode *cluster, int iMin
 
 	// (1.1) get the initial centroids
 	// choose a random point as the first centroid
-	int iGaussians = cluster->vGaussian.size();
+	int iGaussians = (int)cluster->vGaussian.size();
 	int iIndex1 = getRandomNumber(0,iGaussians-1);
 	for(int i=0 ; i<m_iDim ; ++i) {
 		fCentroid1[i] = cluster->vGaussian[iIndex1]->fMean[i];
@@ -1318,7 +1318,7 @@ void RegressionTree::storeTransforms(const char *strFile) {
 	
 	// (1) store the MLLR transforms
 	
-	int iTransforms = m_vMLLRTransform.size();
+	int iTransforms = (int)m_vMLLRTransform.size();
 	IOBase::write(file.getStream(),iTransforms);	
 	
 	// mean/covariance?
