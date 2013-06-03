@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 #include <iostream>
 #include <cstdlib>
 
@@ -58,7 +59,7 @@ int main(int argc, char *argv[]) {
 		commandLineManager.defineParameter("-hyp","hypothesis file",PARAMETER_TYPE_FILE,false);
 		commandLineManager.defineParameter("-bat","batch file with entries [rawFile/featureFile utteranceId]",
 			PARAMETER_TYPE_FILE,false);
-		
+			
 		// (2) process command line parameters
 		if (commandLineManager.parseParameters(argc,argv) == false) {
 			return -1;
@@ -112,9 +113,6 @@ int main(int argc, char *argv[]) {
 			configuration.getStrParameterValue("languageModel.type"); 
 		float fLanguageModelScalingFactor = 
 			configuration.getFloatParameterValue("languageModel.scalingFactor"); 
-		const char *strLanguageModelNGram = 
-			configuration.getStrParameterValue("languageModel.ngram"); 
-		int iNGram = LMManager::getNGram(strLanguageModelNGram);
 		//bool bLanguageCrossUtterance = 
 		//	configuration.getBoolParameterValue("languageModel.crossUtterance");
 			
@@ -222,10 +220,8 @@ int main(int argc, char *argv[]) {
 		LMManager lmManager(&lexiconManager,
 									strLanguageModelFile,
 									strLanguageModelFormat,
-									strLanguageModelType,
-									strLanguageModelNGram); 
+									strLanguageModelType); 
 		lmManager.load();
-		lmManager.buildLMGraph();
 		
 		NetworkBuilderX networkBuilder(&phoneSet,&hmmManager,&lexiconManager);
 		
@@ -236,7 +232,7 @@ int main(int argc, char *argv[]) {
 		}
 	
 		DynamicDecoderX decoder(&phoneSet,&hmmManager,&lexiconManager,
-				&lmManager,fLanguageModelScalingFactor,iNGram,network,iMaxActiveArcs,
+				&lmManager,fLanguageModelScalingFactor,network,iMaxActiveArcs,
 				iMaxActiveArcsWE,iMaxActiveTokensArc,fBeamWidthArcs,fBeamWidthArcsWE,fBeamWidthTokensArc,
 				bLatticeGeneration,iMaxWordSequencesState);
 	
@@ -247,7 +243,6 @@ int main(int argc, char *argv[]) {
 		
 		double dLikelihoodTotal = 0.0;
 		int iFeatureVectorsTotal = 0;
-		int iUtterances = 0;
 		
 		// load the batch file
 		BatchFile batchFile(strFileControl,"audio|id");
@@ -264,31 +259,23 @@ int main(int argc, char *argv[]) {
 			UtteranceData utteranceData;
 			utteranceData.samples.sSamples = sSamples;
 			utteranceData.samples.iSamples = iSamples;
-			utteranceData.features.fFeatures = NULL;
-			utteranceData.features.iFeatures = -1;
+			utteranceData.mFeatures = NULL;
 			vUtteranceData.push_back(utteranceData);
 		}	
 		
 		// extract features
 		featureExtractor.extractFeaturesSession(vUtteranceData,true);
 		
-		// apply feture transforms
-		int iDimFea = featureExtractor.getFeatureDimensionality();
+		// apply feature transforms
 		for(VTransform::iterator it = vTransformFeatures.begin() ; it != vTransformFeatures.end() ; ++it) {
-			BVC_VERB << "(input dim: " << iDimFea << ") -> (output dim: " << (*it)->getRows() << ")";
+			BVC_VERB << "feature transform: (input dim: " << featureExtractor.getFeatureDim() 
+				<< ") -> (output dim: " << (*it)->getRows() << ")";
 			for(VUtteranceData::iterator jt = vUtteranceData.begin() ; jt != vUtteranceData.end() ; ++jt) {
-				float *fFeaturesX = new float[jt->features.iFeatures*(*it)->getRows()];
-				for(unsigned int i=0 ; i < jt->features.iFeatures ; ++i) {
-					assert(0);
-					//(*it)->apply(jt->features.fFeatures+(i*iDimFea),fFeaturesX+(i*(*it)->getRows()));
-					// this needs to be fixed
-					assert(0);
-				}
-				delete [] jt->features.fFeatures;
-				jt->features.fFeatures = fFeaturesX;
+				Matrix<float> *mFeaturesX = (*it)->apply(*jt->mFeatures);
+				delete jt->mFeatures;
+				jt->mFeatures = mFeaturesX;
 			}
-			iDimFea = (*it)->getRows();
-		}	
+		}
 		
 		FileOutput fileHypothesis(strFileHypothesis,false);
 		fileHypothesis.open();
@@ -299,12 +286,16 @@ int main(int argc, char *argv[]) {
 		
 			cout << "processing utterance: " << strUtteranceId << endl;
 			
-			iFeatureVectorsTotal += it->features.iFeatures;
-			float *fFeatureVectors = it->features.fFeatures;
-			int iFeatureVectors = it->features.iFeatures;
+			iFeatureVectorsTotal += it->mFeatures->getRows();
+			Matrix<float> *mFeatures = it->mFeatures;
+			
+			if (hmmManager.getFeatureDim() != mFeatures->getCols()) {
+				BVC_ERROR << "inconsistent feature dimensionality, HMMs: " << hmmManager.getFeatureDim() 
+					<< ", features: " << mFeatures->getCols();
+			}	
 			
 			decoder.beginUtterance();
-			decoder.process(fFeatureVectors,iFeatureVectors);
+			decoder.process(*mFeatures);
 			
 			// best path
 			BestPath *bestPath = decoder.getBestPath();
@@ -339,14 +330,14 @@ int main(int argc, char *argv[]) {
 				ostringstream ossFileFeatures;
 				ossFileFeatures << strFolderFeatures << PATH_SEPARATOR << strUtteranceId << ".fea"; 
 				FeatureFile featureFile(ossFileFeatures.str().c_str(),MODE_WRITE);
-				featureFile.store(fFeatureVectors,iFeatureVectors);
+				featureFile.store(*mFeatures);
 			}
 			
 			// output alignment?
 			if (bOutputAlignment && bestPath) {
 			
 				// create the state-level alignment and dump it to disk
-				VPhoneAlignment *vPhoneAlignment = viterbi->align(fFeatureVectors,iFeatureVectors,bestPath);
+				VPhoneAlignment *vPhoneAlignment = viterbi->align(*mFeatures,bestPath);
 				if (vPhoneAlignment) {
 					AlignmentFile alignmentFile(&phoneSet,&lexiconManager);
 					ostringstream ossFileAlignment;
@@ -363,7 +354,7 @@ int main(int argc, char *argv[]) {
 				delete bestPath;
 			}	
 			delete [] it->samples.sSamples;
-			delete [] it->features.fFeatures;
+			delete it->mFeatures;
 		}
 		fileHypothesis.close();
 		
@@ -371,14 +362,14 @@ int main(int argc, char *argv[]) {
 		double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;
 		double dRTF = dTimeSeconds/(((float)iFeatureVectorsTotal)/100.0);
 		
-		BVC_INFORMATION << "- summary ------------------------------------" << endl;
-		BVC_INFORMATION << "# utterances: " << iUtterances << " speech time: " << FLT(8,2) << 
-			((float)iFeatureVectorsTotal)/100.0 << " seconds" << endl;
+		BVC_INFORMATION << "- summary ------------------------------------";
+		BVC_INFORMATION << "# utterances: " << iUtterance << " speech time: " << FLT(8,2) << 
+			((float)iFeatureVectorsTotal)/100.0 << " seconds";
 		BVC_INFORMATION << "decoding time: " << FLT(8,2) << dTimeSeconds << " seconds (RTF: " << 
-			FLT(5,2) << dRTF << ")" << endl;
+			FLT(5,2) << dRTF << ")";
 		BVC_INFORMATION << "likelihood: " << FLT(12,4) << dLikelihoodTotal << " (per frame: " << 
-			FLT(8,4) << dLikelihoodTotal/((float)iFeatureVectorsTotal) << ")" << endl;
-		BVC_INFORMATION << "----------------------------------------------" << endl;
+			FLT(8,4) << dLikelihoodTotal/((float)iFeatureVectorsTotal) << ")";
+		BVC_INFORMATION << "----------------------------------------------";
 		
 		// uninitialize the decoder
 		decoder.uninitialize();
@@ -388,7 +379,7 @@ int main(int argc, char *argv[]) {
 			delete viterbi;
 		}
 	} 
-	catch (ExceptionBase &e) {
+	catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

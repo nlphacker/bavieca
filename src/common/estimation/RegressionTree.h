@@ -129,7 +129,7 @@ class RegressionTree {
 			
 			assert(iStart<=iEnd);
 		
-			#if defined __linux__ || defined __APPLE__	
+			#if defined __linux__ || defined __APPLE__ || __MINGW32__
 			// on linux 32 bits RAND_MAX = 2147483647 (this is the maximum signed integer)
 			assert(RAND_MAX > iEnd-iStart);			
 			// this is a very weak random number
@@ -138,7 +138,7 @@ class RegressionTree {
 			return iRandom;
 			#endif
 		
-			#ifdef _WIN32
+			#ifdef _MSC_VER
 			assert(0);
 			#endif
 			

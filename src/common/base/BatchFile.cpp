@@ -22,6 +22,8 @@
 #include "IOBase.h"
 #include <stdlib.h>
 #include <limits.h>
+#include <stdexcept>
+
 
 namespace Bavieca {
 
@@ -69,30 +71,37 @@ void BatchFile::load() {
 	
 	m_iColumns = iColumn;
 	
-	FileInput file(m_strFile.c_str(),false);
-	file.open();
+	try {
 	
-	int iLine = 1;
-	string strLine;
-	while(std::getline(file.getStream(),strLine)) {
-		if (strLine.empty()) {
-			break;
+		FileInput file(m_strFile.c_str(),false);
+		file.open();	
+		
+		int iLine = 1;
+		string strLine;
+		while(std::getline(file.getStream(),strLine)) {
+			if (strLine.empty()) {
+				break;
+			}
+			std::stringstream s(strLine);
+			BatchEntry *batchEntry = new BatchEntry();	
+			for(unsigned int i=0 ; i < m_iColumns ; ++i) {
+				string strField;
+				IOBase::readString(s,strField);	
+				batchEntry->vStrElement.push_back(strField);	
+			}	
+			if (batchEntry->vStrElement.size() != m_iColumns) {
+				BVC_ERROR<< "wrong number of columns in line: " << iLine << endl;
+			}
+			m_vBatchEntry.push_back(batchEntry);
+			++iLine;
 		}
-		std::stringstream s(strLine);
-		BatchEntry *batchEntry = new BatchEntry();	
-		for(unsigned int i=0 ; i < m_iColumns ; ++i) {
-			string strField;
-			IOBase::readString(s,strField);	
-			batchEntry->vStrElement.push_back(strField);	
-		}	
-		if (batchEntry->vStrElement.size() != m_iColumns) {
-			BVC_ERROR<< "wrong number of columns in line :" << iLine << endl;
-		}
-		m_vBatchEntry.push_back(batchEntry);
-		++iLine;
-	}
 	
-	file.close();
+		file.close();
+	
+	} catch (std::runtime_error) {
+	
+		BVC_ERROR << "unable to load/read from batch file: " << m_strFile;
+	}	
 }
 
 // return the field in the given entry and column

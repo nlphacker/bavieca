@@ -31,7 +31,7 @@ ViterbiX::ViterbiX(PhoneSet *phoneSet, LexiconManager *lexiconManager,
 	m_phoneSet = phoneSet;
 	m_lexiconManager = lexiconManager;
 	m_hmmManager = hmmManager;
-	m_iFeatureDimensionality = hmmManager->getFeatureDimensionality();	
+	m_iFeatureDimensionality = hmmManager->getFeatureDim();	
 	
 	// pruning
 	m_fPruningBeam = fPruningBeam;
@@ -58,7 +58,7 @@ ViterbiX::~ViterbiX()
 // - handles multiple pronunciations
 // - handles optional symbols (typically silence+fillers)
 Alignment *ViterbiX::processUtterance(VLexUnit &vLexUnitTranscription, bool bMultiplePronunciations, 
-	VLexUnit &vLexUnitOptional, float *fFeatures, int iFeatures, double *dUtteranceLikelihood, int &iErrorCode) {
+	VLexUnit &vLexUnitOptional, MatrixBase<float> &mFeatures, double *dUtteranceLikelihood, int &iErrorCode) {
 	
 	//double dTimeBegin = TimeUtils::getTimeMilliseconds();
 	
@@ -86,6 +86,7 @@ Alignment *ViterbiX::processUtterance(VLexUnit &vLexUnitTranscription, bool bMul
 	assert(nodeInitial->iDistanceEnd % NUMBER_HMM_STATES == 0);
 	
 	// there can't be fewer feature vectors than HMM-states in the composite
+	int iFeatures = mFeatures.getRows();
 	if (iFeatures < nodeInitial->iDistanceEnd) {
 		HMMGraph::destroy(nodes,iNodes);
 		iErrorCode = ERROR_CODE_INSUFFICIENT_NUMBER_FEATURE_VECTORS;
@@ -104,7 +105,7 @@ Alignment *ViterbiX::processUtterance(VLexUnit &vLexUnitTranscription, bool bMul
 	
 	// do the actual Viterbi pass
 	int iErrorCodeFB = -1;
-	VTrellisNode *trellis = viterbi(iFeatures,fFeatures,iNodes,nodes,iEdges,
+	VTrellisNode *trellis = viterbi(mFeatures,iNodes,nodes,iEdges,
 		nodeInitial,nodeFinal,m_fPruningBeam,&iErrorCodeFB);
 	if (trellis == NULL) {
 		HMMGraph::destroy(nodes,iNodes);
@@ -198,11 +199,12 @@ Alignment *ViterbiX::processUtterance(VLexUnit &vLexUnitTranscription, bool bMul
 
 
 // forward/backward computation on the trellis
-VTrellisNode *ViterbiX::viterbi(int iFeatures, float *fFeatures, int iNodes, FBNodeHMM **nodes, int iEdges, FBNodeHMM *nodeInitial, FBNodeHMM *nodeFinal, float fBeam, int *iErrorCode) {
+VTrellisNode *ViterbiX::viterbi(MatrixBase<float> &mFeatures, int iNodes, FBNodeHMM **nodes, int iEdges, FBNodeHMM *nodeInitial, FBNodeHMM *nodeFinal, float fBeam, int *iErrorCode) {
 
 	//double dTimeBegin = TimeUtils::getTimeMilliseconds();
 
 	// allocate memory for the trellis
+	int iFeatures = mFeatures.getRows();
 	VTrellisNode *trellis = newTrellis(iFeatures,iEdges,iErrorCode);
 	if (trellis == NULL) {
 		return NULL;
@@ -229,7 +231,8 @@ VTrellisNode *ViterbiX::viterbi(int iFeatures, float *fFeatures, int iNodes, FBN
 	
 	// compute forward score of initial edges and activate their successors
 	for(FBEdgeHMM *edge = nodeInitial->edgeNext ; edge != NULL ; edge = edge->edgePrev) {
-		trellis[edge->iEdge].fScore = ((HMMStateDecoding*)edge->hmmStateEstimation)->computeEmissionProbabilityNearestNeighborPDE(fFeatures,0);
+		trellis[edge->iEdge].fScore =
+			((HMMStateDecoding*)edge->hmmStateEstimation)->computeEmissionProbability(mFeatures.getRow(0).getData(),0);
 		trellis[edge->iEdge].dViterbi = trellis[edge->iEdge].fScore;
 		for(FBEdgeHMM *edge1 = edge->nodeNext->edgeNext ; edge1 != NULL ; edge1 = edge1->edgePrev) {
 			edgeActiveCurrent[iActiveCurrent++] = edge1;
@@ -242,7 +245,7 @@ VTrellisNode *ViterbiX::viterbi(int iFeatures, float *fFeatures, int iNodes, FBN
 	
 	// fill the trellis	
 	for(int t = 1 ; t < iFeatures ; ++t) {
-		float *fFeatureVector = fFeatures+(t*m_iFeatureDimensionality);
+		float *fFeatureVector = mFeatures.getRow(t).getData();
 		// (a) compute Viterbi scores
 		for(int i = 0 ; i < iActiveCurrent ; ++i) {		
 			int s = edgeActiveCurrent[i]->iEdge;
@@ -269,7 +272,7 @@ VTrellisNode *ViterbiX::viterbi(int iFeatures, float *fFeatures, int iNodes, FBN
 			if (nodeTrellis->dViterbi != -DBL_MAX) {	
 				HMMStateDecoding *hmmStateDecoding = (HMMStateDecoding*)(edgeActiveCurrent[i]->hmmStateEstimation);
 				assert(hmmStateDecoding->getGaussianComponents() > 0);
-				nodeTrellis->fScore = hmmStateDecoding->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,t);
+				nodeTrellis->fScore = hmmStateDecoding->computeEmissionProbability(fFeatureVector,t);
 				nodeTrellis->dViterbi += nodeTrellis->fScore;
 			}
 		}
@@ -385,7 +388,7 @@ void ViterbiX::deleteTrellis(VTrellisNode *trellis) {
 // print the trellis
 void ViterbiX::print(VTrellisNode *node, int iRows, int iColumns) {
 
-	printf("\n");
+	cout << endl;
 	for(int i=0 ; i < iRows ; ++i) {
 		for(int j=0 ; j < iColumns ; ++j) {
 			float fScore = node[i*iColumns+j].fScore;
@@ -398,7 +401,7 @@ void ViterbiX::print(VTrellisNode *node, int iRows, int iColumns) {
 			}
 			printf("%12.4f %12.4f   ",fScore,dViterbi);
 		}
-		printf("\n");
+		cout << endl;
 	}
 }
 

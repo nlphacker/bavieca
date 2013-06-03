@@ -54,10 +54,9 @@ void ConfigurationBavieca::defineParameters() {
 	
 	// language model
 	defineParameter("languageModel.file","language model",PARAMETER_TYPE_FILE,true);
-	defineParameter("languageModel.format","language model format",PARAMETER_TYPE_STRING,true);
+	defineParameter("languageModel.format","language model format",PARAMETER_TYPE_STRING,true,"ARPA|FSM");
 	defineParameter("languageModel.type","language model type",PARAMETER_TYPE_STRING,true);
 	defineParameter("languageModel.scalingFactor","language model scaling factor",PARAMETER_TYPE_FLOAT,true);
-	defineParameter("languageModel.ngram","language model n-gram",PARAMETER_TYPE_STRING,true);
 	defineParameter("languageModel.crossUtterance","language model",PARAMETER_TYPE_BOOLEAN,true,"yes|no","no");
 	
 	// insertion penalty

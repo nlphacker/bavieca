@@ -19,14 +19,17 @@
 
 #include "Alignment.h"
 #include "BestPath.h"
-#include "ExceptionBase.h"
 #include "FileInput.h"
 #include "FileOutput.h"
 #include "HMMManager.h"
 #include "HypothesisLattice.h"
 #include "IOBase.h"
+#include "LMFSM.h"
 #include "LMManager.h"
 #include "Mappings.h"
+#include "NBestList.h"
+#include "NBestListEntry.h"
+#include "NBestListEntryElement.h"
 #include "Numeric.h"
 #include "PhoneSet.h"
 #include "TimeUtils.h"
@@ -34,11 +37,10 @@
 namespace Bavieca {
 
 // constructor
-HypothesisLattice::HypothesisLattice(PhoneSet *phoneSet, LexiconManager *lexiconManager, bool bVerbose)
+HypothesisLattice::HypothesisLattice(PhoneSet *phoneSet, LexiconManager *lexiconManager)
 {
 	m_phoneSet = phoneSet;
 	m_lexiconManager = lexiconManager;
-	m_bVerbose = bVerbose;
 	
 	m_lnodes = NULL;
 	m_ledges = NULL;
@@ -131,13 +133,7 @@ void HypothesisLattice::destroy() {
 		}
 		delete [] m_lnodes;
 		for(int i=0 ; i < m_iEdges ; ++i) {
-			if (m_ledges[i]->phoneAlignment) {
-				delete [] m_ledges[i]->phoneAlignment;
-			}
-			if (m_ledges[i]->fPhoneAccuracy) {
-				delete [] m_ledges[i]->fPhoneAccuracy;
-			}
-			delete m_ledges[i];
+			deleteEdge(m_ledges[i]);
 		}
 		delete [] m_ledges;
 	}
@@ -195,11 +191,11 @@ void HypothesisLattice::printTraverse() {
 // print a lattice node
 void HypothesisLattice::print(LEdge *edge) {
 
-	char strLexUnit[MAX_LEXUNIT_LENGTH+1];
+	string strLexUnit;
 	m_lexiconManager->getStrLexUnitPronunciation(edge->lexUnit,strLexUnit);
 	
 	printf("[%4d] (%4d -> %4d) %4d %4d %20s %12.4f\n",edge->iEdge,edge->nodePrev->iNode,
-		edge->nodeNext->iNode,edge->iFrameStart,edge->iFrameEnd,strLexUnit,edge->fScoreAM);
+		edge->nodeNext->iNode,edge->iFrameStart,edge->iFrameEnd,strLexUnit.c_str(),edge->fScoreAM);
 }
 
 // print a list of edges
@@ -262,7 +258,7 @@ void HypothesisLattice::storeTextFormat(const char *strFile) {
 	}
 	
 	// print the edges
-	char strLexUnit[MAX_LEXUNIT_LENGTH+1];
+	string strLexUnit;
 	for(int i=0 ; i < m_iEdges ; ++i) {
 		LEdge *ledge = m_ledges[i];
 		m_lexiconManager->getStrLexUnitPronunciation(ledge->lexUnit,strLexUnit);
@@ -288,24 +284,6 @@ void HypothesisLattice::storeTextFormat(const char *strFile) {
 		if (isProperty(LATTICE_PROPERTY_CONFIDENCE)) {
 			oss << "conf=" << setw(12) << ledge->fConfidence;
 		}
-		/*if (ledge->iContextLeft != NULL) {
-			for(int i=0 ; i < m_iContextSizeCW ; ++i) {
-				if (ledge->iContextLeft[i] != m_iPhoneContextPadding) {
-					fprintf(file," l= %s",m_phoneSet->getStrPhone(ledge->iContextLeft[i]));
-				} else {
-					fprintf(file," l= <>");
-				}	
-			}
-		}	
-		if (ledge->iContextRight != NULL) {
-			for(int i=0 ; i < m_iContextSizeCW ; ++i) {
-				if (ledge->iContextRight[i] != m_iPhoneContextPadding) {
-					fprintf(file," r= %s",m_phoneSet->getStrPhone(ledge->iContextRight[i]));
-				} else {
-					fprintf(file," r= <>");	
-				}
-			}
-		}*/
 		oss << endl;
 		if (isProperty(LATTICE_PROPERTY_HMMS)) {
 			for(int j=0 ; j < ledge->iPhones ; ++j) {
@@ -372,8 +350,16 @@ void HypothesisLattice::storeBinaryFormat(const char *strFile) {
 		// write phone-level alignments?
 		if (isProperty(LATTICE_PROPERTY_HMMS) || isProperty(LATTICE_PROPERTY_PHONE_ALIGN)) {
 			IOBase::write(file.getStream(),ledge->iPhones);
-			IOBase::writeBytes(file.getStream(),reinterpret_cast<char*>(ledge->phoneAlignment),
-				sizeof(LPhoneAlignment)*ledge->iPhones);
+			assert(ledge->phoneAlignment);
+			for(int i=0 ; i < ledge->iPhones ; ++i) {
+				IOBase::write(file.getStream(),ledge->phoneAlignment[i].iPhone);
+				IOBase::write(file.getStream(),ledge->phoneAlignment[i].iPosition);
+				for(int j=0 ; j < NUMBER_HMM_STATES ; ++j) {
+					IOBase::write(file.getStream(),ledge->phoneAlignment[i].iStateBegin[j]);
+					IOBase::write(file.getStream(),ledge->phoneAlignment[i].iStateEnd[j]);
+					IOBase::write(file.getStream(),ledge->phoneAlignment[i].iHMMState[j]);
+				}
+			}
 		}
 		// write phone-accuracy?
 		if (isProperty(LATTICE_PROPERTY_PHONE_ACCURACY)) {
@@ -471,6 +457,10 @@ void HypothesisLattice::loadBinaryFormat(const char *strFile) {
 		}
 		assert(ledge->lexUnit != m_lexiconManager->m_lexUnitBegSentence);
 		
+		// context
+		ledge->iContextLeft = NULL;
+		ledge->iContextRight = NULL;
+		
 		// load am-scores?
 		ledge->fScoreAM = -FLT_MAX;
 		if (isProperty(LATTICE_PROPERTY_AM_PROB)) {
@@ -495,8 +485,15 @@ void HypothesisLattice::loadBinaryFormat(const char *strFile) {
 				BVC_ERROR << "wrong lattice format: inconsistent number of phones in edge";
 			}	
 			ledge->phoneAlignment = new LPhoneAlignment[ledge->iPhones];
-			IOBase::readBytes(file.getStream(),reinterpret_cast<char*>(ledge->phoneAlignment),
-				sizeof(LPhoneAlignment)*ledge->iPhones);
+			for(int i=0 ; i < ledge->iPhones ; ++i) {
+				IOBase::read(file.getStream(),&ledge->phoneAlignment[i].iPhone);
+				IOBase::read(file.getStream(),&ledge->phoneAlignment[i].iPosition);
+				for(int j=0 ; j < NUMBER_HMM_STATES ; ++j) {
+					IOBase::read(file.getStream(),&ledge->phoneAlignment[i].iStateBegin[j]);
+					IOBase::read(file.getStream(),&ledge->phoneAlignment[i].iStateEnd[j]);
+					IOBase::read(file.getStream(),&ledge->phoneAlignment[i].iHMMState[j]);
+				}
+			}	
 		}
 		// load phone accuracy
 		ledge->fPhoneAccuracy = NULL;
@@ -611,9 +608,6 @@ void HypothesisLattice::check() {
 				ledge->nodeNext->bTouched = true;
 				vLNode.push_back(ledge->nodeNext);
 			}	
-			// check time alignment
-			//for(LEdge *ledgeAux = lnode->edgeNext ; ledgeAux != NULL ; ledgeAux = ledge->edgePrev) {
-			//}
 		}
 	}
 	
@@ -684,13 +678,8 @@ void HypothesisLattice::forwardEdgeMerge() {
 		LNode *node = lNodes.front();
 		lNodes.pop_front();
 		
-		//assert(iNodeState[node->iNode] == LATTICE_NODE_STATE_QUEUED);
-		
-		//printf("processing: %x\n",node);
-		
 		// delete the node if marked as deleted
 		if (iNodeState[node->iNode] == LATTICE_NODE_STATE_DELETED) {
-			//printf("deleted(2): %x\n",node);
 			delete node;
 			continue;
 		}		
@@ -705,7 +694,11 @@ void HypothesisLattice::forwardEdgeMerge() {
 				edge2Prev = edge2->edgePrev;
 				if (equivalentEdges(edge1,edge2) && equivalentPredecessors(edge1->nodeNext,edge2->nodeNext)) {
 					
-					assert(edge1->nodeNext !=  edge2->nodeNext);
+					if (edge1->nodeNext == edge2->nodeNext) {
+						assert((edge1->nodeNext == m_lnodeFinal) && (edge2->nodeNext == m_lnodeFinal));
+						// this case only happens for unigram-lattices and it is rare, should be handled separately
+						continue;
+					}	
 					
 					// (2) move predecessors from one edge to the other (if not already there)
 					LEdge *edgeAdd = NULL;
@@ -735,7 +728,7 @@ void HypothesisLattice::forwardEdgeMerge() {
 							// move to the next predecessor
 							LEdge *edgeDelete = edgeA;
 							edgeA = edgeA->edgePrev;
-							delete edgeDelete;
+							deleteEdge(edgeDelete);
 						}
 					}
 					edgePointer = &edge1->nodeNext->edgeNext; 
@@ -757,7 +750,7 @@ void HypothesisLattice::forwardEdgeMerge() {
 						if (edgeDelete == edge2Prev) {
 							edge2Prev = edgeDelete->edgePrev;
 						}						
-						delete edgeDelete;
+						deleteEdge(edgeDelete);
 						++iEdgesRemoved;	
 					}
 					++iNodesRemoved;
@@ -799,13 +792,11 @@ void HypothesisLattice::forwardEdgeMerge() {
 	
 	check();
 		
-	if (m_bVerbose) {
-		float fCompressionRatioNodes = ((float)(100*iNodesRemoved))/((float)m_iNodes);
-		float fCompressionRatioEdges = ((float)(100*iEdgesRemoved))/((float)m_iEdges);
-		printf("compression ratio:\n");
-		printf("# nodes removed: %6d (%5.2f%%)\n",iNodesRemoved,fCompressionRatioNodes);
-		printf("# edges removed: %6d (%5.2f%%)\n",iEdgesRemoved,fCompressionRatioEdges);
-	}
+	float fCompressionRatioNodes = ((float)(100*iNodesRemoved))/((float)m_iNodes);
+	float fCompressionRatioEdges = ((float)(100*iEdgesRemoved))/((float)m_iEdges);
+	BVC_VERB << "compression ratio:";
+	BVC_VERB << "# nodes removed: " << iNodesRemoved <<" (" << fCompressionRatioNodes << "%)";
+	BVC_VERB << "# edges removed: " << iEdgesRemoved <<" (" << fCompressionRatioEdges << "%)";	
 }
 
 // traverse the lattice backwards and merge identical edges
@@ -861,7 +852,10 @@ void HypothesisLattice::backwardEdgeMerge() {
 				//assert(mEdgeDeleted.find(edge1) == mEdgeDeleted.end());
 				if (equivalentEdges(edge1,edge2) && equivalentSuccessors(edge1->nodePrev,edge2->nodePrev)) {	
 					
-					assert(edge1->nodePrev !=  edge2->nodePrev);
+					if (edge1->nodePrev == edge2->nodePrev) {
+						// this case only happens for unigram-lattices and it is rare, should be handled separately
+						continue;
+					}	
 					
 					// (2) move predecessors from one edge to the other (if not already there)
 					LEdge *edgeAdd = NULL;
@@ -892,7 +886,7 @@ void HypothesisLattice::backwardEdgeMerge() {
 							LEdge *edgeDelete = edgeA;		
 							edgeA = edgeA->edgeNext;
 							//mEdgeDeleted.insert(map<LEdge*,bool>::value_type(edgeDelete,true));
-							delete edgeDelete;
+							deleteEdge(edgeDelete);
 						}
 					}
 					edgePointer = &edge1->nodePrev->edgePrev; 
@@ -915,7 +909,7 @@ void HypothesisLattice::backwardEdgeMerge() {
 						if (edgeDelete == edge2Next) {
 							edge2Next = edgeDelete->edgeNext;
 						}
-						delete edgeDelete;
+						deleteEdge(edgeDelete);
 						++iEdgesRemoved;	
 					}
 					++iNodesRemoved;
@@ -957,13 +951,11 @@ void HypothesisLattice::backwardEdgeMerge() {
 	
 	check();
 		
-	if (m_bVerbose) {
-		float fCompressionRatioNodes = ((float)(100*iNodesRemoved))/((float)m_iNodes);
-		float fCompressionRatioEdges = ((float)(100*iEdgesRemoved))/((float)m_iEdges);
-		printf("compression ratio:\n");
-		printf("# nodes removed: %6d (%5.2f%%)\n",iNodesRemoved,fCompressionRatioNodes);
-		printf("# edges removed: %6d (%5.2f%%)\n",iEdgesRemoved,fCompressionRatioEdges);
-	}
+	float fCompressionRatioNodes = ((float)(100*iNodesRemoved))/((float)m_iNodes);
+	float fCompressionRatioEdges = ((float)(100*iEdgesRemoved))/((float)m_iEdges);
+	BVC_VERB << "compression ratio:";
+	BVC_VERB << "# nodes removed: " << iNodesRemoved <<" (" << fCompressionRatioNodes << "%)";
+	BVC_VERB << "# edges removed: " << iEdgesRemoved <<" (" << fCompressionRatioEdges << "%)";	
 }
 
 // compute forward backward scores
@@ -1009,7 +1001,7 @@ void HypothesisLattice::forward(LEdge *edge) {
    }
    
 	// (1) accumulate the forward score from predecessors
-	double dScoreAcc = -FLT_MAX;
+	double dScoreAcc = -DBL_MAX;
 	double dAux = 0.0;
 	LEdge *edgePred = edge->nodePrev->edgePrev;
 	while(edgePred != NULL) {
@@ -1019,7 +1011,7 @@ void HypothesisLattice::forward(LEdge *edge) {
 			forward(edgePred);	
 		} 
 		assert(edgePred->bTouched);
-		assert(edgePred->dScoreForward != -FLT_MAX);	
+		assert(edgePred->dScoreForward != -DBL_MAX);	
 		
 		// accumulate forward probabilities
 		dAux = edgePred->dScoreForward + edge->fScoreLM*m_fLMScalingFactor;
@@ -1028,7 +1020,7 @@ void HypothesisLattice::forward(LEdge *edge) {
 		edgePred = edgePred->edgeNext;
 	}
  
-	// (2) compute the forward score of the node (the accumulated score)
+	// (2) compute the forward score of the edge (the accumulated score)
 	edge->dScoreForward = dScoreAcc + (edge->fScoreAM+edge->fInsertionPenalty)*m_fAMScalingFactor;
 	edge->bTouched = true;	
 }
@@ -1053,7 +1045,7 @@ void HypothesisLattice::backward(LEdge *edge) {
 			backward(edgeSucc);	
 		}
 		assert(edgeSucc->bTouched);
-		assert(edgeSucc->dScoreBackward != -FLT_MAX);
+		assert(edgeSucc->dScoreBackward != -DBL_MAX);
 		
 		// accumulate backward probabilities
 		dAux = edgeSucc->dScoreBackward + edgeSucc->fScoreLM*m_fLMScalingFactor +
@@ -1063,7 +1055,7 @@ void HypothesisLattice::backward(LEdge *edge) {
 		edgeSucc = edgeSucc->edgePrev;
 	}
  
-	// (2) compute the backward score of the node (the accumulated)
+	// (2) compute the backward score of the edge (the accumulated)
 	edge->dScoreBackward = dScoreAcc;
 	edge->bTouched = true;
 }
@@ -1078,7 +1070,7 @@ void HypothesisLattice::computePosteriorProbabilities() {
 
 	// (1) compute normalization factor
 	assert(m_lnodeFinal->edgePrev != NULL);
-	double dNorm = -FLT_MAX;
+	double dNorm = -DBL_MAX;
 	double dAccIni = -DBL_MAX;
 	double dAccFin = -DBL_MAX;
 	for(LEdge *edge = m_lnodeFinal->edgePrev ; edge != NULL ; edge = edge->edgeNext) {
@@ -1113,6 +1105,17 @@ void HypothesisLattice::untouchEdges() {
 		m_ledges[i]->bTouched = false;
 	}
 }
+
+// reset all the auxiliar edges
+void HypothesisLattice::resetAuxEdges() {
+
+	for(int i=0 ; i < m_iEdges ; ++i) {
+		m_ledges[i]->edgeNextAux = NULL;
+		m_ledges[i]->edgePrevAux = NULL;
+	}
+}
+
+
 
 // compute posterior-probability based confidence estimates
 void HypothesisLattice::computeConfidenceScore(unsigned char iConfidenceMeasure) {
@@ -1358,7 +1361,8 @@ void HypothesisLattice::hmmMarking(HMMManager *hmmManager) {
 		// successor edges already have a context
 		else {
 			// different context: duplicate node and edges and put the edges in the queue
-			if (memcmp(iContextLeftProp,edgeAux->nodeNext->edgeNext->iContextLeft,iContextSizeMax*sizeof(unsigned char)) != 0) {	
+			if (memcmp(iContextLeftProp,edgeAux->nodeNext->edgeNext->iContextLeft,
+				iContextSizeMax*sizeof(unsigned char)) != 0) {	
 				// extract the auxiliar edge from the original destination node
 				LEdge **edge = &(edgeAux->nodeNext->edgePrev);
 				while(*edge != edgeAux) {	
@@ -1450,7 +1454,8 @@ void HypothesisLattice::hmmMarking(HMMManager *hmmManager) {
 		// successor edges already have a context
 		else {
 			// different context: duplicate node and edges and put the edges in the queue
-			if (memcmp(iContextRightProp,edgeAux->nodePrev->edgePrev->iContextRight,iContextSizeMax*sizeof(unsigned char)) != 0) {	
+			if (memcmp(iContextRightProp,edgeAux->nodePrev->edgePrev->iContextRight,
+				iContextSizeMax*sizeof(unsigned char)) != 0) {	
 				// extract the auxiliar edge from the original source node
 				LEdge **edge = &(edgeAux->nodePrev->edgeNext);
 				while(*edge != edgeAux) {	
@@ -1539,11 +1544,7 @@ void HypothesisLattice::hmmMarking(HMMManager *hmmManager) {
 			
 			// get the within-word position
 			if (i == 0) {
-				if (edge->iPhones == 1) {
-					iPosition = WITHIN_WORD_POSITION_MONOPHONE;
-				} else {
-					iPosition = WITHIN_WORD_POSITION_START;
-				}	 
+				iPosition = (edge->iPhones == 1) ? WITHIN_WORD_POSITION_MONOPHONE : WITHIN_WORD_POSITION_START;
 			} else if (i == edge->iPhones-1) {
 				iPosition = WITHIN_WORD_POSITION_END;
 			} else {
@@ -1573,10 +1574,10 @@ void HypothesisLattice::hmmMarking(HMMManager *hmmManager) {
 		assert(m_ledges[i]->iContextRight != NULL);
 	}	
 	
-	if (m_bVerbose) {
-		printf("# nodes added: %d (%6.2f%%)\n",iNodesAdded,100.0*((float)iNodesAdded)/((float)iNodesOriginal));
-		printf("# edges added: %d (%6.2f%%)\n",iEdgesAdded,100.0*((float)iEdgesAdded)/((float)iEdgesOriginal));
-	}
+	float fExpansionRatioNodes = ((float)(100*iNodesAdded))/((float)iNodesOriginal);
+	float fExpansionRatioEdges = ((float)(100*iEdgesAdded))/((float)iEdgesOriginal);
+	BVC_VERB << "# nodes added: " << iNodesAdded <<" (" << fExpansionRatioNodes << "%)";
+	BVC_VERB << "# edges added: " << iEdgesAdded <<" (" << fExpansionRatioEdges << "%)";	
 	
 	// update the lattice properties
 	setProperty(LATTICE_PROPERTY_HMMS,"yes");	
@@ -1585,11 +1586,19 @@ void HypothesisLattice::hmmMarking(HMMManager *hmmManager) {
 // WER computation ---------------------------------------------------------------------------
 
 // compute the Lattice Word Error Rate (also known as oracle)
-LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings *mappings) {
+// - perfect match: prune all paths with edit errors (the goal is to get WER = 0 or failure)
+// note: the alignment is not time synchronous so pruning based on best-partial-score is 
+//       not possible (unless we are looking for a perfect-match)
+LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, BestPath **bestPath, 
+	Mappings *mappings, bool bPerfectMatch, int iBeamSize) {
 
 	// make sure reference is not empty
 	if (vLexUnitReference.empty()) {
 		return NULL;
+	}
+	
+	if (bPerfectMatch) {
+		iBeamSize = 0;
 	}
 	
 	// make sure none of the lexical units in the reference are fillers
@@ -1609,21 +1618,19 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 	
  	double dTimeBegin = TimeUtils::getTimeMilliseconds();	
 	
-	m_iMaxActiveTokens = 1000000;
-	
 	// create an array of active tokens
-	m_tokenCurrent = new LWERToken[m_iMaxActiveTokens];
-	m_tokenNext = new LWERToken[m_iMaxActiveTokens];
+	m_tokenCurrent = new LWERToken[LATTICE_WER_MAX_TOKENS];
+	m_tokenNext = new LWERToken[LATTICE_WER_MAX_TOKENS];
 	m_iActiveTokensCurrent = 0;	
 	
 	// create the table of nodes used to keep the active tokens at each node
-	m_tokenNode = new LWERToken*[m_iNodes];
+	m_iTokenNode = new int[m_iNodes];
 	for(int i=0 ; i < m_iNodes ; ++i) {
-		m_tokenNode[i] = NULL;
+		m_iTokenNode[i] = -1;
 	}	
 	
 	// allocate memory for the history items and create the linked list of available items
-	m_iHistoryItems = 100000;
+	m_iHistoryItems = LATTICE_WER_HISTORY_ITEMS_START;
 	m_historyItems = new LWERHistoryItem[m_iHistoryItems];
 	for(int i=0 ; i < m_iHistoryItems-1 ; ++i) {
 		m_historyItems[i].iPrev = i+1;
@@ -1632,109 +1639,138 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 	m_iHistoryItemAvailable = 0;	
 	
 	// propagate tokens from the starting node
-	m_tokenCurrent[0].fScore = 0.0;
-	m_tokenCurrent[0].node = m_lnodeInitial;
+	m_tokenCurrent[0].iScore = 0;
+	m_tokenCurrent[0].iNode = m_lnodeInitial->iNode;
 	m_tokenCurrent[0].iReference = -1;
 	m_tokenCurrent[0].iHistoryItem = -1;
 	m_iActiveTokensCurrent=1;
 	
 	// propagate tokens until no token is active
 	m_iActiveTokensNext = 0;	
-	m_tokenBest.node = NULL;
-	m_tokenBest.fScore = FLT_MAX;
+	m_tokenBest.iNode = -1;
+	m_tokenBest.iScore = INT_MAX;
 	while(m_iActiveTokensCurrent > 0) {
 	
 		// propagate active tokens at the current time-frame
 		m_iActiveTokensNext = 0;
 		int iTokensToProcess = m_iActiveTokensCurrent;
-		for(int i=0 ; ((i < m_iMaxActiveTokens) && (iTokensToProcess > 0)) ; ++i) {
+		for(int i=0 ; ((i < LATTICE_WER_MAX_TOKENS) && (iTokensToProcess > 0)) ; ++i) {
 	
 			// skip inactive tokens (pruned)
-			if (m_tokenCurrent[i].node == NULL) {
+			if (m_tokenCurrent[i].iNode == -1) {
 				continue;
 			}	
 			
 			--iTokensToProcess;
 			
-			// is the token at the final node?
-			if ((m_tokenCurrent[i].node == m_lnodeFinal) && 
+			// is the token at the final node and all the words in the reference seen?
+			if ((m_tokenCurrent[i].iNode == m_lnodeFinal->iNode) && 
 				(m_tokenCurrent[i].iReference == (int)vLexUnitReference.size()-1)) {
 				// best scoring token so far?
-				if ((m_tokenBest.node == NULL) || (m_tokenCurrent[i].fScore < m_tokenBest.fScore)) {
+				if (m_tokenCurrent[i].iScore < m_tokenBest.iScore) {
 					memcpy(&m_tokenBest,&m_tokenCurrent[i],sizeof(LWERToken));
 					//printf("best final token: %8.2f %4d\n",m_tokenBest.fScore,m_tokenBest.iReference);
 				} 
-				if (m_tokenBest.fScore < 0.001) {
+				// first token with perfect score? if so, finish the search
+				if (m_tokenBest.iScore == 0) {
 					break;
 				}
 			}
 			// propagate tokens through the successor nodes
 			else {
-				for(LEdge *edge = m_tokenCurrent[i].node->edgeNext ; edge != NULL ; edge = edge->edgePrev) {
-				
-					if (m_tokenCurrent[i].node != m_lnodeFinal) {
-						// insertion
-						activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_INSERTION);
-						// skip
+				for(LEdge *edge = m_lnodes[m_tokenCurrent[i].iNode]->edgeNext ; edge != NULL ; edge = edge->edgePrev) {	
+					if (m_tokenCurrent[i].iNode != m_lnodeFinal->iNode) {
+						// skip hypothesis
 						if (m_lexiconManager->isFiller(edge->lexUnit)) {
-							activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_SKIP);
+							activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_SKIP_HYP);
+						} 
+						// insertion
+						else if (!bPerfectMatch) {
+							activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_INSERTION);	
 						}
 					}
 					if (m_tokenCurrent[i].iReference+1 < (int)vLexUnitReference.size()) {
+						// skip reference
+						if (m_lexiconManager->isFiller(vLexUnitReference[m_tokenCurrent[i].iReference+1])) {
+							activateToken(&m_tokenCurrent[i],NULL,ALIGNMENT_EVENT_SKIP_REF);
+						}
 						// deletion
-						activateToken(&m_tokenCurrent[i],NULL,ALIGNMENT_EVENT_DELETION);
+						else if (!bPerfectMatch) {
+							activateToken(&m_tokenCurrent[i],NULL,ALIGNMENT_EVENT_DELETION);
+						}
 					}
 					// substitution/correct
-					if ((m_tokenCurrent[i].node != m_lnodeFinal) && (m_tokenCurrent[i].iReference+1 < (int)vLexUnitReference.size())) {
+					if ((m_tokenCurrent[i].iNode != m_lnodeFinal->iNode) && 
+						(m_tokenCurrent[i].iReference+1 < (int)vLexUnitReference.size()) &&
+						(m_lexiconManager->isFiller(edge->lexUnit) == false) && 
+						(m_lexiconManager->isFiller(vLexUnitReference[m_tokenCurrent[i].iReference+1]) == false)) {
 						// no mappings
 						if (mappings == NULL) {	
-							if (edge->lexUnit->iLexUnit != vLexUnitReference[m_tokenCurrent[i].iReference+1]->iLexUnit) {
-								activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_SUBSTITUTION);
-							} 
-							else {
+							if (edge->lexUnit->iLexUnit == vLexUnitReference[m_tokenCurrent[i].iReference+1]->iLexUnit) {
 								activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_CORRECT);
+							} else if (!bPerfectMatch) {
+								activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_SUBSTITUTION);
 							}
 						}
 						// apply mappings to hypothesis and reference word
 						else {
-							const char *strHyp = (*mappings)[m_lexiconManager->getStrLexUnit(edge->lexUnit->iLexUnit) ];
+							const char *strHyp = (*mappings)[m_lexiconManager->getStrLexUnit(edge->lexUnit->iLexUnit)];
 							const char *strRef = (*mappings)[m_lexiconManager->getStrLexUnit(
 								vLexUnitReference[m_tokenCurrent[i].iReference+1]->iLexUnit)];
-							if (strcmp(strHyp,strRef) != 0) {
-								activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_SUBSTITUTION);
-							} else {
+							if (strcmp(strHyp,strRef) == 0) {
 								activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_CORRECT);	
+							} else if (!bPerfectMatch) {
+								activateToken(&m_tokenCurrent[i],edge,ALIGNMENT_EVENT_SUBSTITUTION);
 							}
 						}
 					}
 				}	
 			}
 		}
-		if (m_tokenBest.fScore < 0.001) {
+		if (m_tokenBest.iScore == 0) {
 			break;
 		}
 		
-		// pruning
-		int iPruned = 0;
+		// pruning ------------------------------------
 		
-		// - find out what the best score is
-		float fScoreBest = FLT_MAX;
-		//int iReferenceBest = INT_MIN;
-		if (m_tokenBest.node != NULL) {
-			fScoreBest = m_tokenBest.fScore;
+		// (1) get the best score
+		int iScoreBest = INT_MAX;
+		if (m_tokenBest.iNode != -1) {
+			iScoreBest = m_tokenBest.iScore;
 		}	
-		for(int i=0 ; i < m_iActiveTokensNext ; ++i) {	
-			if (m_tokenNext[i].fScore < fScoreBest) {
-				//iReferenceBest = m_tokenNext[i].iReference;
-				fScoreBest = m_tokenNext[i].fScore;
+		for(int i=0 ; i < m_iActiveTokensNext ; ++i) {
+			if (m_tokenNext[i].iScore < iScoreBest) {
+				iScoreBest = m_tokenNext[i].iScore;
 			}
-			//printf("active: %6d (score: %6.2f) reference: %6d node: %x event: %d\n",m_tokenNext[i].node->iNode,m_tokenNext[i].fScore,m_tokenNext[i].iReference,m_tokenNext[i].node,m_tokenNext[i].historyItem->iAlignmentEvent);
-			m_tokenNode[m_tokenNext[i].node->iNode] = NULL;	
+			//printf("active: %6d (score: %6.2f) reference: %6d node: %x event: %d\n",m_tokenNext[i].node->iNode,
+			//	m_tokenNext[i].fScore,m_tokenNext[i].iReference,m_tokenNext[i].node,m_tokenNext[i].historyItem->iAlignmentEvent);
+			m_iTokenNode[m_tokenNext[i].iNode] = -1;	
 		}
-		// - prune active tokens outside the beam
+		// build histogram
+		int *iHistogram = new int[iBeamSize+1];
+		for(int i=0 ; i < iBeamSize+1 ; ++i) {
+			iHistogram[i] = 0;
+		}	
+		for(int i=0 ; i < m_iActiveTokensNext ; ++i) {
+			int iBin = min(m_tokenNext[i].iScore-iScoreBest,iBeamSize);
+			assert((iBin >= 0) && (iBin <= iBeamSize));
+			iHistogram[iBin]++;
+		}	
+		int iThreshold = 0;
+		int iSeen = 0;
+		for(int i=0 ; i < iBeamSize+1 ; ++i) {
+			iSeen += iHistogram[i];
+			if (iSeen > LATTICE_WER_MAX_ACTIVE_TOKENS) {
+				break;
+			}
+			iThreshold += 1;
+		}
+		delete [] iHistogram;	
+		// (2) prune active tokens outside the beam
+		int iPruned = 0;
 		for(int i=0 ; i < m_iActiveTokensNext ; ++i) {	
-			if (m_tokenNext[i].fScore-LATTICE_WER_COMPUTATION_BEAM > fScoreBest) {
-				m_tokenNext[i].node = NULL;
+			if (m_tokenNext[i].iScore-iScoreBest > iThreshold) {
+				m_tokenNext[i].iNode = -1;
 				++iPruned;
 			}
 		}
@@ -1742,10 +1778,11 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 		
 		// sanity check
 		for(int i=0 ; i < m_iNodes ; ++i) {
-			assert(m_tokenNode[i] == NULL);
+			assert(m_iTokenNode[i] == -1);
 		}
 		
-		//printf("bestScore: %5.2f (reference: %4d) active states: %6d pruned: %6d\n",fScoreBest,iReferenceBest,m_iActiveTokensNext,iPruned);
+		//printf("bestScore: %5.2f (reference: %4d) active states: %6d pruned: %6d\n",
+		//	fScoreBest,iReferenceBest,m_iActiveTokensNext,iPruned);
 		
 		// swap
 		m_iActiveTokensCurrent = m_iActiveTokensNext;
@@ -1753,6 +1790,17 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 		m_tokenCurrent = m_tokenNext;
 		m_tokenNext = tokenAux;
 	}
+	
+	// unable to find a perfect match? (WER > 0)
+	if (m_tokenBest.iNode == -1) {
+		assert(bPerfectMatch);
+		// clean-up
+		delete [] m_tokenCurrent;
+		delete [] m_tokenNext;
+		delete [] m_iTokenNode;	
+		delete [] m_historyItems;	
+		return NULL;
+	}	
 	
 	// if the best path is already marked clear it
 	if (isProperty(LATTICE_PROPERTY_BEST_PATH)) {
@@ -1768,6 +1816,11 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 	latticeWER->iCorrect = 0;
 	latticeWER->iErrors = 0;	
 	
+	if (bestPath) {
+		*bestPath = new BestPath(m_lexiconManager,0.0);
+	}
+	
+	assert(m_tokenBest.iNode != -1);
 	int iHistoryItem = m_tokenBest.iHistoryItem;
 	while(iHistoryItem != -1) {
 	
@@ -1775,44 +1828,56 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 	
 		// keep and mark the best path in the lattice
 		if (historyItem->iAlignmentEvent != ALIGNMENT_EVENT_DELETION) {
-			latticeWER->vLexUnitBest.push_back(historyItem->edge->lexUnit);	
-			historyItem->edge->bBestPath = true;
+			latticeWER->vLexUnitBest.push_back(m_ledges[historyItem->iEdge]->lexUnit);	
+			m_ledges[historyItem->iEdge]->bBestPath = true;
 		}	
 			
-		switch(historyItem->iAlignmentEvent) {
-			case ALIGNMENT_EVENT_CORRECT: {
-				/*printf("correct:      %20s %20s\n",
-					m_lexiconManager->getStrLexUnit(historyItem->edge->lexUnit->iLexUnit),
-					m_lexiconManager->getStrLexUnit(vLexUnitReference[historyItem->iReference]->iLexUnit));*/
-				++latticeWER->iCorrect;
-				break;
-			}
-			case ALIGNMENT_EVENT_INSERTION: {
-				/*printf("insertion:    %20s %20s\n",
-					m_lexiconManager->getStrLexUnit(historyItem->edge->lexUnit->iLexUnit),"<>");*/
-				++latticeWER->iInsertions;
-				break;
-			}
-			case ALIGNMENT_EVENT_DELETION: {
-				/*printf("deletion:     %20s %20s\n","<>",m_lexiconManager->getStrLexUnit(vLexUnitReference[historyItem->iReference]->iLexUnit));*/
-				++latticeWER->iDeletions;
-				break;
-			}
-			case ALIGNMENT_EVENT_SUBSTITUTION: {
-				/*printf("substitution: %20s %20s\n",
-					m_lexiconManager->getStrLexUnit(historyItem->edge->lexUnit->iLexUnit),
-					m_lexiconManager->getStrLexUnit(vLexUnitReference[historyItem->iReference]->iLexUnit));*/
-				++latticeWER->iSubstitutions;
-				break;
-			}
-			case ALIGNMENT_EVENT_SKIP: {
-				//printf("skip: %20s %20s\n",m_lexiconManager->getStrLexUnit(historyItem->edge->lexUnit->iLexUnit),"<>");
-				break;
-			}
-			default : {
-				assert(0);
-			}
-		}		
+		// correct
+		if (historyItem->iAlignmentEvent == ALIGNMENT_EVENT_CORRECT) {
+			//cout << "correct:	" << m_lexiconManager->getStrLexUnit(historyItem->edge->lexUnit->iLexUnit) <<
+			//	" " << m_lexiconManager->getStrLexUnit(vLexUnitReference[historyItem->iReference]->iLexUnit) << endl;			
+			++latticeWER->iCorrect;
+		} 
+		// insertion	
+		else if (historyItem->iAlignmentEvent == ALIGNMENT_EVENT_INSERTION) {
+			//cout << "insertion: " << m_lexiconManager->getStrLexUnit(historyItem->edge->lexUnit->iLexUnit) << endl;
+			++latticeWER->iInsertions;
+		}
+		// deletion
+		else if (historyItem->iAlignmentEvent == ALIGNMENT_EVENT_DELETION) {
+			//cout << "deletion: " << m_lexiconManager->getStrLexUnit(vLexUnitReference[historyItem->iReference]->iLexUnit) 
+			//	<< endl;
+			++latticeWER->iDeletions;
+		}
+		// substitution
+		else if (historyItem->iAlignmentEvent == ALIGNMENT_EVENT_SUBSTITUTION) {
+			//cout << "substitution: " << m_lexiconManager->getStrLexUnit(historyItem->edge->lexUnit->iLexUnit) <<
+			//	m_lexiconManager->getStrLexUnit(vLexUnitReference[historyItem->iReference]->iLexUnit) << endl;
+			++latticeWER->iSubstitutions;
+		}
+		// skip hypothesis
+		else if (historyItem->iAlignmentEvent == ALIGNMENT_EVENT_SKIP_HYP) {
+			//cout << "skip: " << m_lexiconManager->getStrLexUnit(historyItem->edge->lexUnit->iLexUnit) << endl;
+		}
+		// skip reference
+		else {
+			assert(historyItem->iAlignmentEvent == ALIGNMENT_EVENT_SKIP_REF);
+			//cout << "skip: " << m_lexiconManager->getStrLexUnit(vLexUnitReference[historyItem->iReference]->iLexUnit) << endl;
+		}
+				
+		// add it to the best path
+		if ((bestPath) && (historyItem->iAlignmentEvent != ALIGNMENT_EVENT_DELETION) &&
+			(historyItem->iAlignmentEvent != ALIGNMENT_EVENT_SKIP_REF)) {
+			float fScore = 0.0;
+			float fScoreAM = isProperty(LATTICE_PROPERTY_AM_PROB) ? m_ledges[historyItem->iEdge]->fScoreAM : 0.0;
+			float fScoreLM = isProperty(LATTICE_PROPERTY_LM_PROB) ? m_ledges[historyItem->iEdge]->fScoreLM : 0.0;
+			float fConfidence = isProperty(LATTICE_PROPERTY_CONFIDENCE) ? m_ledges[historyItem->iEdge]->fConfidence : 0.0;
+			float fInsertionPenalty = 
+				isProperty(LATTICE_PROPERTY_INSERTION_PENALTY) ? m_ledges[historyItem->iEdge]->fInsertionPenalty : 0.0;
+			(*bestPath)->newElementFront(m_ledges[historyItem->iEdge]->iFrameStart,m_ledges[historyItem->iEdge]->iFrameEnd,
+				fScore,fScoreAM,fScoreLM,fConfidence,m_ledges[historyItem->iEdge]->lexUnit,fInsertionPenalty);
+		}
+				
 		iHistoryItem = (m_historyItems+iHistoryItem)->iPrev;
 	}
 	
@@ -1827,19 +1892,16 @@ LatticeWER *HypothesisLattice::computeWER(VLexUnit &vLexUnitReference, Mappings 
 	// clean-up
 	delete [] m_tokenCurrent;
 	delete [] m_tokenNext;
-	delete [] m_tokenNode;	
+	delete [] m_iTokenNode;	
 	delete [] m_historyItems;
-	m_tokenCurrent = NULL;
-	m_tokenNext = NULL;
-	m_tokenNode = NULL;
-	m_historyItems = NULL;
 	
  	double dTimeEnd = TimeUtils::getTimeMilliseconds();
  	double dTime = (dTimeEnd-dTimeBegin)/1000.0;
  	double dRTF = dTime/(m_iFrames/100.0);
  	
- 	printf("lattice WER: %5.2f computation time: %.4fs (RTF= %5.4f) sub: %4d del: %4d ins: %4d correct: %4d\n",latticeWER->fWER,dTime,dRTF,
- 		latticeWER->iSubstitutions,latticeWER->iDeletions,latticeWER->iInsertions,latticeWER->iCorrect);
+	printf("lattice WER: %5.2f computation time: %.4fs (RTF= %5.4f) sub: %4d del: %4d ins: %4d correct: %4d\n",
+		latticeWER->fWER,dTime,dRTF,latticeWER->iSubstitutions,latticeWER->iDeletions,latticeWER->iInsertions,
+		latticeWER->iCorrect);
 	
 	return latticeWER;
 }
@@ -1857,10 +1919,10 @@ void HypothesisLattice::historyItemGarbageCollection() {
 	
 	// current tokens
 	int iTokensToProcess = m_iActiveTokensCurrent;
-	for(int i=0 ; ((i < m_iMaxActiveTokens) && (iTokensToProcess > 0)) ; ++i) {
+	for(int i=0 ; ((i < LATTICE_WER_MAX_TOKENS) && (iTokensToProcess > 0)) ; ++i) {
 
 		// skip inactive tokens (pruned)
-		if (m_tokenCurrent[i].node == NULL) {
+		if (m_tokenCurrent[i].iNode == -1) {
 			continue;
 		}	
 		
@@ -1890,7 +1952,7 @@ void HypothesisLattice::historyItemGarbageCollection() {
 	}
 	
 	// best token
-	if (m_tokenBest.node != NULL) {
+	if (m_tokenBest.iNode != -1) {
 		for(int iHistoryItem = m_tokenBest.iHistoryItem ; iHistoryItem != -1 ; iHistoryItem = (m_historyItems+iHistoryItem)->iPrev) {
 			LWERHistoryItem *historyItem = m_historyItems+iHistoryItem;
 			if (historyItem->bUsed) {
@@ -1912,7 +1974,7 @@ void HypothesisLattice::historyItemGarbageCollection() {
 		// copy the active items from the old data structure
 		for(int i=0 ; i < m_iHistoryItems ; ++i) {
 			historyItems[i].iPrev = m_historyItems[i].iPrev;
-			historyItems[i].edge = m_historyItems[i].edge;
+			historyItems[i].iEdge = m_historyItems[i].iEdge;
 			historyItems[i].iReference = m_historyItems[i].iReference;
 			historyItems[i].iAlignmentEvent = m_historyItems[i].iAlignmentEvent;
 			historyItems[i].bUsed = m_historyItems[i].bUsed;
@@ -2058,6 +2120,8 @@ BestPath *HypothesisLattice::rescore(const char *strRescoringMethod) {
 	return bestPath;	
 }
 
+
+
 // return the best path in the lattice (must be already marked)
 BestPath *HypothesisLattice::getBestPath() {
 
@@ -2122,7 +2186,7 @@ VLPhoneAlignment *HypothesisLattice::getBestPathAlignment() {
 // attach lm-probabilities to the edges of the lattice
 // note: lattice expansion may be needed in order for each edge to have a unique
 //       word context
-void HypothesisLattice::attachLMProbabilities(LMManager *lmManager) {
+void HypothesisLattice::attachLMProbabilities(LMFSM *lmFSM) {
 
 	LLEdge lEdge;
 	int iNodesAdded = 0;
@@ -2139,13 +2203,13 @@ void HypothesisLattice::attachLMProbabilities(LMManager *lmManager) {
 	}
 	
 	// get the initial lm-state	
-	int iLMStateInitial = lmManager->getInitialState();
+	int iLMStateInitial = lmFSM->getInitialState();
 	
 	// put initial edges in the queue
 	for(LEdge *edge = m_lnodeInitial->edgeNext ; edge != NULL ; edge = edge->edgePrev) {
 		// regular word: update lm-state 
 		if (m_lexiconManager->isStandard(edge->lexUnit)) {		
-			edge->iLMState = lmManager->updateLMState(iLMStateInitial,edge->lexUnit->iLexUnit,&edge->fScoreLM);
+			edge->iLMState = lmFSM->updateLMState(iLMStateInitial,edge->lexUnit->iLexUnit,&edge->fScoreLM);
 		} else {
 			edge->iLMState = iLMStateInitial;
 			edge->fScoreLM = 0.0;
@@ -2162,7 +2226,7 @@ void HypothesisLattice::attachLMProbabilities(LMManager *lmManager) {
 		
 		// edge goes to final node: add the lm-score resulting from transitioning to the final state
 		if (edge->nodeNext == m_lnodeFinal) {
-			edge->fScoreLM += lmManager->toFinalState(edge->iLMState);
+			edge->fScoreLM += lmFSM->toFinalState(edge->iLMState);
 			continue;
 		}
 		
@@ -2175,7 +2239,7 @@ void HypothesisLattice::attachLMProbabilities(LMManager *lmManager) {
 			for(LEdge *edge2 = edge->nodeNext->edgeNext ; edge2 != NULL ; edge2 = edge2->edgePrev) {
 				// regular word: update lm-state 
 				if (m_lexiconManager->isStandard(edge2->lexUnit)) {
-					edge2->iLMState = lmManager->updateLMState(edge->iLMState,edge2->lexUnit->iLexUnit,&edge2->fScoreLM);	
+					edge2->iLMState = lmFSM->updateLMState(edge->iLMState,edge2->lexUnit->iLexUnit,&edge2->fScoreLM);	
 				} 
 				// silence/filler: lm state does not change
 				else {
@@ -2214,7 +2278,7 @@ void HypothesisLattice::attachLMProbabilities(LMManager *lmManager) {
 				// attach lm-state and lm-score
 				// - regular word: update lm-state 
 				if (m_lexiconManager->isStandard(edgeDup->lexUnit)) {
-					edgeDup->iLMState = lmManager->updateLMState(edge->iLMState,edgeDup->lexUnit->iLexUnit,&edgeDup->fScoreLM);	
+					edgeDup->iLMState = lmFSM->updateLMState(edge->iLMState,edgeDup->lexUnit->iLexUnit,&edgeDup->fScoreLM);	
 				} 
 				// - silence/filler: lm state does not change
 				else {
@@ -2231,18 +2295,16 @@ void HypothesisLattice::attachLMProbabilities(LMManager *lmManager) {
 		}
 	}
 	
-	if (m_bVerbose) {
-		printf("edgesProcessed: %d\n",iEdgesProcessed);
-		float fExpansionRatioNodes = ((float)(100*iNodesAdded))/((float)m_iNodes);
-		float fExpansionRatioEdges = ((float)(100*iEdgesAdded))/((float)m_iEdges);
-		printf("expansion ratio:\n");
-		printf("# nodes added: %6d (%5.2f%%)\n",iNodesAdded,fExpansionRatioNodes);
-		printf("# edges added: %6d (%5.2f%%)\n",iEdgesAdded,fExpansionRatioEdges);
-	}
+	BVC_VERB << "edges processed: " << iEdgesProcessed;
+	float fExpansionRatioNodes = ((float)(100*iNodesAdded))/((float)m_iNodes);
+	float fExpansionRatioEdges = ((float)(100*iEdgesAdded))/((float)m_iEdges);
+	BVC_VERB << "expansion ratio:";
+	BVC_VERB << "# nodes added: " << iNodesAdded <<" (" << fExpansionRatioNodes << "%)";
+	BVC_VERB << "# edges added: " << iEdgesAdded <<" (" << fExpansionRatioEdges << "%)";
 	
 	// update lattice properties
 	setProperty(LATTICE_PROPERTY_LM_PROB,"yes");
-	setProperty(LATTICE_PROPERTY_NGRAM,lmManager->getStrNGram());
+	setProperty(LATTICE_PROPERTY_NGRAM,LMManager::getStrNGram(lmFSM->getNGramOrder()));
 
 	// rebuild the lattice container
 	buildContainer(m_lnodeInitial,m_lnodeFinal);
@@ -2253,9 +2315,7 @@ void HypothesisLattice::attachLMProbabilities(LMManager *lmManager) {
  	double dTimeEnd = TimeUtils::getTimeMilliseconds();
  	double dTime = (dTimeEnd-dTimeBegin)/1000.0;
  	double dRTF = dTime/(m_iFrames/100.0);	
- 	if (m_bVerbose) {
- 		printf("processing time: %.4f seconds, RTF: %.4f\n",dTime,dRTF);
- 	}
+ 	BVC_VERB << "processing time: " << dTime << " seconds, RTF: " << dRTF;
 }
 
 // attach insertion penalties
@@ -2405,6 +2465,195 @@ void HypothesisLattice::computePhoneAccuracy(VLPhoneAlignment &vLPhoneAlignment,
 	}
 	
 	setProperty(LATTICE_PROPERTY_PHONE_ACCURACY,"yes");
+}
+
+// n-best list generation -----------------------------------------------
+
+// create a n-best list from the lattice
+NBestList *HypothesisLattice::createNBestList(int iN, const char *strRescoringMethod) {
+
+	// determine the function to use for getting the edge log-weight
+	bool bLikelihood = false;
+	if (strcmp(strRescoringMethod,RESCORING_METHOD_LIKELIHOOD) == 0) {
+		bLikelihood = true;
+		// check lattice properties
+		if (!isProperty(LATTICE_PROPERTY_AM_PROB) || 
+			!isProperty(LATTICE_PROPERTY_LM_PROB) ||
+			!isProperty(LATTICE_PROPERTY_INSERTION_PENALTY)) {
+			BVC_ERROR << "likelihood-based rescoring needs acoustic and lm likelihood and insertion penalty";
+		}
+	} else {
+		assert(strcmp(strRescoringMethod,RESCORING_METHOD_POSTERIORS) == 0);
+		bLikelihood = false;
+		// check lattice properties
+		if (!isProperty(LATTICE_PROPERTY_PP)) {
+			BVC_ERROR << "pp-based rescoring needs posterior probabilities";
+		}
+	} 
+	
+	resetAuxEdges();
+	
+	// compute Viterbi paths and scores
+	untouchEdges();
+	assert(m_lnodeFinal->edgePrev != NULL);
+	for(LEdge *edge = m_lnodeFinal->edgePrev ; edge != NULL ; edge = edge->edgeNext) {
+		viterbi(edge);
+	}	
+
+	// compute reverse Viterbi paths and scores
+	untouchEdges();
+	assert(m_lnodeInitial->edgeNext != NULL);
+	for(LEdge *edge = m_lnodeInitial->edgeNext ; edge != NULL ; edge = edge->edgePrev) {
+		viterbiReverse(edge);
+	}	
+	
+	// create the n-best
+	untouchEdges();
+	// sort edges by path score
+	LLEdge lEdge;
+	for(int i=0 ; i<m_iEdges ; ++i) {
+		assert((m_ledges[i]->edgePrevAux) || (m_ledges[i]->nodePrev == m_lnodeInitial));
+		assert((m_ledges[i]->edgeNextAux) || (m_ledges[i]->nodeNext == m_lnodeFinal));
+		lEdge.push_back(m_ledges[i]);
+	}
+	lEdge.sort(comparePathScore);
+		
+	// each entry in the n-best list is generated by finding the unmarked 
+	// edge in the lattice with the highest score and then getting its path
+	NBestList *nBestList = new NBestList();
+	for(int i = 0 ; i < iN ; ++i) {
+	
+		// get the best unmarked edge in the lattice (it is not in any n-best entry yet)
+		LEdge *edgeBest = NULL;
+		for(LLEdge::iterator it = lEdge.begin() ; it != lEdge.end() ; ) {
+			if ((*it)->lexUnit->iType != LEX_UNIT_TYPE_STANDARD) {
+				++it;
+				continue;
+			}
+			if ((*it)->bTouched == true) {
+				it = lEdge.erase(it);
+			} else {
+				edgeBest = *it;
+				break;
+			}
+		}
+		if (!edgeBest) {
+			break;
+		}
+			
+		// recover path using the trace-back and trace-forward pointers
+		LLEdge lPath;
+		LEdge *edgeAux = edgeBest;
+		while(edgeAux->nodePrev != m_lnodeInitial) {
+			edgeAux->edgePrevAux->bTouched = true;
+			lPath.push_front(edgeAux->edgePrevAux);
+			edgeAux = edgeAux->edgePrevAux;	
+		}
+		lPath.push_back(edgeBest);
+		edgeBest->bTouched = true;
+		edgeAux = edgeBest;
+		while(edgeAux->nodeNext != m_lnodeFinal) {
+			edgeAux->edgeNextAux->bTouched = true;
+			lPath.push_back(edgeAux->edgeNextAux);
+			edgeAux = edgeAux->edgeNextAux;	
+		}
+		
+		// add the path to the n-best list
+		double dLikelihoodPath = edgeBest->dScoreViterbi + edgeBest->dScoreViterbiReverse;
+		NBestListEntry *nBestListEntry = new NBestListEntry(m_lexiconManager);
+		for(LLEdge::iterator jt = lPath.begin() ; jt != lPath.end() ; ++jt) {
+			double dLikelihoodAM = isProperty(LATTICE_PROPERTY_AM_PROB) ? (*jt)->fScoreAM : 0.0;
+			double dLikelihoodLM = isProperty(LATTICE_PROPERTY_LM_PROB) ? (*jt)->fScoreLM : 0.0;
+			double dIP = (*jt)->lexUnit->fInsertionPenalty;
+			double dPP = isProperty(LATTICE_PROPERTY_PP) ? (*jt)->fPP : 0.0;
+			nBestListEntry->add(new NBestListEntryElement((*jt)->iFrameStart,(*jt)->iFrameEnd,
+				(*jt)->lexUnit,dLikelihoodAM,dLikelihoodLM,dIP,dPP));	
+		}
+		nBestListEntry->setLikelihood(dLikelihoodPath);
+		nBestList->add(nBestListEntry);
+	}
+	
+	return nBestList;
+}
+		
+// viterbi: for each edge keep predecessor edge and path score up to the edge
+void HypothesisLattice::viterbi(LEdge *edge) {
+
+	if (edge->nodePrev == m_lnodeInitial) {
+		edge->bTouched = true;
+		edge->dScoreViterbi = (edge->fScoreAM+edge->fInsertionPenalty)*m_fAMScalingFactor + edge->fScoreLM*m_fLMScalingFactor;
+		edge->edgePrevAux = NULL;
+		return;
+   }
+   
+	// (1) get the Viterbi score from predecessors
+	double dScoreMax = -DBL_MAX;
+	double dAux = 0.0;	
+	LEdge *edgePred = edge->nodePrev->edgePrev;
+	while(edgePred) {
+		
+		// compute the Viterbi score of the predecessor if not available
+		if (edgePred->bTouched == false) {
+			viterbi(edgePred);	
+		} 
+		assert(edgePred->bTouched);
+		assert(edgePred->dScoreViterbi != -DBL_MAX);	
+		
+		// keep best score and best predecessor edge
+		dAux = edgePred->dScoreViterbi + edge->fScoreLM*m_fLMScalingFactor;
+		if (dAux > dScoreMax) {
+			dScoreMax = dAux;
+			edge->edgePrevAux = edgePred;
+		}
+		
+		edgePred = edgePred->edgeNext;
+	}
+	assert(edge->edgePrevAux);
+ 
+	// (2) compute the viterbi score of the edge (best score)
+	edge->dScoreViterbi = dScoreMax + (edge->fScoreAM+edge->fInsertionPenalty)*m_fAMScalingFactor;
+	edge->bTouched = true;	
+}
+
+
+// reverse viterbi: for each edge keep successor edge and path score from the edge
+void HypothesisLattice::viterbiReverse(LEdge *edge) {
+
+	if (edge->nodeNext == m_lnodeFinal) {
+		edge->dScoreViterbiReverse = 0.0;
+		edge->bTouched = true;
+		edge->edgeNextAux = NULL;
+		return;
+   }
+   
+	// (1) compute the reverse Viterbi score of all the successors (only those that are left)
+	double dScoreMax = -DBL_MAX;		// accumulated score from successors
+	double dAux = 0.0;
+	LEdge *edgeSucc = edge->nodeNext->edgeNext;
+	while(edgeSucc) {
+		
+		// compute the reverse Viterbi score of the successor if not available
+		if (edgeSucc->bTouched == false) {
+			viterbiReverse(edgeSucc);	
+		}
+		assert(edgeSucc->bTouched);
+		assert(edgeSucc->dScoreViterbiReverse != -DBL_MAX);
+		
+		// keep best score and best successor edge
+		dAux = edgeSucc->dScoreViterbiReverse + edgeSucc->fScoreLM*m_fLMScalingFactor +
+			(edgeSucc->fScoreAM+edgeSucc->fInsertionPenalty)*m_fAMScalingFactor;
+		if (dAux > dScoreMax) {
+			dScoreMax = dAux;
+			edge->edgeNextAux = edgeSucc;
+		}
+		
+		edgeSucc = edgeSucc->edgePrev;
+	}
+	assert(edge->edgeNextAux);	
+ 
+	// (2) compute the reverse Viterbi score of the edge (best score)
+	edge->dScoreViterbiReverse = dScoreMax;
+	edge->bTouched = true;
 }
 
 };	// end-of-namespace

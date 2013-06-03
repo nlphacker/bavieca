@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "ConfigurationFeatures.h"
 #include "FeatureExtractor.h"
@@ -106,7 +107,7 @@ void ConfigurationFeatures::load() {
 		// parse the parameter-value pairs
 		parse(vParameterValue);
 		
-	} catch (ExceptionBase) {
+	} catch (std::runtime_error) {
 		BVC_ERROR << "unable to load the feature configuration file";
 	}
 }
@@ -119,14 +120,12 @@ int ConfigurationFeatures::getDimensionality() {
 		iStatic += 1;
 	}
 	
-	int iDynamic = 0;
 	if (isParameterSet("derivatives.order")) {
-		iDynamic = iStatic*atoi(getParameterValue("derivatives.order"));
-	} else if (isParameterSet("spliced.size")) {
-		iDynamic = iStatic*atoi(getParameterValue("spliced.size"));
+		return iStatic*(atoi(getParameterValue("derivatives.order"))+1);
+	} else {
+		assert(isParameterSet("spliced.size"));
+		return iStatic*atoi(getParameterValue("spliced.size"));
 	}	
-	
-	return iStatic+iDynamic;
 }
 
 };	// end-of-namespace

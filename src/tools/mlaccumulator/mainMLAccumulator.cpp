@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <cstdlib>
+#include <stdexcept>
 
 #include "CommandLineManager.h"
 #include "FeatureExtractor.h"
@@ -114,7 +115,7 @@ int main(int argc, char *argv[]) {
 		mlAccumulator.initialize();
 		mlAccumulator.accumulate();
 		
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

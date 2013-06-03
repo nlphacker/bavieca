@@ -634,7 +634,7 @@ DynamicNetworkX *NetworkBuilderX::build() {
 		BVC_VERB << "phone: " << m_phoneSet->getStrPhone(iPhone);
 		int iHMMNodes = 0;
 		
-		hash_map<int,NodeTempX*> mFIWordNode;
+		MIntNodeTempX mFIWordNode;
 		VNodeTempX vNodeWord;
 		
 		// get all the possible destination FI-nodes
@@ -686,7 +686,7 @@ DynamicNetworkX *NetworkBuilderX::build() {
 				assert(nodeFIDest != NULL);
 				
 				NodeTempX *nodeWord = NULL;
-				hash_map<int,NodeTempX*>::iterator lt = mFIWordNode.find(nodeFIDest->iNode);
+				MIntNodeTempX::iterator lt = mFIWordNode.find(nodeFIDest->iNode);
 				if (lt == mFIWordNode.end()) {
 					nodeWord = newNodeTempX(NODE_TYPE_WORD,m_iDepthFI+1+NUMBER_HMM_STATES,NULL);
 					vNodeWord.push_back(nodeWord);

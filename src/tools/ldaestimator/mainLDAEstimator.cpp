@@ -16,13 +16,13 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "Accumulator.h"
 #include "HMMManager.h"
 #include "PhoneSet.h"
 #include "CommandLineManager.h"
 #include "LDAEstimator.h"
-
 
 using namespace Bavieca;
  
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
 			return -1;
 		}*/
 		
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

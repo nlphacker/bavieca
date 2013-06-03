@@ -76,8 +76,13 @@ void HMMStateDecoding::setInitialParameters(int iDim, PhoneSet *phoneSet, int iI
 // destructor
 HMMStateDecoding::~HMMStateDecoding()
 {
+	// free memory
+#if defined __AVX__ || defined __SSE__
+	free(m_gaussians);
+#else
 	if (m_gaussians)
 		delete [] m_gaussians;
+#endif		
 }
 
 // initialize the estimation by precomputing constants and invariant terms
@@ -157,11 +162,9 @@ void HMMStateDecoding::load(FileInput &file) {
 	assert(m_iGaussianComponents > 0);
 	
 	// allocate memory
-#ifdef SIMD
-	int iReturnValue = posix_memalign((void**)&m_gaussians,sizeof(__m128i),m_iGaussianComponents*sizeof(GaussianDecoding));
-	if (iReturnValue != 0) {
-		printf("Memory allocation error\n");
-		return false;
+#if defined __AVX__ || defined __SSE__
+	if (posix_memalign((void**)&m_gaussians,ALIGN_BOUNDARY,m_iGaussianComponents*sizeof(GaussianDecoding)) != 0) {
+		BVC_ERROR << "memory allocation error, unable to allocate aligned memory using posix_memalign";
 	}
 #else
 	m_gaussians = new GaussianDecoding[m_iGaussianComponents];
@@ -239,7 +242,7 @@ float HMMStateDecoding::computeEmissionProbabilityNearestNeighbor(float *fFeatur
 	float *fMean,*fCovariance,fAcc;
 	float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;
 	
-	for(int iGaussian = 0 ; iGaussian < this->m_iGaussianComponents ; ++iGaussian) {
+	for(int iGaussian = 0 ; iGaussian < m_iGaussianComponents ; ++iGaussian) {
 	
 		fMean = m_gaussians[iGaussian].fMean;
 		fCovariance = m_gaussians[iGaussian].fCovariance;	
@@ -315,7 +318,7 @@ float HMMStateDecoding::computeEmissionProbabilityNearestNeighborPDE(float *fFea
 	float *fMean,*fCovariance,fAcc;
 	float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;
 	
-	for(int iGaussian = 0 ; iGaussian < this->m_iGaussianComponents ; ++iGaussian) {
+	for(int iGaussian = 0 ; iGaussian < m_iGaussianComponents ; ++iGaussian) {
 	
 		fMean = m_gaussians[iGaussian].fMean;
 		fCovariance = m_gaussians[iGaussian].fCovariance;	
@@ -380,125 +383,127 @@ float HMMStateDecoding::computeEmissionProbabilityNearestNeighborPDE(float *fFea
 }
 
 // computes the emission probability of the state given the feature vector 
-// each of the gaussians is a multivariate normal distribution
 // uses nearest-neighbor approximation
-// uses SIMD instructions (to compile sse support has to be enabled!)
-float HMMStateDecoding::computeEmissionProbabilityNearestNeighborSIMD(float *fFeatures, int iTime) {
+// uses SIMD instructions (SSE) (sse support must be enabled during compilation!)
+#ifdef __SSE__
+float HMMStateDecoding::computeEmissionProbabilityNearestNeighborSSE(float *fFeatures, int iTime) {
 
 	if (iTime == m_iTimestamp) {	
 		return m_fProbabilityCached;
 	}
+	
+	// check memory alignment
+	assert(is_aligned(fFeatures,ALIGN_BOUNDARY));	
 
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 	__attribute__((aligned(16))) float *fMean,*fCovariance,fAcc;
 	__attribute__((aligned(16))) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
 	__attribute__((aligned(16))) float tmpf[4];
-#elif _WIN32
+#elif _MSC_VER
 	__declspec(align(16)) float *fMean,*fCovariance,fAcc;
 	__declspec(align(16)) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
 	__declspec(align(16)) float tmpf[4];
 #endif
 
+	__m128 tmp;
+	__m128 ans;
+	__m128 obs;
+	__m128 mean;
+	__m128 cov;	
 
-  __m128 tmp;
-  __m128 ans;
-  __m128 obs128;
-  __m128 mean128;
-  __m128 cov128;	
-  
-	for(int iGaussian = 0 ; iGaussian < this->m_iGaussianComponents ; ++iGaussian) {
+	for(int iGaussian = 0 ; iGaussian < m_iGaussianComponents ; ++iGaussian) {
 	
 		fMean = m_gaussians[iGaussian].fMean;
 		fCovariance = m_gaussians[iGaussian].fCovariance;	
 		fAcc = m_gaussians[iGaussian].fConstant;
 		
-      obs128  = _mm_load_ps(fFeatures);
-      mean128 = _mm_load_ps(fMean);
-      cov128  = _mm_load_ps(fCovariance);
-      tmp     = _mm_sub_ps(obs128, mean128);
-      tmp     = _mm_mul_ps(tmp,tmp);
-      ans     = _mm_mul_ps(tmp,cov128);
-     
-      obs128  = _mm_load_ps(fFeatures+4);
-      mean128 = _mm_load_ps(fMean+4);
-      cov128  = _mm_load_ps(fCovariance+4);
-      tmp     = _mm_sub_ps(obs128, mean128);
-      tmp     = _mm_mul_ps(tmp,tmp);
-      tmp     = _mm_mul_ps(tmp,cov128);
-      ans     = _mm_add_ps(ans, tmp);
-      
-      obs128  = _mm_load_ps(fFeatures+8);
-      mean128 = _mm_load_ps(fMean+8);
-      cov128  = _mm_load_ps(fCovariance+8);
-      tmp     = _mm_sub_ps(obs128, mean128);
-      tmp     = _mm_mul_ps(tmp,tmp);
-      tmp     = _mm_mul_ps(tmp,cov128);
-      ans     = _mm_add_ps(ans, tmp);
-      
-      obs128  = _mm_load_ps(fFeatures+12);
-      mean128 = _mm_load_ps(fMean+12);
-      cov128  = _mm_load_ps(fCovariance+12);
-      tmp     = _mm_sub_ps(obs128, mean128);
-      tmp     = _mm_mul_ps(tmp,tmp);
-      tmp     = _mm_mul_ps(tmp,cov128);
-      ans     = _mm_add_ps(ans, tmp);
-      
-      obs128  = _mm_load_ps(fFeatures+16);
-      mean128 = _mm_load_ps(fMean+16);
-      cov128  = _mm_load_ps(fCovariance+16);
-      tmp     = _mm_sub_ps(obs128, mean128);
-      tmp     = _mm_mul_ps(tmp,tmp);
-      tmp     = _mm_mul_ps(tmp,cov128);
-      ans     = _mm_add_ps(ans, tmp);
-      
-      obs128  = _mm_load_ps(fFeatures+20);
-      mean128 = _mm_load_ps(fMean+20);
-      cov128  = _mm_load_ps(fCovariance+20);
-      tmp     = _mm_sub_ps(obs128, mean128);
-      tmp     = _mm_mul_ps(tmp,tmp);
-      tmp     = _mm_mul_ps(tmp,cov128);
-      ans     = _mm_add_ps(ans, tmp);
-      
-      obs128  = _mm_load_ps(fFeatures+24);
-      mean128 = _mm_load_ps(fMean+24);
-      cov128  = _mm_load_ps(fCovariance+24);
-      tmp     = _mm_sub_ps(obs128, mean128);
-      tmp     = _mm_mul_ps(tmp,tmp);
-      tmp     = _mm_mul_ps(tmp,cov128);
-      ans     = _mm_add_ps(ans, tmp);
-      
-      obs128  = _mm_load_ps(fFeatures+28);
-      mean128 = _mm_load_ps(fMean+28);
-      cov128  = _mm_load_ps(fCovariance+28);
-      tmp     = _mm_sub_ps(obs128, mean128);
-      tmp     = _mm_mul_ps(tmp,tmp);
-      tmp     = _mm_mul_ps(tmp,cov128);
-      ans     = _mm_add_ps(ans, tmp);
-      
-      obs128  = _mm_load_ps(fFeatures+32);
-      mean128 = _mm_load_ps(fMean+32);
-      cov128  = _mm_load_ps(fCovariance+32);
-      tmp     = _mm_sub_ps(obs128, mean128);
-      tmp     = _mm_mul_ps(tmp,tmp);
-      tmp     = _mm_mul_ps(tmp,cov128);
-      ans     = _mm_add_ps(ans, tmp);
-      
-		obs128  = _mm_set_ps(0, fFeatures[38], fFeatures[37], fFeatures[36]);
-		mean128 = _mm_set_ps(0, fMean[38], fMean[37], fMean[36]);
-		cov128  = _mm_set_ps(0, fCovariance[38], fCovariance[37], fCovariance[36]);
-		tmp     = _mm_sub_ps(obs128, mean128);
-		tmp     = _mm_mul_ps(tmp,tmp);
-		tmp     = _mm_mul_ps(tmp,cov128);
-		ans     = _mm_add_ps(ans, tmp);
+		obs  = _mm_load_ps(fFeatures);
+		mean = _mm_load_ps(fMean);
+		cov  = _mm_load_ps(fCovariance);
+		tmp  = _mm_sub_ps(obs, mean);
+		tmp  = _mm_mul_ps(tmp,tmp);
+		ans  = _mm_mul_ps(tmp,cov);
+
+		obs  = _mm_load_ps(fFeatures+4);
+		mean = _mm_load_ps(fMean+4);
+		cov  = _mm_load_ps(fCovariance+4);
+		tmp  = _mm_sub_ps(obs, mean);
+		tmp  = _mm_mul_ps(tmp,tmp);
+		tmp  = _mm_mul_ps(tmp,cov);
+		ans  = _mm_add_ps(ans, tmp);
+
+		obs  = _mm_load_ps(fFeatures+8);
+		mean = _mm_load_ps(fMean+8);
+		cov  = _mm_load_ps(fCovariance+8);
+		tmp  = _mm_sub_ps(obs, mean);
+		tmp  = _mm_mul_ps(tmp,tmp);
+		tmp  = _mm_mul_ps(tmp,cov);
+		ans  = _mm_add_ps(ans, tmp);
+
+		obs  = _mm_load_ps(fFeatures+12);
+		mean = _mm_load_ps(fMean+12);
+		cov  = _mm_load_ps(fCovariance+12);
+		tmp  = _mm_sub_ps(obs, mean);
+		tmp  = _mm_mul_ps(tmp,tmp);
+		tmp  = _mm_mul_ps(tmp,cov);
+		ans  = _mm_add_ps(ans, tmp);
+
+		obs  = _mm_load_ps(fFeatures+16);
+		mean = _mm_load_ps(fMean+16);
+		cov  = _mm_load_ps(fCovariance+16);
+		tmp  = _mm_sub_ps(obs, mean);
+		tmp  = _mm_mul_ps(tmp,tmp);
+		tmp  = _mm_mul_ps(tmp,cov);
+		ans  = _mm_add_ps(ans, tmp);
+
+		obs  = _mm_load_ps(fFeatures+20);
+		mean = _mm_load_ps(fMean+20);
+		cov  = _mm_load_ps(fCovariance+20);
+		tmp  = _mm_sub_ps(obs, mean);
+		tmp  = _mm_mul_ps(tmp,tmp);
+		tmp  = _mm_mul_ps(tmp,cov);
+		ans  = _mm_add_ps(ans, tmp);
+
+		obs  = _mm_load_ps(fFeatures+24);
+		mean = _mm_load_ps(fMean+24);
+		cov  = _mm_load_ps(fCovariance+24);
+		tmp  = _mm_sub_ps(obs, mean);
+		tmp  = _mm_mul_ps(tmp,tmp);
+		tmp  = _mm_mul_ps(tmp,cov);
+		ans  = _mm_add_ps(ans, tmp);
+
+		obs  = _mm_load_ps(fFeatures+28);
+		mean = _mm_load_ps(fMean+28);
+		cov  = _mm_load_ps(fCovariance+28);
+		tmp  = _mm_sub_ps(obs, mean);
+		tmp  = _mm_mul_ps(tmp,tmp);
+		tmp  = _mm_mul_ps(tmp,cov);
+		ans  = _mm_add_ps(ans, tmp);
+ 
+		obs  = _mm_load_ps(fFeatures+32);
+		mean = _mm_load_ps(fMean+32);
+		cov  = _mm_load_ps(fCovariance+32);
+		tmp  = _mm_sub_ps(obs, mean);
+		tmp  = _mm_mul_ps(tmp,tmp);
+		tmp  = _mm_mul_ps(tmp,cov);
+		ans  = _mm_add_ps(ans, tmp);
+
+		obs  = _mm_set_ps(0, fFeatures[38], fFeatures[37], fFeatures[36]);
+		mean = _mm_set_ps(0, fMean[38], fMean[37], fMean[36]);
+		cov  = _mm_set_ps(0, fCovariance[38], fCovariance[37], fCovariance[36]);
+		tmp  = _mm_sub_ps(obs, mean);
+		tmp  = _mm_mul_ps(tmp,tmp);
+		tmp  = _mm_mul_ps(tmp,cov);
+		ans  = _mm_add_ps(ans, tmp);
 		
 		/*__attribute__((aligned(16))) float f = 0.0;
 		ans = _mm_dp_ps(tmp,cov128,0xF1);		
 		_mm_store_ss(&f,ans);	
 		fAcc -= f;*/
 
-      _mm_store_ps(tmpf, ans);
-      fAcc -= (tmpf[0]+tmpf[1]+tmpf[2]+tmpf[3]);
-      
+		_mm_store_ps(tmpf, ans);
+		fAcc -= (tmpf[0]+tmpf[1]+tmpf[2]+tmpf[3]);
+
 		fLogLikelihood = max(fAcc,fLogLikelihood);
 	}
 
@@ -508,25 +513,26 @@ float HMMStateDecoding::computeEmissionProbabilityNearestNeighborSIMD(float *fFe
 	
 	return fLogLikelihood;
 }
+#endif	
+
 
 
 
 // computes the emission probability of the state given the feature vector 
-// each of the gaussians is a multivariate normal distribution
 // uses nearest-neighbor approximation
 // uses Partial Distance Elimination (PDE)
-// uses SIMD instructions (to compile sse support has to be enabled!)
+// uses SIMD instructions (SSE) (sse support must be enabled during compilation!)
 /*float HMMStateDecoding::computeEmissionProbabilityNearestNeighborPDE_SIMD(float *fFeatures, int iTime) {
 
 	if (iTime == m_iTimestamp) {	
 		//return m_fProbabilityCached;
 	}
 	
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 	__attribute__((aligned(16))) float *fMean,*fCovariance,fAcc;
 	__attribute__((aligned(16))) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
 	__attribute__((aligned(16))) float tmpf[4];
-#elif _WIN32
+#elif _MSC_VER
 	__declspec(align(16)) float *fMean,*fCovariance,fAcc;
 	__declspec(align(16)) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
 	__declspec(align(16)) float tmpf[4];
@@ -542,7 +548,7 @@ float HMMStateDecoding::computeEmissionProbabilityNearestNeighborSIMD(float *fFe
   
   likelihood = _mm_load_ss(&fLogLikelihood);
   
-	for(int iGaussian = 0 ; iGaussian < this->m_iGaussianComponents ; ++iGaussian) {
+	for(int iGaussian = 0 ; iGaussian < m_iGaussianComponents ; ++iGaussian) {
 	
 		fMean = m_gaussians[iGaussian].fMean;
 		fCovariance = m_gaussians[iGaussian].fCovariance;	
@@ -654,175 +660,6 @@ float HMMStateDecoding::computeEmissionProbabilityNearestNeighborSIMD(float *fFe
 	return fLogLikelihood;
 }*/
 
-
-#if defined __linux__ || defined __APPLE__
-__attribute__((aligned(16))) float *fStaticFeatures = NULL;
-__attribute__((aligned(16))) float *fStaticMean = NULL;
-__attribute__((aligned(16))) float *fStaticCovariance = NULL;
-__attribute__((aligned(16))) float *fStaticMean2 = NULL;
-__attribute__((aligned(16))) float *fStaticCovariance2 = NULL;
-__attribute__((aligned(16))) float fAcc[4];
-__attribute__((aligned(16))) float fStaticConstant;
-#elif _WIN32
-__declspec(align(16)) float *fStaticFeatures = NULL;
-__declspec(align(16)) float *fStaticMean = NULL;
-__declspec(align(16)) float *fStaticCovariance = NULL;
-__declspec(align(16)) float *fStaticMean2 = NULL;
-__declspec(align(16)) float *fStaticCovariance2 = NULL;
-__declspec(align(16)) float fAcc[4];
-__declspec(align(16)) float fStaticConstant;
-#endif
-int iStaticGaussians = 0;
-int iGaussianSize = sizeof(GaussianDecoding);
-
-#define GAUSSIAN_SIZE sizeof(GaussianDecoding)
-
-// computes the emission probability of the state given the feature vector 
-// each of the gaussians is a multivariate normal distribution
-// uses nearest-neighbor approximation
-// uses Partial Distance Elimination (PDE)
-// uses SIMD instructions (to compile sse support has to be enabled!)
-// uses ASM code instead of intrinsics
-float HMMStateDecoding::computeEmissionProbabilityNearestNeighborPDE_SIMD_ASM(float *fFeatures, int iTime) {
-/*
-	fStaticFeatures = fFeatures;	
-	fStaticMean = m_gaussians[0].fMean;
-	fStaticCovariance = m_gaussians[0].fCovariance;	
-	iStaticGaussians = this->m_iGaussianComponents;
-	fStaticConstant = m_gaussians[0].fConstant;		
-	//printf("%d\n",sizeof(GaussianDecoding));
-	
-	//printf("%d %d %d %d\n",&(m_gaussians[0].fWeight),&(m_gaussians[0].fConstant),m_gaussians[0].fMean,m_gaussians[0].fCovariance);
-	//exit(-1);
-	
-	asm(".intel_syntax noprefix");
-	asm("push esi");
-	asm("push edi");
-	asm("push eax");
-	asm("push ecx");
-	asm("push edx");
-	
-	// load the first 16 feature elements into registers
-	asm("mov edx, fStaticFeatures");	
-	asm("movaps xmm4, [edx]");
-	asm("movaps xmm5, [edx+0x10]");
-	asm("movaps xmm6, [edx+0x20]");
-	asm("movaps xmm7, [edx+0x30]");
-	
-	asm("mov esi, fStaticMean");
-	asm("mov edi, fStaticCovariance");
-	
-	// load the number of gaussians
-	asm("mov ecx, iStaticGaussians");
-	asm("mov eax, 336");
-	
-	asm("GAUSS:");
-	
-	asm("movaps xmm1, [esi]");
-	asm("movaps xmm2, [edi]");
-	asm("subps  xmm1, xmm4");
-	asm("mulps  xmm1, xmm1");
-	asm("mulps  xmm1, xmm2");
-	asm("movaps  xmm3, xmm1");
-	
-	asm("movaps xmm1, [esi+0x10]");
-	asm("movaps xmm2, [edi+0x10]");
-	asm("subps  xmm1, xmm5");
-	asm("mulps  xmm1, xmm1");
-	asm("mulps  xmm1, xmm2");
-	asm("addps  xmm3, xmm1");
-		
-	asm("movaps xmm1, [esi+0x20]");
-	asm("movaps xmm2, [edi+0x20]");
-	asm("subps  xmm1, xmm6");
-	asm("mulps  xmm1, xmm1");
-	asm("mulps  xmm1, xmm2");
-	asm("addps  xmm3, xmm1");
-		
-	asm("movaps xmm1, [esi+0x30]");
-	asm("movaps xmm2, [edi+0x30]");
-	asm("subps  xmm1, xmm7");
-	asm("mulps  xmm1, xmm1");
-	asm("mulps  xmm1, xmm2");
-	asm("addps  xmm3, xmm1");
-		
-	asm("movaps xmm0, [edx+0x40]");
-	asm("movaps xmm1, [esi+0x40]");
-	asm("movaps xmm2, [edi+0x40]");
-	asm("subps  xmm1, xmm0");
-	asm("mulps  xmm1, xmm1");
-	asm("mulps  xmm1, xmm2");
-	asm("addps  xmm3, xmm1");
-		
-	asm("movaps xmm0, [edx+0x50]");		
-	asm("movaps xmm1, [esi+0x50]");
-	asm("movaps xmm2, [edi+0x50]");
-	asm("subps  xmm1, xmm0");
-	asm("mulps  xmm1, xmm1");
-	asm("mulps  xmm1, xmm2");
-	asm("addps  xmm3, xmm1");
-		
-	asm("movaps xmm0, [edx+0x60]");		
-	asm("movaps xmm1, [esi+0x60]");
-	asm("movaps xmm2, [edi+0x60]");
-	asm("subps  xmm1, xmm0");
-	asm("mulps  xmm1, xmm1");
-	asm("mulps  xmm1, xmm2");
-	asm("addps  xmm3, xmm1");
-		
-	asm("movaps xmm0, [edx+0x70]");		
-	asm("movaps xmm1, [esi+0x70]");
-	asm("movaps xmm2, [edi+0x70]");
-	asm("subps  xmm1, xmm0");
-	asm("mulps  xmm1, xmm1");
-	asm("mulps  xmm1, xmm2");
-	asm("addps  xmm3, xmm1");
-	
-	asm("movaps xmm0, [edx+0x80]");		
-	asm("movaps xmm1, [esi+0x80]");
-	asm("movaps xmm2, [edi+0x80]");
-	asm("subps  xmm1, xmm0");
-	asm("mulps  xmm1, xmm1");
-	asm("mulps  xmm1, xmm2");
-	asm("addps  xmm3, xmm1");
-	
-	asm("movaps xmm0, [edx+0x90]");		
-	asm("movaps xmm1, [esi+0x90]");
-	asm("movaps xmm2, [edi+0x90]");
-	asm("subps  xmm1, xmm0");
-	asm("mulps  xmm1, xmm1");
-	asm("mulps  xmm1, xmm2");
-	asm("addps  xmm3, xmm1");	
-	
-	asm("movaps [fAcc], xmm3");
-	
-	//asm("add esi, iGaussianSize");
-	//asm("add edi, iGaussianSize");
-	asm("add esi, 336");
-	asm("add edi, 336");	
-	//asm("mov esi, fStaticMean2");
-	//asm("mov edi, fStaticCovariance2");
-		
-	asm("dec ecx");
-	asm("jnz GAUSS");
-	
-	asm("pop edx");
-	asm("pop ecx");
-	asm("pop eax");	
-	asm("pop edi");
-	asm("pop esi");
-	
-	//printf("(%f) fAcc: %f %f %f %f\n",m_gaussians[0].fConstant,fAcc[0],fAcc[1],fAcc[2],fAcc[3]);
-	
-	
-	//printf("fAcc: %f\n",fAcc[0]+fAcc[1]+fAcc[2]+fAcc[3]);
-	//printf("%f\n",m_gaussians[1].fConstant);
-	
-	//exit(-1);*/
-	
-	return 0.0;
-}
-
 // return the best scoring gaussian for a given feature vector
 // uses nearest-neighbor approximation
 // uses Partial Distance Elimination (PDE)
@@ -832,27 +669,27 @@ GaussianDecoding *HMMStateDecoding::getBestScoringGaussian(float *fFeatures, flo
 	float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;
 	GaussianDecoding *gaussianBest = NULL;
 	
-	for(int iGaussian = 0 ; iGaussian < this->m_iGaussianComponents ; ++iGaussian) {
+	for(int iGaussian = 0 ; iGaussian < m_iGaussianComponents ; ++iGaussian) {
 	
 		fMean = m_gaussians[iGaussian].fMean;
-		fCovariance = m_gaussians[iGaussian].fCovariance;	
+		fCovariance = m_gaussians[iGaussian].fCovariance;
 		fAcc = m_gaussians[iGaussian].fConstant;
 	
-      fAcc -= (fFeatures[0]-fMean[0])*(fFeatures[0]-fMean[0])*fCovariance[0];
-      fAcc -= (fFeatures[1]-fMean[1])*(fFeatures[1]-fMean[1])*fCovariance[1];
-      fAcc -= (fFeatures[2]-fMean[2])*(fFeatures[2]-fMean[2])*fCovariance[2];
-      fAcc -= (fFeatures[3]-fMean[3])*(fFeatures[3]-fMean[3])*fCovariance[3];
-      fAcc -= (fFeatures[4]-fMean[4])*(fFeatures[4]-fMean[4])*fCovariance[4];
-      fAcc -= (fFeatures[5]-fMean[5])*(fFeatures[5]-fMean[5])*fCovariance[5];
-      fAcc -= (fFeatures[6]-fMean[6])*(fFeatures[6]-fMean[6])*fCovariance[6];
-      fAcc -= (fFeatures[7]-fMean[7])*(fFeatures[7]-fMean[7])*fCovariance[7];
-      fAcc -= (fFeatures[8]-fMean[8])*(fFeatures[8]-fMean[8])*fCovariance[8];
-      fAcc -= (fFeatures[9]-fMean[9])*(fFeatures[9]-fMean[9])*fCovariance[9];
-      fAcc -= (fFeatures[10]-fMean[10])*(fFeatures[10]-fMean[10])*fCovariance[10];
-      fAcc -= (fFeatures[11]-fMean[11])*(fFeatures[11]-fMean[11])*fCovariance[11];
+		fAcc -= (fFeatures[0]-fMean[0])*(fFeatures[0]-fMean[0])*fCovariance[0];
+		fAcc -= (fFeatures[1]-fMean[1])*(fFeatures[1]-fMean[1])*fCovariance[1];
+		fAcc -= (fFeatures[2]-fMean[2])*(fFeatures[2]-fMean[2])*fCovariance[2];
+		fAcc -= (fFeatures[3]-fMean[3])*(fFeatures[3]-fMean[3])*fCovariance[3];
+		fAcc -= (fFeatures[4]-fMean[4])*(fFeatures[4]-fMean[4])*fCovariance[4];
+		fAcc -= (fFeatures[5]-fMean[5])*(fFeatures[5]-fMean[5])*fCovariance[5];
+		fAcc -= (fFeatures[6]-fMean[6])*(fFeatures[6]-fMean[6])*fCovariance[6];
+		fAcc -= (fFeatures[7]-fMean[7])*(fFeatures[7]-fMean[7])*fCovariance[7];
+		fAcc -= (fFeatures[8]-fMean[8])*(fFeatures[8]-fMean[8])*fCovariance[8];
+		fAcc -= (fFeatures[9]-fMean[9])*(fFeatures[9]-fMean[9])*fCovariance[9];
+		fAcc -= (fFeatures[10]-fMean[10])*(fFeatures[10]-fMean[10])*fCovariance[10];
+		fAcc -= (fFeatures[11]-fMean[11])*(fFeatures[11]-fMean[11])*fCovariance[11];
 		fAcc -= (fFeatures[12]-fMean[12])*(fFeatures[12]-fMean[12])*fCovariance[12];
-      
-      if (fAcc > fLogLikelihood) {
+
+		if (fAcc > fLogLikelihood) {
 
 			fAcc -= (fFeatures[13]-fMean[13])*(fFeatures[13]-fMean[13])*fCovariance[13];
 			fAcc -= (fFeatures[14]-fMean[14])*(fFeatures[14]-fMean[14])*fCovariance[14];
@@ -868,7 +705,7 @@ GaussianDecoding *HMMStateDecoding::getBestScoringGaussian(float *fFeatures, flo
 			fAcc -= (fFeatures[24]-fMean[24])*(fFeatures[24]-fMean[24])*fCovariance[24];
 			fAcc -= (fFeatures[25]-fMean[25])*(fFeatures[25]-fMean[25])*fCovariance[25];
 			
-	      if (fAcc > fLogLikelihood) {
+			if (fAcc > fLogLikelihood) {
 
 				fAcc -= (fFeatures[26]-fMean[26])*(fFeatures[26]-fMean[26])*fCovariance[26];
 				fAcc -= (fFeatures[27]-fMean[27])*(fFeatures[27]-fMean[27])*fCovariance[27];
@@ -880,7 +717,7 @@ GaussianDecoding *HMMStateDecoding::getBestScoringGaussian(float *fFeatures, flo
 				fAcc -= (fFeatures[33]-fMean[33])*(fFeatures[33]-fMean[33])*fCovariance[33];
 				fAcc -= (fFeatures[34]-fMean[34])*(fFeatures[34]-fMean[34])*fCovariance[34];
 				fAcc -= (fFeatures[35]-fMean[35])*(fFeatures[35]-fMean[35])*fCovariance[35];
-		      fAcc -= (fFeatures[36]-fMean[36])*(fFeatures[36]-fMean[36])*fCovariance[36];
+				fAcc -= (fFeatures[36]-fMean[36])*(fFeatures[36]-fMean[36])*fCovariance[36];
 				fAcc -= (fFeatures[37]-fMean[37])*(fFeatures[37]-fMean[37])*fCovariance[37];
 				fAcc -= (fFeatures[38]-fMean[38])*(fFeatures[38]-fMean[38])*fCovariance[38];
 				
@@ -920,5 +757,100 @@ double HMMStateDecoding::computeGaussianProbability(int iGaussian, float *fFeatu
 	
 	return dAcc;
 }	
+
+// computes the emission probability of the state given the feature vector 
+// uses nearest-neighbor approximation
+// uses AVX (Intel® Advanced Vector Extensions) instructions (avx support must be enabled during compilation!)
+// compared to SSE, AVX offers 256 bit registers instead of 128 bit registers 
+#ifdef __AVX__
+float HMMStateDecoding::computeEmissionProbabilityNearestNeighborAVX(float *fFeatures, int iTime) {
+
+	if (iTime == m_iTimestamp) {	
+		return m_fProbabilityCached;
+	}
+	
+	// check memory alignment
+	assert(is_aligned(fFeatures,ALIGN_BOUNDARY));	
+
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
+	__attribute__((aligned(32))) float *fMean,*fCov,fAcc;
+	__attribute__((aligned(32))) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
+	__attribute__((aligned(32))) float fTmp[8];
+#elif _MSC_VER
+	__declspec(align(32)) float *fMean,*fCov,fAcc;
+	__declspec(align(32)) float fLogLikelihood = LOG_LIKELIHOOD_FLOOR;	
+	__declspec(align(32)) float fTmp[8];
+#endif
+
+	__m256 tmp;
+	__m256 ans;
+	__m256 obs;
+	__m256 mean;
+	__m256 cov;	
+
+	for(int iGaussian = 0 ; iGaussian < m_iGaussianComponents ; ++iGaussian) {
+	
+		fMean = m_gaussians[iGaussian].fMean;
+		fCov = m_gaussians[iGaussian].fCovariance;	
+		fAcc = m_gaussians[iGaussian].fConstant;
+
+		obs  = _mm256_load_ps(fFeatures);
+		mean = _mm256_load_ps(fMean);
+		cov  = _mm256_load_ps(fCov);
+		tmp  = _mm256_sub_ps(obs, mean);
+		tmp  = _mm256_mul_ps(tmp,tmp);
+		ans  = _mm256_mul_ps(tmp,cov);
+
+		obs  = _mm256_load_ps(fFeatures+8);
+		mean = _mm256_load_ps(fMean+8);
+		cov  = _mm256_load_ps(fCov+8);
+		tmp  = _mm256_sub_ps(obs, mean);
+		tmp  = _mm256_mul_ps(tmp,tmp);
+		tmp  = _mm256_mul_ps(tmp,cov);
+		ans  = _mm256_add_ps(ans, tmp);
+
+		obs  = _mm256_load_ps(fFeatures+16);
+		mean = _mm256_load_ps(fMean+16);
+		cov  = _mm256_load_ps(fCov+16);
+		tmp  = _mm256_sub_ps(obs, mean);
+		tmp  = _mm256_mul_ps(tmp,tmp);
+		tmp  = _mm256_mul_ps(tmp,cov);
+		ans  = _mm256_add_ps(ans, tmp);
+
+		obs  = _mm256_load_ps(fFeatures+24);
+		mean = _mm256_load_ps(fMean+24);
+		cov  = _mm256_load_ps(fCov+24);
+		tmp  = _mm256_sub_ps(obs, mean);
+		tmp  = _mm256_mul_ps(tmp,tmp);
+		tmp  = _mm256_mul_ps(tmp,cov);
+		ans  = _mm256_add_ps(ans, tmp);
+ 
+		obs  = _mm256_set_ps(0, fFeatures[38], fFeatures[37], fFeatures[36], fFeatures[35], fFeatures[34], fFeatures[33], fFeatures[32]);
+		mean = _mm256_set_ps(0, fMean[38], fMean[37], fMean[36], fMean[35], fMean[34], fMean[33], fMean[32]);
+		cov  = _mm256_set_ps(0, fCov[38], fCov[37], fCov[36], fCov[35], fCov[34], fCov[33], fCov[32]);
+		tmp     = _mm256_sub_ps(obs, mean);
+		tmp     = _mm256_mul_ps(tmp,tmp);
+		tmp     = _mm256_mul_ps(tmp,cov);
+		ans     = _mm256_add_ps(ans, tmp);
+		
+		/*__attribute__((aligned(16))) float f = 0.0;
+		ans = _mm256_dp_ps(tmp,cov128,0xF1);		
+		_mm_store_ss(&f,ans);	
+		fAcc -= f;*/
+
+		_mm256_store_ps(fTmp, ans);
+		fAcc -= (fTmp[0]+fTmp[1]+fTmp[2]+fTmp[3]+fTmp[4]+fTmp[5]+fTmp[6]+fTmp[7]);
+
+		fLogLikelihood = max(fAcc,fLogLikelihood);
+	}
+
+	// cache the probability
+	m_iTimestamp = iTime;
+	m_fProbabilityCached = fLogLikelihood;
+	
+	return fLogLikelihood;
+}
+#endif
+
 
 };	// end-of-namespace

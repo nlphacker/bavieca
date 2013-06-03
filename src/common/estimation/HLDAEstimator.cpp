@@ -36,7 +36,7 @@
 namespace Bavieca {
 
 // constructor
-HLDAEstimator::HLDAEstimator(HMMManager *hmmManager, const char *strFileAccList, int iDimensionalityReduction, int iIterationsTransformUpdate, int iIterationsParameterUpdate, const char *strFolderOutput)
+HLDAEstimator::HLDAEstimator(HMMManager *hmmManager, const char *strFileAccList, unsigned int iDimensionalityReduction, int iIterationsTransformUpdate, int iIterationsParameterUpdate, const char *strFolderOutput)
 {
 	m_hmmManager = hmmManager;
 	m_mCovarianceGlobal = NULL;
@@ -45,8 +45,8 @@ HLDAEstimator::HLDAEstimator(HMMManager *hmmManager, const char *strFileAccList,
 	
 	// check parameters
 	assert(iDimensionalityReduction > 0);
-	assert(iDimensionalityReduction <= m_hmmManager->getFeatureDimensionality());
-	m_iN = hmmManager->getFeatureDimensionality();
+	assert(iDimensionalityReduction <= m_hmmManager->getFeatureDim());
+	m_iN = hmmManager->getFeatureDim();
 	m_iP = m_iN-iDimensionalityReduction;
 	
 	// estimation iterations
@@ -206,7 +206,9 @@ void HLDAEstimator::estimate() {
 		int iSeconds = ((int)dOccupationTotal)%iFeatureVectorsPerMinute;
 		iSeconds /= iFeatureVectorsPerSecond;	
 		// show the iteration information
-		printf(" likelihood= %.4f (%6.2f) [%8d Gauss][RTF=%.6f][%d:%02d'%02d''][%6.2f%%]\n",fLikelihoodGlobal,fLikelihoodFrame,iGaussianComponents,fRTF,iHours,iMinutes,iSeconds,100.0*(1.0-(fLikelihoodGlobal/fLikelihoodBaseline)));	
+		printf(" likelihood= %.4f (%6.2f) [%8d Gauss][RTF=%.6f][%d:%02d'%02d''][%6.2f%%]\n",
+			fLikelihoodGlobal,fLikelihoodFrame,iGaussianComponents,fRTF,iHours,iMinutes,
+			iSeconds,100.0*(1.0-(fLikelihoodGlobal/fLikelihoodBaseline)));	
 		
 		// normalize the transform so it has determinant equal to one
 		Matrix<float> matrixAInverted(matrixA);
@@ -274,21 +276,21 @@ float HLDAEstimator::computeLikelihood(VectorBase<float> &vMean, VectorBase<floa
 // apply the given HLDA transform to the given acoustic models
 void HLDAEstimator::applyTransform(Matrix<float> &mTransform, HMMManager *hmmManager) {
 
-	int iP = mTransform.getRows();
-	int iN = mTransform.getCols();
+	unsigned int iP = mTransform.getRows();
+	unsigned int iN = mTransform.getCols();
 	int iHMMStates = -1;
 	HMMState **hmmStates = hmmManager->getHMMStates(&iHMMStates);	
 
 	// (1) checks
 	assert(iP <= iN);
-	assert(iN == hmmManager->getFeatureDimensionality());
+	assert(iN == hmmManager->getFeatureDim());
 	assert(hmmManager->getCovarianceModelling() != COVARIANCE_MODELLING_TYPE_FULL);
 	
 	// (2) transform model parameters
 	Matrix<float> matrixCovDiag(iP);
 	
 	// update each state
-	for(int s = 0 ; s < iHMMStates ; ++s) {
+	for(unsigned int s = 0 ; s < (unsigned int)iHMMStates ; ++s) {
 
 		// update each Gaussian component
 		for(unsigned int g = 0 ; g < hmmStates[s]->getMixture().getNumberComponents() ; ++g) {
@@ -329,9 +331,9 @@ MatrixBase<float> *HLDAEstimator::applyTransform(MatrixBase<float> &mTransform, 
 	assert((mTransform.getRows() <= mFeatures.getCols()) && (mTransform.getCols() == mFeatures.getCols()));
 	
 	// transformed features
-	MatrixBase<float> *mFeaturesX = new Matrix<float>(mFeatures.getRows(),mTransform.getRows());
+	Matrix<float> *mFeaturesX = new Matrix<float>(mFeatures.getRows(),mTransform.getRows());
 	// transform each feature vector
-	for(int i=0 ; i<mFeatures.getRows() ; ++i) {
+	for(unsigned int i=0 ; i<mFeatures.getRows() ; ++i) {
 		mFeaturesX->getRow(i).mul(mTransform,mFeatures.getRow(i));
 	}
 	
@@ -364,11 +366,11 @@ void HLDAEstimator::loadGaussianOccupation(double *dOccupationTotal, GaussianDat
 	if ((iHMMStatesAux != metadata.iHMMStates) || 
 		(m_hmmManager->getNumberGaussianComponents() != metadata.iGaussianComponents) ||
 		(m_hmmManager->getCovarianceModelling() != metadata.iCovarianceModeling) ||
-		(m_hmmManager->getFeatureDimensionality() != metadata.iDim)) {
+		(m_hmmManager->getFeatureDim() != (unsigned int)metadata.iDim)) {
 		BVC_ERROR << "HMMs are not consistent with accumulators";
 	}
 		
-	int iDim = m_hmmManager->getFeatureDimensionality();
+	int iDim = m_hmmManager->getFeatureDim();
 	*dOccupationTotal = 0.0;
 	
 	int iGaussian = 0;

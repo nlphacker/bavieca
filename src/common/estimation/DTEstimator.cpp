@@ -32,7 +32,7 @@ namespace Bavieca {
 DTEstimator::DTEstimator(HMMManager *hmmManager) {
 	
 	m_hmmManager = hmmManager;
-	m_iDim = hmmManager->getFeatureDimensionality();
+	m_iDim = hmmManager->getFeatureDim();
 	m_iCovarianceModeling = hmmManager->getCovarianceModelling();
 	m_iCovarianceElements = HMMManager::getCovarianceElements(m_iDim,m_iCovarianceModeling);
 	m_iHMMStates = -1;
@@ -130,7 +130,6 @@ void DTEstimator::estimateParameters(HMMState *hmmState, Accumulator **accumulat
 		gaussian->covarianceDiag().mul((float)dD);
 		gaussian->covarianceDiag().add(accumulatorNum->getObservationSquareDiag());
 		gaussian->covarianceDiag().add(-1.0,accumulatorDen->getObservationSquareDiag());	
-		gaussian->covarianceDiag().addSquare((float)dD,vMeanBase);
 		gaussian->covarianceDiag().mul((float)(1.0/(accumulatorNum->getOccupation()-accumulatorDen->getOccupation()+dD)));	
 		gaussian->covarianceDiag().addSquare(-1.0,gaussian->mean());
 	}

@@ -158,10 +158,10 @@ void Alignment::print(LexiconManager *lexiconManager) {
 		if (lexiconManager == NULL) {
 			printf("%8d %8d %8d\n",(*it)->iFrameBegin,(*it)->iFrameEnd,(*it)->iLexUnitPron);
 		} else if ((*it)->iLexUnitPron != -1) {
-			char strLexUnitPron[MAX_LEXUNIT_LENGTH+1];
+			string strLexUnitPron;
 			lexiconManager->getStrLexUnitPronunciation(
 				lexiconManager->getLexUnitPron((*it)->iLexUnitPron),strLexUnitPron);
-			printf("%8d %8d %32s\n",(*it)->iFrameBegin,(*it)->iFrameEnd,strLexUnitPron);
+			printf("%8d %8d %32s\n",(*it)->iFrameBegin,(*it)->iFrameEnd,strLexUnitPron.c_str());
 		}
 	}
 }

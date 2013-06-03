@@ -31,6 +31,19 @@
 #include "FileOutput.h"
 #include "IOBase.h"
 
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
+#include <tr1/unordered_map>
+#elif _MSC_VER
+#include <hash_map>
+#else 
+	#error "unsupported platform"
+#endif
+
+using namespace std;
+
+#include <string>
+#include <vector>
+
 namespace Bavieca {
 
 #define MODE_READ		0
@@ -64,20 +77,6 @@ namespace Bavieca {
 
 #define MAX_IDENTITY_LENGTH		32
 
-using namespace std;
-
-#include <string>
-#include <vector>
-
-#if defined __linux__ || defined __APPLE__
-using namespace __gnu_cxx;
-#include <ext/hash_map>
-#elif _WIN32
-#include <hash_map>
-#else
-	#error "unsupported platform"
-#endif
-
 class Accumulator;
 
 typedef vector<Accumulator*> VAccumulator;
@@ -95,7 +94,7 @@ typedef struct {
 struct MAccumulatorFunctions
 {
 
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 	
 	// comparison function (used for matching, comparison for equality)
 	bool operator()(const unsigned char *contextUnit1, const unsigned char *contextUnit2) const {
@@ -110,7 +109,7 @@ struct MAccumulatorFunctions
 		return true;
 	}	
 	
-#elif _WIN32	
+#elif _MSC_VER	
 	
 	static const size_t bucket_size = 4;
 	static const size_t min_buckets = 8;
@@ -154,14 +153,16 @@ struct MAccumulatorFunctions
 };
 
 // structure for easy access to logical accumulators (maps context dependent phones to accumulators)
-#if defined __linux__ || defined __APPLE__
-typedef hash_map<unsigned char*,Accumulator*,MAccumulatorFunctions,MAccumulatorFunctions> MAccumulatorLogical;
-#elif _WIN32
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
+typedef std::tr1::unordered_map<unsigned char*,Accumulator*,MAccumulatorFunctions,MAccumulatorFunctions> MAccumulatorLogical;
+// structure to keep physical accumulators
+typedef std::tr1::unordered_map<unsigned int,Accumulator*> MAccumulatorPhysical;
+#elif _MSC_VER
 typedef hash_map<unsigned char*,Accumulator*,MAccumulatorFunctions> MAccumulatorLogical;
-#endif
-
 // structure to keep physical accumulators
 typedef hash_map<unsigned int,Accumulator*> MAccumulatorPhysical;
+#endif
+
 
 /**
 	@author daniel <dani.bolanos@gmail.com>
@@ -229,9 +230,7 @@ class Accumulator {
 		~Accumulator();
 		
 		// accumulate an observation
-		inline void accumulateObservation(float *fFeatureVector, double dOccupation) {
-		
-			VectorStatic<float> vFeature(fFeatureVector,m_iDim);
+		inline void accumulateObservation(VectorBase<float> &vFeature, double dOccupation) {
 		
 			m_vObservation->add(dOccupation,vFeature);	
 			// diagonal
@@ -509,7 +508,7 @@ class Accumulator {
 		
 		// accumulate data from the alignment
 		static void accumulate(MAccumulatorPhysical &mAccumulator, Alignment *alignment, 
-			float *fFeatures, int iFeatures, int iDim);
+			MatrixBase<float> &mFeatures);
 			
 		// adapt the accumulators to the given within-word and cross-word context length
 		static void adaptContextWidth(MAccumulatorLogical &mAccumulator, unsigned char iContextSize, unsigned char iContextSizeNew);

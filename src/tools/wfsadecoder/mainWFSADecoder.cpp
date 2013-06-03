@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "AudioFile.h"
 #include "BatchFile.h"
@@ -201,7 +202,7 @@ int main(int argc, char *argv[]) {
 			bool bBestSinglePathOutputSentenceDelimiters = false;
 		
 			string strFileList = commandLineManager.getParameterValue("-bat");
-			VFeaturesUtterance vFeaturesUtterance;
+			VUtteranceFeatures vUtteranceFeatures;
 			BatchFile *batchFile = NULL;
 			
 			// audio input
@@ -222,8 +223,7 @@ int main(int argc, char *argv[]) {
 					UtteranceData utteranceData;
 					utteranceData.samples.sSamples = sSamples;
 					utteranceData.samples.iSamples = iSamples;
-					utteranceData.features.fFeatures = NULL;
-					utteranceData.features.iFeatures = -1;
+					utteranceData.mFeatures = NULL;
 					vUtteranceData.push_back(utteranceData);
 				}	
 				
@@ -231,26 +231,21 @@ int main(int argc, char *argv[]) {
 				featureExtractor.extractFeaturesSession(vUtteranceData,true);
 				
 				// apply feture transforms
-				int iDimFea = featureExtractor.getFeatureDimensionality();
+				//int iDimFea = featureExtractor.getFeatureDim();
 				for(VTransform::iterator it = vTransformFeatures.begin() ; it != vTransformFeatures.end() ; ++it) {
-					printf("%d -> %d\n",iDimFea,(*it)->getRows());
+					BVC_VERB << "feature transform: (input dim: " << featureExtractor.getFeatureDim() 
+						<< ") -> (output dim: " << (*it)->getRows() << ")";
 					for(VUtteranceData::iterator jt = vUtteranceData.begin() ; jt != vUtteranceData.end() ; ++jt) {
-						float *fFeaturesX = new float[jt->features.iFeatures*(*it)->getRows()];
-						for(unsigned int i=0 ; i < jt->features.iFeatures ; ++i) {
-							(*it)->apply(jt->features.fFeatures+(i*iDimFea),fFeaturesX+(i*(*it)->getRows()));
-						}
-						delete [] jt->features.fFeatures;
-						jt->features.fFeatures = fFeaturesX;
+						Matrix<float> *mFeaturesX = (*it)->apply(*jt->mFeatures);
+						delete jt->mFeatures;
+						jt->mFeatures = mFeaturesX;
 					}
-					iDimFea = (*it)->getRows();
 				}
+
 				
-				FeaturesUtterance featuresUtterance;
 				for(VUtteranceData::iterator it = vUtteranceData.begin() ; it != vUtteranceData.end() ; ++it) {
-					featuresUtterance.fFeatures = it->features.fFeatures;
-					featuresUtterance.iFeatures = it->features.iFeatures;
 					delete [] it->samples.sSamples;
-					vFeaturesUtterance.push_back(featuresUtterance);	
+					vUtteranceFeatures.push_back(it->mFeatures);	
 				}
 			}
 			// feature input
@@ -268,9 +263,7 @@ int main(int argc, char *argv[]) {
 				
 					FeatureFile featureFile(strFile.c_str(),MODE_READ);
 					featureFile.load();
-					FeaturesUtterance featuresUtterance;
-					featuresUtterance.fFeatures = featureFile.getFeatureVectors(&featuresUtterance.iFeatures);
-					vFeaturesUtterance.push_back(featuresUtterance);	
+					vUtteranceFeatures.push_back(featureFile.getFeatureVectors());	
 				}
 			}
 			
@@ -283,10 +276,8 @@ int main(int argc, char *argv[]) {
 				string strUtteranceId = batchFile->getField(iUtterance,"id");
 				printf("Processing utterance: %s\n",strUtteranceId.c_str());
 				
-				int iFeatures = vFeaturesUtterance[iUtterance].iFeatures;
-				float *fFeatures = vFeaturesUtterance[iUtterance].fFeatures;;
-				wfsaDecoder.viterbi(fFeatures,iFeatures);
-				iFeatureVectorsTotal += iFeatures;
+				wfsaDecoder.viterbi(*vUtteranceFeatures[iUtterance]);
+				iFeatureVectorsTotal += vUtteranceFeatures[iUtterance]->getRows();
 				
 				// hypothesis lattice
 				if (bLatticeGeneration) {
@@ -310,7 +301,7 @@ int main(int argc, char *argv[]) {
 						bBestSinglePathOutputSentenceDelimiters,bBestSinglePathOutputFillers,bBestSinglePathOutputConfidenceValues);
 					// state-alignment
 					if (bOutputAlignment) {
-						VPhoneAlignment *vPhoneAlignment = viterbi->align(fFeatures,iFeatures,bestPathUtterance);
+						VPhoneAlignment *vPhoneAlignment = viterbi->align(*vUtteranceFeatures[iUtterance],bestPathUtterance);
 						if (vPhoneAlignment) {
 							AlignmentFile alignmentFile(&phoneSet,&lexiconManager);
 							char strFileAlignment[1024+1];
@@ -323,8 +314,8 @@ int main(int argc, char *argv[]) {
 				}
 				
 				// clean-up
-				if (fFeatures != NULL) {
-					delete [] fFeatures;	
+				if (vUtteranceFeatures[iUtterance]) {
+					delete vUtteranceFeatures[iUtterance];	
 				}
 			}	
 			fileHypothesis.close();
@@ -347,7 +338,7 @@ int main(int argc, char *argv[]) {
 		}
 		delete wfsAcceptor;
 		
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

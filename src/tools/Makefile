@@ -30,7 +30,7 @@ BIN_DIR = ../../bin/$(ARCH)-$(OS)
 LIBS = -L../../lib/$(ARCH)-$(OS)/ $(LIBS_DIR_CBLAS) $(LIBS_DIR_LAPACK)  
 
 all: createDirectories aligner contextclustering dtaccumulator dtestimator dynamicdecoder fmllrestimator gmmeditor \
-     hldaestimator hmminitializer hmmx latticeeditor ldaestimator mapestimator mlaccumulator mlestimator mllrestimator \
+     hldaestimator hmminitializer hmmx latticeeditor ldaestimator lmfsm mapestimator mlaccumulator mlestimator mllrestimator \
      param paramx regtree sadmodule vtlestimator wfsabuilder wfsadecoder
 
 clean: 
@@ -83,6 +83,9 @@ latticeeditor: $(OBJ_DIR)/mainLatticeEditor.o
 
 ldaestimator: $(OBJ_DIR)/mainLDAEstimator.o
 	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/ldaestimator $(OBJ_DIR)/mainLDAEstimator.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}
+
+lmfsm: $(OBJ_DIR)/mainLMFSM.o
+	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/lmfsm $(OBJ_DIR)/mainLMFSM.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}
 
 mapestimator: $(OBJ_DIR)/mainMAPEstimator.o
 	$(XCC) $(CPPFLAGS) $(LIBS) -o $(BIN_DIR)/mapestimator $(OBJ_DIR)/mainMAPEstimator.o -lcommon ${LIB_LAPACK} ${LIB_CBLAS}
@@ -156,6 +159,9 @@ $(OBJ_DIR)/mainLatticeEditor.o: ./latticeeditor/mainLatticeEditor.cpp
 	$(XCC) $(CPPFLAGS) $(INC) -c $< -o $@
 
 $(OBJ_DIR)/mainLDAEstimator.o: ./ldaestimator/mainLDAEstimator.cpp
+	$(XCC) $(CPPFLAGS) $(INC) -c $< -o $@
+
+$(OBJ_DIR)/mainLMFSM.o: ./lmfsm/mainLMFSM.cpp
 	$(XCC) $(CPPFLAGS) $(INC) -c $< -o $@
 
 $(OBJ_DIR)/mainMAPEstimator.o: ./mapestimator/mainMAPEstimator.cpp

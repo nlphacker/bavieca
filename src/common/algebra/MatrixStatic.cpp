@@ -23,12 +23,31 @@ namespace Bavieca {
 
 // constructor
 template<typename Real>
-MatrixStatic<Real>::MatrixStatic(Real *rData, int iDim) : MatrixBase<Real>(iDim,iDim) {
-	this->m_rData = rData;
+MatrixStatic<Real>::MatrixStatic(Real *rData, unsigned int iDim) : MatrixBase<Real>(iDim,iDim) {
+	MatrixStatic(rData,iDim,iDim);
 }
 
-template MatrixStatic<float>::MatrixStatic(float *rData, int iDim);
-template MatrixStatic<double>::MatrixStatic(double *rData, int iDim);
+// constructor
+template<typename Real>
+MatrixStatic<Real>::MatrixStatic(Real *rData, unsigned int iRows, unsigned int iCols) : MatrixBase<Real>(iRows,iCols) {
+	this->m_rData = rData;	
+#if defined __AVX__ || defined __SSE__
+	// check memory alignment
+	assert(is_aligned(rData,ALIGN_BOUNDARY));
+	// round up the dimensionality to the nearest multiple	
+	unsigned int iReminder = this->m_iCols%(ALIGN_BOUNDARY/sizeof(Real));
+	this->m_iStride = (iReminder == 0) ? this->m_iCols : this->m_iCols + (ALIGN_BOUNDARY/sizeof(Real))-iReminder;
+	assert(this->m_iStride % (ALIGN_BOUNDARY/sizeof(Real)) == 0);
+#else 
+	this->m_iStride = this->m_iCols;
+#endif	
+}
+
+
+template MatrixStatic<float>::MatrixStatic(float *rData, unsigned int iDim);
+template MatrixStatic<double>::MatrixStatic(double *rData, unsigned int iDim);
+template MatrixStatic<float>::MatrixStatic(float *rData, unsigned int iRows, unsigned int iCols);
+template MatrixStatic<double>::MatrixStatic(double *rData, unsigned int iRows, unsigned int iCols);
 
 };	// end-of-namespace
 

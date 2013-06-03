@@ -56,7 +56,7 @@ class TMatrix : public PackedMatrix<Real> {
 		double determinant() {
 		
 			double dDet = (*this)(0,0);
-			for(int i=1 ; i < this->m_iDim ; ++i) {
+			for(unsigned int i=1 ; i < this->m_iDim ; ++i) {
 				dDet *= (*this)(i,i);
 			}
 			

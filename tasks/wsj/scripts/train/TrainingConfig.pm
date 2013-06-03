@@ -8,7 +8,6 @@ package TrainingConfig;
 
 use FindBin;                 # locate this script
 use lib "$FindBin::Bin/..";  # use the parent directory
-use WSJ;
 
 #------------------------------------------------------------------- 
 # Daniel Bolanos 2012
@@ -26,7 +25,6 @@ our $dirCorpus = "<corpus directory, one subdir per speaker containing a raw and
 # feature extraction
 our $dirFeatures = "<directory where features will be extracted>";
 our $fileConfigFeatures = "$dirBase/config/features.cfg";
-our $fileConfigFeatures3Derivatives = "$dirBase/config/features3Derivatives.cfg";
 our $normMode = "utterance";
 our $normMethod = "CMN";
 

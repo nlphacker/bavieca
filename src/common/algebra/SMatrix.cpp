@@ -29,7 +29,8 @@ template<>
 float SMatrix<float>::invert() {
 
 	assert(0);
-	printf("code commented!!!");
+	cout << "code commented!!!" << endl;
+	cout.flush();
 	exit(-1);
 	/*integer *iPivot = new integer[m_iDim];
 	integer iInfo;
@@ -80,8 +81,8 @@ template<typename Real>
 void SMatrix<Real>::print() {
 
 	cout << "dim: " << this->m_iDim << endl;
-	for(int i=0 ; i < this->m_iDim ; ++i) {
-		for(int j=0 ; j < this->m_iDim ; ++j) {
+	for(unsigned int i=0 ; i < this->m_iDim ; ++i) {
+		for(unsigned int j=0 ; j < this->m_iDim ; ++j) {
 			cout << (*this)(i,j) << " ";
 		}
 		cout << endl;

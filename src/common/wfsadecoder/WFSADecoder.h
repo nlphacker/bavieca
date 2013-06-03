@@ -87,7 +87,7 @@ class WFSADecoder {
 		void initializeViterbi();	
 		
 		// perform Viterbi search
-		void viterbi(float *fFeatureVectors, unsigned int iFeatureVectors);
+		void viterbi(Matrix<float> &mFeatures);
 		
 		// apply beam pruning to the set of active states
 		void beamPruning(ActiveState *activeStates, unsigned int iActiveStates);

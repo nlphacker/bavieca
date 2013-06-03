@@ -16,45 +16,49 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-
-#ifndef FEATURETRANSFORMLIST_H
-#define FEATURETRANSFORMLIST_H
-
-#include "Transform.h"
+#ifndef NBESTLIST_H
+#define NBESTLIST_H
 
 using namespace std;
 
-#include <string>
+#include <vector>
 
 namespace Bavieca {
 
+class NBestListEntry;
+
+typedef vector<NBestListEntry*> VNBestListEntry;
+
 /**
-	@author daniel <dani.bolanos@gmail.com>
+	@author root <dani.bolanos@gmail.com>
 */
-class FeatureTransformList {
+class NBestList {
 
 	private:
 	
-		string m_strFile;
-		VTransform m_vTransform; 
+		VNBestListEntry m_vEntries;
 
 	public:
-		
+
 		// constructor
-		FeatureTransformList(const char *strFile);
+		NBestList();
 
 		// destructor
-		~FeatureTransformList();
+		~NBestList();
 		
-		// load the feature transforms
-		bool load();	
+		// store to disk
+		void store(const char *strFile, bool bTextFormat);
 		
-		// return the transforms
-		inline VTransform *getTransforms() {
+		// load from disk
+		void load(const char *strFile);
 		
-			return &m_vTransform;
+		// print
+		void print();
+		
+		// add an entry to the list
+		void add(NBestListEntry *entry) {
+			m_vEntries.push_back(entry);
 		}
-
 };
 
 };	// end-of-namespace

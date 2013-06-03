@@ -27,7 +27,6 @@ namespace Bavieca {
 
 class ConfigurationFeatures;
 class FeatureFile;
-class FileUtils;
 class ForwardBackwardX;
 class HMMManager;
 class MLFFile;

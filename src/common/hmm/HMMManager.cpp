@@ -24,6 +24,8 @@
 #include "Transform.h"
 
 #include <iomanip>
+#include <stdexcept>
+
 
 namespace Bavieca {
 
@@ -339,7 +341,7 @@ void HMMManager::load(const char *strFile) {
 		// mark the HMMs as initialized
 		m_bInitialized = true;
 		
-	} catch(ExceptionBase) {
+	} catch(std::runtime_error) {
 		BVC_ERROR << "unable to load the acoustic models from file: " << strFile;
 	}
 }
@@ -405,7 +407,7 @@ void HMMManager::store(const char *strFile) {
 		}		
 		
 		file.close();
-	} catch(ExceptionBase) {
+	} catch(std::runtime_error) {
 		BVC_ERROR << "unable to store the acoustic models to file: " << strFile;
 	}
 }
@@ -664,7 +666,7 @@ void HMMManager::dumpAccumulators(const char *strFile) {
 			Accumulator::storeAccumulators(strFile,m_iDim,m_iCovarianceModeling,
 				m_iHMMStates,getNumberGaussianComponents(),m_mAccumulatorPhysical);
 		}
-	} catch (ExceptionBase) {
+	} catch (std::runtime_error) {
 		BVC_ERROR << "unable to load the accumulators";
 	}	
 }

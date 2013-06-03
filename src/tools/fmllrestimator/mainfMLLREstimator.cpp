@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "CommandLineManager.h"
 #include "HMMManager.h"
@@ -71,7 +72,7 @@ int main(int argc, char *argv[]) {
 		FMLLREstimator fMLLREstimator(&phoneSet,&hmmManager,20,bBestComponentOnly);
 		fMLLREstimator.initializeEstimation();
 		double dLikelihood = 0.0;
-		fMLLREstimator.feedAdaptationData(strFileBatch,strFormat,&dLikelihood,true);	
+		fMLLREstimator.feedAdaptationData(strFileBatch,strFormat,&dLikelihood);	
 		
 		double dEndFeed = TimeUtils::getTimeMilliseconds();
 		
@@ -90,7 +91,7 @@ int main(int argc, char *argv[]) {
 		printf("collecting data:      %6.2f seconds\n",(dEndFeed-dBegin)/1000.0);
 		printf("computing transforms: %6.2f seconds\n",(dEndComputation-dEndFeed)/1000.0);
    
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

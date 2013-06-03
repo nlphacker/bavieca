@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "BatchFile.h"
 #include "CommandLineManager.h"
@@ -73,26 +74,19 @@ int main(int argc, char *argv[]) {
 		if (strFileBatch == NULL) {
 		
 			// load the features
-			int iDimensionality = atoi(configurationFeatures.getStrParameterValue("cepstralCoefficients"))+1;
+			int iDimensionality = configurationFeatures.getDimensionality();
 			FeatureFile featureFile(strFileInput,MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,iDimensionality);
 			featureFile.load();
 			
-			unsigned int iFeatures = 0;
-			float *fFeatures = featureFile.getFeatureVectors(&iFeatures);	
-		
-			// apply the transformation		
-			int iDimensionalityX = -1;
-			float *fFeaturesX = applyTransform(&transform,fFeatures,iFeatures,iDimensionality,iDimensionalityX);
-			if (!fFeaturesX) {
-				BVC_ERROR << "unable to apply the transform";
-			}
+			Matrix<float> *mFeatures = featureFile.getFeatureVectors();
+			Matrix<float> *mFeaturesX = transform.apply(*mFeatures);	
 			
 			// create the transformed feature file
-			FeatureFile featureFileX(strFileOutput,MODE_WRITE,FORMAT_FEATURES_FILE_DEFAULT,iDimensionalityX);
-			featureFileX.store(fFeaturesX,iFeatures);
+			FeatureFile featureFileX(strFileOutput,MODE_WRITE,FORMAT_FEATURES_FILE_DEFAULT,mFeaturesX->getCols());
+			featureFileX.store(*mFeaturesX);
 			
-			delete [] fFeatures;
-			delete [] fFeaturesX;
+			delete mFeatures;
+			delete mFeaturesX;
 		} 
 		// batch mode
 		else {	
@@ -102,84 +96,30 @@ int main(int argc, char *argv[]) {
 			for(unsigned int i=0 ; i < batchFile.size() ; ++i) {
 				
 				// load the features
-				int iDimensionality = atoi(configurationFeatures.getStrParameterValue("cepstralCoefficients"))+1;
+				int iDimensionality = configurationFeatures.getDimensionality();
 				FeatureFile featureFile(batchFile.getField(i,"featuresIn"),MODE_READ,
 					FORMAT_FEATURES_FILE_DEFAULT,iDimensionality);
 				featureFile.load();
 				
-				unsigned int iFeatures = 0;
-				float *fFeatures = featureFile.getFeatureVectors(&iFeatures);	
-			
-				// apply the transformation		
-				int iDimensionalityX = -1;
-				float *fFeaturesX = applyTransform(&transform,fFeatures,iFeatures,iDimensionality,iDimensionalityX);
-				if (!fFeaturesX) {
-					BVC_ERROR << "unable to apply the transform";
-				}
+				Matrix<float> *mFeatures = featureFile.getFeatureVectors();
+				Matrix<float> *mFeaturesX = transform.apply(*mFeatures);	
 				
 				// create the transformed feature file
 				FeatureFile featureFileX(batchFile.getField(i,"featuresOut"),MODE_WRITE,
-					FORMAT_FEATURES_FILE_DEFAULT,iDimensionalityX);
-				featureFileX.store(fFeaturesX,iFeatures);
+					FORMAT_FEATURES_FILE_DEFAULT,mFeaturesX->getCols());
+				featureFileX.store(*mFeaturesX);
 				
-				delete [] fFeatures;
-				delete [] fFeaturesX;
+				delete mFeatures;
+				delete mFeaturesX;
 			}	
 		}
 	
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;
-	}	
+	}
 			
 	return 0;	
 }
-
-// apply the transform to the features
-// case A: columns in transform = feature dimension (linear transform)
-// case B: columns in transform = feature dimension+1 (affine transform, append 1 to the feature vector)
-float *applyTransform(Transform *transform, float *fFeatures, int iFeatures, int iDim, int &iDimX) {
-
-	float *fFeaturesX = NULL;
-	int iRows = -1;
-	int iColumns = -1;
-	float *fA = transform->getTransform().getData();
-	iDimX = iRows;
-	
-	// linear transform (for example HLDA)
-	if (iColumns == iDim) {
-		
-		fFeaturesX = new float[iFeatures*iDimX];		
-		
-		// transform the features
-		for(int f=0 ; f<iFeatures ; ++f) {
-			for(int i=0 ; i<iDimX ; ++i) {
-				fFeaturesX[f*iDimX+i] = 0.0f;
-				for(int j=0 ; j<iDim ; ++j) {
-					fFeaturesX[f*iDimX+i] += fA[i*iDim+j]*fFeatures[f*iDim+j];
-				}
-			}
-		}
-	}
-	// affine transform (for example fMLLR)
-	else if (iColumns == iDim+1) {
-	
-		for(int i=0 ; i < iFeatures ; ++i) {
-			float *fFea = &fFeatures[i*iDim];
-			for(int j=0 ; j < iDim ; ++j) {
-				fFeaturesX[j] = fA[j*(iDim+1)];
-				for(int k=1 ; k < iDim+1 ; ++k) {
-					fFeaturesX[j] += fA[j*(iDim+1)+k]*fFea[k-1];
-				}	
-			}	
-		}
-	}
-	else {
-		return NULL;
-	}
-
-	return fFeaturesX;
-}
-
 

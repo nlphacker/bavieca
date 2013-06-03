@@ -15,55 +15,71 @@
  * See the License for the specific language governing permissions and                         *
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
+ 
 
+#ifndef NBESTLISTENTRY_H
+#define NBESTLISTENTRY_H
 
-#include "FeatureTransformList.h"
-#include "Global.h"
+using namespace std;
+
+#include <vector>
+
+#include "NBestListEntryElement.h"
 
 namespace Bavieca {
 
-// constructor
-FeatureTransformList::FeatureTransformList(const char *strFile)
-{
-	m_strFile = strFile;
-}
+class LexiconManager;
 
-// destructor
-FeatureTransformList::~FeatureTransformList()
-{
-	for(VTransform::iterator it = m_vTransform.begin() ; it != m_vTransform.end() ; ++it) {
-		delete *it;	
-	}
-}
+typedef vector<NBestListEntryElement*> VNBestListEntryElement;
 
-// load the feature transforms
-bool FeatureTransformList::load() {
+/**
+	@author root <dani.bolanos@gmail.com>
+*/
+class NBestListEntry {
 
-	// open the file
-	FILE *file = fopen(m_strFile.c_str(),"rt");
-	if (file == NULL) {
-		printf("Error: unable to open the list of transforms: %s\n",m_strFile.c_str());
-		return false;
-	}
+	private:
 	
-	// load the transforms one by one
-	char strFileTransform[1024+1];
-	char strLine[1024+1];
-	while(fgets(strLine,1024,file) != NULL) {
-	
-		sscanf(strLine,"%s",strFileTransform);
-		Transform *transform = new Transform();
-		transform->load(strFileTransform);
-		m_vTransform.push_back(transform);
-	}
-	
-	// close the file
-	if (fclose(file) == EOF) {
-		printf("Error: unable to close the list of transforms: %s\n",m_strFile.c_str());
-		return false;
-	}
+		LexiconManager *m_lexiconManager;		// lexicon manager
+		double m_dLikelihood;						// path likelihood
+		double m_dPP;									// path posterior probability
+		VNBestListEntryElement m_vElements;		// elements in the entry (typically words)
 
-	return true;
-}
+	public:
+
+		// constructor
+		NBestListEntry(LexiconManager *lexiconManager);
+
+		// destructor
+		~NBestListEntry();
+		
+		// store to disk
+		void store(ostream &os, bool bTextFormat = false);	
+		
+		// add an element to the entry
+		void add(NBestListEntryElement *element) {
+		
+			m_vElements.push_back(element);
+			m_dLikelihood += element->getLikelihoodAM() + element->getLikelihoodLM() + element->getIP();
+			m_dPP += element->getPP();
+		}
+			
+		// return the likelihood
+		double getLikelihood() {
+		
+			return m_dLikelihood;
+		}
+		
+		// set the likelihood
+		void setLikelihood(double dLikelihood) {
+		
+			m_dLikelihood = dLikelihood;
+		}
+		
+		// print the entry
+		void print();
+
+};
 
 };	// end-of-namespace
+
+#endif

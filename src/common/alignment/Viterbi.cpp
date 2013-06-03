@@ -19,6 +19,7 @@
 
 #include "BestPath.h"
 #include "HypothesisLattice.h"
+#include "MatrixStatic.h"
 #include "PhoneSet.h"
 #include "Viterbi.h"
 
@@ -34,7 +35,7 @@ Viterbi::Viterbi(PhoneSet *phoneSet, HMMManager *hmmManager, LexiconManager *lex
 	m_nodeTrellisCache = NULL;
 	m_iTrellisCacheSize = 0;
 	m_fScoreCache = NULL;
-	m_iFeatureDimensionality = m_hmmManager->getFeatureDimensionality();
+	m_iFeatureDimensionality = m_hmmManager->getFeatureDim();
 	
 	m_iEntriesCacheOld = 0;
 	m_fScoreCacheOld = NULL;
@@ -52,7 +53,7 @@ Viterbi::~Viterbi()
 }
 
 // align the feature vectors against the text
-VPhoneAlignment *Viterbi::align(VLexUnit &vLexUnit, float *fFeatures, int iFeatureVectors, float *fLikelihood) {
+VPhoneAlignment *Viterbi::align(VLexUnit &vLexUnit, MatrixBase<float> &mFeatures, float *fLikelihood) {
 
 	// reset the score cache
 	m_fScoreCache = NULL;	
@@ -62,25 +63,10 @@ VPhoneAlignment *Viterbi::align(VLexUnit &vLexUnit, float *fFeatures, int iFeatu
 	getHMMStateDecodingComposite(vLexUnit,vHMMStateDecodingComposite);
 	unsigned char iErrorCode;
 	useCache(false);
-	VPhoneAlignment *vPhoneAlignment = alignHMMStates(fFeatures,iFeatureVectors,
+	VPhoneAlignment *vPhoneAlignment = alignHMMStates(mFeatures,
 		vHMMStateDecodingComposite,vLexUnit,fLikelihood,0,iErrorCode);	
 
 	return vPhoneAlignment;
-}
-
-
-
-// print a sequence of lexical units
-void Viterbi::printLexUnitSequence(VLexUnit &vLexUnit) {
-
-	for(VLexUnit::iterator it = vLexUnit.begin() ; it != vLexUnit.end() ; ++it) {
-		if ((*it)->iPronunciation == 0) {
-			printf("%s ",m_lexiconManager->getStrLexUnit((*it)->iLexUnit));
-		} else {
-			printf("%s(%d) ",m_lexiconManager->getStrLexUnit((*it)->iLexUnit),(*it)->iPronunciation+1);
-		}
-	}
-	printf("\n");
 }
 
 // return an HMM-composite from a sequence of lexical units
@@ -166,29 +152,29 @@ float Viterbi::computeEmissionProbability(HMMStateDecoding *hmmStateDecoding, fl
 	if (m_bUseCache) {
 	
 		int iIndex = iFeatureVector*m_iHMMStatesPhysical+hmmStateDecoding->getId();
+		assert((iIndex >= 0) && (iIndex < m_iEntriesCacheOld));
 		if (m_fScoreCache[iIndex] != FLT_MAX) {
 			return m_fScoreCache[iIndex];
 		}
 	
 		// compute the score and keep it in the cache
-		//m_fScoreCache[iIndex] = hmmState->computeEmissionProbability(fFeatureVector,iFeatureVector);	
-		m_fScoreCache[iIndex] = hmmStateDecoding->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,iFeatureVector);	
+		m_fScoreCache[iIndex] = hmmStateDecoding->computeEmissionProbability(fFeatureVector,iFeatureVector);	
 	
 		return m_fScoreCache[iIndex];
 	}
 	// no cache: compute the score directly
 	else {
-		return hmmStateDecoding->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,iFeatureVector);;	
+		return hmmStateDecoding->computeEmissionProbability(fFeatureVector,iFeatureVector);;	
 	}
 }
 
 // align a sequence of HMM-states to the audio
-VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVectors, 
-	VHMMStateDecoding &vHMMStateDecodingComposite, VLexUnit &vLexUnit, float *fLikelihood, 
-	int iOffset, unsigned char &iErrorCode) {
+VPhoneAlignment *Viterbi::alignHMMStates(MatrixBase<float> &mFeatures, VHMMStateDecoding &vHMMStateDecodingComposite, 
+	VLexUnit &vLexUnit, float *fLikelihood, int iOffset, unsigned char &iErrorCode) {
 
 	// check whether there are enough feature frames to perform the alignment
-	if ((int)vHMMStateDecodingComposite.size() > iFeatureVectors) {
+	unsigned int iFeatureVectors = mFeatures.getRows();
+	if (iFeatureVectors < vHMMStateDecodingComposite.size()) {
 		iErrorCode = ALIGNER_ERROR_CODE_INSUFFICIENT_NUMBER_FEATURE_VECTORS;
 		BVC_WARNING << "not enough feature frames to perform the alignment against the sequence of HMM-states";
 		return NULL;
@@ -228,11 +214,11 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 	// (2) create the trellis
 	
 	// print the HMM-state composite	
-	int iHMMStates = (int)vHMMStateDecodingComposite.size();
+	unsigned int iHMMStates = vHMMStateDecodingComposite.size();
 	
 	// allocate memory for the trellis (try to reuse a cached trellis first)
 	VNode *nodeTrellis = NULL;
-	if ((m_nodeTrellisCache == NULL) || (m_iTrellisCacheSize < (iHMMStates*iFeatureVectors))) {
+	if ((m_nodeTrellisCache == NULL) || (m_iTrellisCacheSize < (int)(iHMMStates*iFeatureVectors))) {
 	
 		// try to allocate memory for the trellis
 		try {
@@ -250,8 +236,8 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 		nodeTrellis = m_nodeTrellisCache;
 	} 
 	// initialization
-	for(int t = 0 ; t < iFeatureVectors ; ++t) {
-		for(int i = 0 ; i < iHMMStates ; ++i) {
+	for(unsigned int t = 0 ; t < iFeatureVectors ; ++t) {
+		for(unsigned int i = 0 ; i < iHMMStates ; ++i) {
 			nodeTrellis[t*iHMMStates+i].dScore = -DBL_MAX;
 		}
 	}
@@ -261,17 +247,17 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 	// (3) fill the trellis
 	
 	// t = 0
-	nodeTrellis[0].dScore = computeEmissionProbability(vHMMStateDecodingComposite[0],&(fFeatureVectors[0]),0+iOffset);
+	nodeTrellis[0].dScore = computeEmissionProbability(vHMMStateDecodingComposite[0],mFeatures.getRowData(0),0+iOffset);
 	nodeTrellis[0].iHMMStatePrev = -1;
 	// t > 0
-	for(int t = 1 ; t < iFeatureVectors ; ++t) {
+	for(unsigned int t = 1 ; t < iFeatureVectors ; ++t) {
 		double dScoreFrameBest = -DBL_MAX;	// keep the best frame-level score (pruning)
-		float *fFeatureVector = fFeatureVectors+(t*m_iFeatureDimensionality);
+		VectorStatic<float> vFeatureVector = mFeatures.getRow(t);
 		// only one predecessor
 		if (((iFeatureVectors-1)-t)+1 > (iHMMStates-1)) {
 			if (nodeTrellis[((t-1)*iHMMStates)].dScore != -DBL_MAX) {
 				nodeTrellis[t*iHMMStates].dScore = nodeTrellis[((t-1)*iHMMStates)].dScore + 
-				computeEmissionProbability(vHMMStateDecodingComposite[0],fFeatureVector,t+iOffset);
+				computeEmissionProbability(vHMMStateDecodingComposite[0],vFeatureVector.getData(),t+iOffset);
 				nodeTrellis[t*iHMMStates].iHMMStatePrev = 0;
 				if (nodeTrellis[t*iHMMStates].dScore > dScoreFrameBest) {
 					dScoreFrameBest = nodeTrellis[t*iHMMStates].dScore;
@@ -279,7 +265,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 			}
 		}
 		// two possible predecessors
-		for(int i = 1 ; i < iHMMStates ; ++i) {
+		for(unsigned int i = 1 ; i < iHMMStates ; ++i) {
 			// avoid unnecessary computations	
 			if ((i > t) || (((iFeatureVectors-1)-t) < ((iHMMStates-1)-i))) {
 				continue;
@@ -293,7 +279,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 					node.dScore = -DBL_MAX;
 				} else {
 					node.dScore = nodePrev1.dScore + 
-					computeEmissionProbability(vHMMStateDecodingComposite[i],fFeatureVector,t+iOffset);
+					computeEmissionProbability(vHMMStateDecodingComposite[i],vFeatureVector.getData(),t+iOffset);
 					node.iHMMStatePrev = i-1;
 					if (node.dScore > dScoreFrameBest) {	
 						dScoreFrameBest = node.dScore;
@@ -302,7 +288,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 			} else {
 				if (nodePrev1.dScore == -DBL_MAX) {
 					node.dScore = nodePrev2.dScore + 
-					computeEmissionProbability(vHMMStateDecodingComposite[i],fFeatureVector,t+iOffset);
+					computeEmissionProbability(vHMMStateDecodingComposite[i],vFeatureVector.getData(),t+iOffset);
 					node.iHMMStatePrev = i;
 					if (node.dScore > dScoreFrameBest) {	
 						dScoreFrameBest = node.dScore;
@@ -317,7 +303,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 						node.dScore = dPredecessor2;
 						node.iHMMStatePrev = i-1;
 					}	
-					node.dScore += computeEmissionProbability(vHMMStateDecodingComposite[i],fFeatureVector,t+iOffset);
+					node.dScore += computeEmissionProbability(vHMMStateDecodingComposite[i],vFeatureVector.getData(),t+iOffset);
 					if (node.dScore > dScoreFrameBest) {	
 						dScoreFrameBest = node.dScore;
 					}
@@ -333,7 +319,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 				} 
 			}
 			// two possible predecessors
-			for(int i = 1 ; i < iHMMStates ; ++i) {
+			for(unsigned int i = 1 ; i < iHMMStates ; ++i) {
 				// avoid unnecessary computations	
 				if ((i > t) || (((iFeatureVectors-1)-t) < ((iHMMStates-1)-i))) {
 					continue;
@@ -350,8 +336,9 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 	*fLikelihood = (float)nodeAux->dScore;
 	//printf("Alignment likelihood: %f\n",*fLikelihood);
 	int t = iFeatureVectors-1;
-	int iHMMState = iHMMStates-1;
-	int iHMMStatePrev = iHMMStates-1;
+	assert(iHMMStates > 0);
+	unsigned int iHMMState = iHMMStates-1;
+	unsigned int iHMMStatePrev = iHMMStates-1;
 	bool bNewPhone = false;
 	float fLikelihoodPhone = *fLikelihood;
 	int iLexUnitIndex = (int)(vLexUnit.size()-1); 
@@ -420,7 +407,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 		iHMMStatePrev = iHMMState;
 		iHMMState = nodeAux->iHMMStatePrev;
 		assert((iHMMState == iHMMStatePrev-1) || (iHMMState == iHMMStatePrev));
-		assert(iHMMState < iHMMStates);
+		assert((iHMMState < iHMMStates) || (nodeAux->iHMMStatePrev == -1)); 
 		nodeAux = &(nodeTrellis[(iHMMStates*t)+nodeAux->iHMMStatePrev]);
 	}
 	assert((vPhoneAlignment->front()->iPosition == WITHIN_WORD_POSITION_START) || (vPhoneAlignment->front()->iPosition == WITHIN_WORD_POSITION_MONOPHONE));	
@@ -440,7 +427,7 @@ VPhoneAlignment *Viterbi::alignHMMStates(float *fFeatureVectors, int iFeatureVec
 }
 
 // return a state-level alignment given the BestPath
-VPhoneAlignment *Viterbi::align(float *fFeatures, int iFeatures, BestPath *bestPath) {
+VPhoneAlignment *Viterbi::align(MatrixBase<float> &mFeatures, BestPath *bestPath) {
 
 	VPhoneAlignment *vPhoneAlignment = new VPhoneAlignment;
 	
@@ -477,9 +464,12 @@ VPhoneAlignment *Viterbi::align(float *fFeatures, int iFeatures, BestPath *bestP
 		// build the HMM-state composite from the reference
 		VHMMStateDecoding vHMMStateDecodingComposite;
 		getHMMStateDecodingComposite(vLexUnit,vHMMStateDecodingComposite,lexUnitPrev,lexUnitNext);
-		// do the force alignment between the HMM-composite and the features
+		// do the forced alignment between the HMM-composite and the features
 		unsigned char iErrorCode;
-		VPhoneAlignment *vPhoneAlignmentLexUnit = alignHMMStates(fFeatures+((*it)->iFrameStart*m_iFeatureDimensionality),(*it)->iFrameEnd-(*it)->iFrameStart+1,vHMMStateDecodingComposite,vLexUnit,&fLikelihoodAux,0,iErrorCode);
+		MatrixStatic<float> mFeaturesLexUnit(mFeatures.getRowData((*it)->iFrameStart),
+			(*it)->iFrameEnd-(*it)->iFrameStart+1,mFeatures.getCols());	
+		VPhoneAlignment *vPhoneAlignmentLexUnit = alignHMMStates(mFeaturesLexUnit,
+			vHMMStateDecodingComposite,vLexUnit,&fLikelihoodAux,0,iErrorCode);
 		fLikelihood += fLikelihoodAux;
 		//printf("likelihood: %10f %10f\n",fLikelihood,fLikelihoodAux);
 		if (vPhoneAlignmentLexUnit == NULL) {
@@ -504,7 +494,7 @@ VPhoneAlignment *Viterbi::align(float *fFeatures, int iFeatures, BestPath *bestP
 	
 	// sanity checks
 	assert(vPhoneAlignment->front()->iStateBegin[0] == 0);
-	assert(vPhoneAlignment->back()->iStateEnd[NUMBER_HMM_STATES-1] == iFeatures-1);
+	assert(vPhoneAlignment->back()->iStateEnd[NUMBER_HMM_STATES-1] == (int)(mFeatures.getRows()-1));
 
 	return vPhoneAlignment;
 }
@@ -512,7 +502,7 @@ VPhoneAlignment *Viterbi::align(float *fFeatures, int iFeatures, BestPath *bestP
 
 // align each of the lexical units in the lattice to the given set of feature vectors and store the
 // time alignment information into the edges 
-bool Viterbi::align(float *fFeatures, int iFeatures, HypothesisLattice *hypothesisLattice) {
+bool Viterbi::align(MatrixBase<float> &mFeatures, HypothesisLattice *hypothesisLattice) {
 
 	// the lattice must be marked with HMMs
 	if (hypothesisLattice->checkProperty(LATTICE_PROPERTY_HMMS,"yes") == false) {
@@ -522,7 +512,7 @@ bool Viterbi::align(float *fFeatures, int iFeatures, HypothesisLattice *hypothes
 	// the cache is needed since we align different lexical units against the same segment of features
 	useCache(true);
 	//useCache(false);
-	allocateCache(iFeatures);
+	allocateCache(mFeatures.getRows());
 
 	// reset the score cache
 	m_fScoreCache = NULL;	
@@ -563,7 +553,9 @@ bool Viterbi::align(float *fFeatures, int iFeatures, HypothesisLattice *hypothes
 		int iFeaturesSegment = edge->iFrameEnd-edge->iFrameStart+1;
 		int iOffset = edge->iFrameStart;
 		float fLikelihood = -FLT_MAX;
-		VPhoneAlignment *vPhoneAlignment = alignHMMStates(fFeatures+(m_iFeatureDimensionality*iOffset),iFeaturesSegment,vHMMStateDecodingComposite,
+		MatrixStatic<float> mFeaturesLexUnit(mFeatures.getRowData(iOffset),
+			iFeaturesSegment,mFeatures.getCols());	
+		VPhoneAlignment *vPhoneAlignment = alignHMMStates(mFeaturesLexUnit,vHMMStateDecodingComposite,
 			vLexUnit,&fLikelihood,iOffset,iErrorCode);
 		assert(vPhoneAlignment != NULL);
 		edge->fScoreAM = fLikelihood;	

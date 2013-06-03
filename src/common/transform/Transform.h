@@ -108,7 +108,11 @@ class Transform {
 		}
 		
 		// apply the transform
-		void apply(float *fInput, float *fX);
+		void apply(VectorBase<float> &vInput, VectorBase<float> &vOutput);
+		
+		// apply the transform to a series of features
+		Matrix<float> *apply(MatrixBase<float> &mFeatures);
+		
 };
 
 };	// end-of-namespace

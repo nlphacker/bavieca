@@ -25,7 +25,7 @@
 
 #include <iomanip>
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include <time.h>
 #endif
 
@@ -35,7 +35,7 @@ namespace Bavieca {
 RegressionTree::RegressionTree(HMMManager *hmmManager)
 {
 	m_hmmManager = hmmManager;
-	m_iDim = hmmManager->getFeatureDimensionality();	
+	m_iDim = hmmManager->getFeatureDim();	
 	m_hmmStates = m_hmmManager->getHMMStatesDecoding(&m_iHMMStates);	
 	m_nodeRoot = NULL;
 	m_baseClasses = NULL;
@@ -189,7 +189,7 @@ void RegressionTree::build(int iBaseClasses, unsigned char iClusteringMethod, un
 			
 			// no cluster to split: end!
 			if (clusterToSplit == NULL) {
-				BVC_ERROR << "clustering failed to produce " << iBaseClasses << "base-classes";
+				BVC_ERROR << "clustering failed to produce " << iBaseClasses << " base-classes with a minimum number of " << iMinimumComponentsCluster << " Gaussian components. Check clustering parameters.";
 			}
 		} 
 		// (2') EM clustering
@@ -229,7 +229,7 @@ void RegressionTree::build(int iBaseClasses, unsigned char iClusteringMethod, un
 				}
 			}
 			if (bSplitSuccessful == false) {
-				BVC_ERROR << "clustering failed to produce " << iBaseClasses << "base-classes";
+				BVC_ERROR << "clustering failed to produce " << iBaseClasses << " base-classes with a minimum number of " << iMinimumComponentsCluster << " Gaussian components. Check clustering parameters.";
 			}
 		}		
 		

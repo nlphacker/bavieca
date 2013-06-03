@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "ConfigurationWFSADecoder.h"
 
@@ -105,7 +106,7 @@ void ConfigurationWFSADecoder::load() {
 		// parse the parameter-value pairs
 		parse(vParameterValue);
 		
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error) {
 		BVC_ERROR << "unable to load the wfsa configuration file";
 	}
 }

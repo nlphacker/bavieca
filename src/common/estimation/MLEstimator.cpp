@@ -25,7 +25,7 @@ namespace Bavieca {
 MLEstimator::MLEstimator(HMMManager *hmmManager) {
 
 	m_hmmManager = hmmManager;
-	m_iDim = hmmManager->getFeatureDimensionality();
+	m_iDim = hmmManager->getFeatureDim();
 	m_iCovarianceModeling = hmmManager->getCovarianceModelling();
 	m_iCovarianceElements = HMMManager::getCovarianceElements(m_iDim,m_iCovarianceModeling);
 	m_iHMMStates = -1;
@@ -137,7 +137,7 @@ void MLEstimator::estimateParameters(HMMState *hmmState, Accumulator **accumulat
 void MLEstimator::computeCovarianceFloor(HMMManager *hmmManager, MAccumulatorPhysical &mAccumulator, 
 	float fScalingFactor, Vector<double> &vCovarianceFloor) {
 	
-	assert(hmmManager->getFeatureDimensionality() == vCovarianceFloor.getDim());
+	assert((unsigned int)hmmManager->getFeatureDim() == vCovarianceFloor.getDim());
 	assert((fScalingFactor > 0.0) && (fScalingFactor < 1.0));
 	int iHMMStates = -1;
 	HMMState **hmmStates = hmmManager->getHMMStates(&iHMMStates);
@@ -194,7 +194,7 @@ void MLEstimator::floorCovariances(HMMManager *hmmManager, MAccumulatorPhysical 
 
 	assert((fScalingFactor > 0.0) && (fScalingFactor < 1.0));	
 	
-	Vector<double> vCovarianceFloor(hmmManager->getFeatureDimensionality());
+	Vector<double> vCovarianceFloor(hmmManager->getFeatureDim());
 	computeCovarianceFloor(hmmManager,mAccumulator,fScalingFactor,vCovarianceFloor);
 	applyCovarianceFloor(hmmManager,vCovarianceFloor);
 }
@@ -211,7 +211,7 @@ void MLEstimator::applyCovarianceFloor(HMMManager *hmmManager, Vector<double> &v
 			Gaussian *gaussian = hmmState->getMixture()(m);	
 			// diagonal
 			if (hmmManager->getCovarianceModelling() == COVARIANCE_MODELLING_TYPE_DIAGONAL) {
-				for(int i = 0 ; i < vCovarianceFloor.getDim() ; ++i) {
+				for(unsigned int i = 0 ; i < vCovarianceFloor.getDim() ; ++i) {
 					if (gaussian->covarianceDiag()(i) < vCovarianceFloor(i)) {
 						gaussian->covarianceDiag()(i) = (float)vCovarianceFloor(i);
 					}
@@ -220,7 +220,7 @@ void MLEstimator::applyCovarianceFloor(HMMManager *hmmManager, Vector<double> &v
 			// full
 			else {
 				assert(hmmManager->getCovarianceModelling() == COVARIANCE_MODELLING_TYPE_FULL);
-				for(int i = 0 ; i < vCovarianceFloor.getDim() ; ++i) {
+				for(unsigned int i = 0 ; i < vCovarianceFloor.getDim() ; ++i) {
 					if (gaussian->covarianceFull()(i,i) < vCovarianceFloor(i)) {
 						gaussian->covarianceFull()(i,i) = (float)vCovarianceFloor(i);
 					}

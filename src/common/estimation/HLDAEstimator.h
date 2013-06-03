@@ -75,7 +75,7 @@ class HLDAEstimator {
 	public:	
 
 		// constructor
-		HLDAEstimator(HMMManager *hmmManager, const char *strFileAccList, int iDimensionalityReduction, int iIterationsTransformUpdate, int iIterationsParameterUpdate, const char *strFolderOutput);
+		HLDAEstimator(HMMManager *hmmManager, const char *strFileAccList, unsigned int iDimensionalityReduction, int iIterationsTransformUpdate, int iIterationsParameterUpdate, const char *strFolderOutput);
 
 		// destructor
 		~HLDAEstimator();

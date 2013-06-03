@@ -22,7 +22,6 @@
 #include "LexiconManager.h"
 #include "PhoneSet.h"
 #include "Transform.h"
-#include "ExceptionBase.h"
 
 namespace Bavieca {
 

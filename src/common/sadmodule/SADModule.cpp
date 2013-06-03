@@ -41,7 +41,7 @@ SADModule::SADModule(PhoneSet *phoneSet, HMMManager *hmmManager, int iMaxGaussia
 	m_hmmStateSpeech = NULL;
 	m_fPenaltySilenceToSpeech = fPenaltySilenceToSpeech;
 	m_iFramesPadding = iFramesPadding;
-	m_iDim = m_hmmManager->getFeatureDimensionality();
+	m_iDim = m_hmmManager->getFeatureDim();
 	
 	assert(m_iMaxGaussianComponentsSpeech > 0);
 }
@@ -201,16 +201,16 @@ void SADModule::beginSession() {
 }
 
 // process the given features
-void SADModule::processFeatures(float *fFeatures, int iFeatures) {
+void SADModule::processFeatures(MatrixBase<float> &mFeatures) {
 
-	for(int i=0 ; i < iFeatures ; ++i) {
+	for(unsigned int i=0 ; i < mFeatures.getRows() ; ++i) {
 		m_grid.push_back(new GridElementSAD[2*HMM_STATES_CLASS]);	
 	}
 
 	// reset time-stamps to prevent getting scores from the cache
 	m_hmmStateSilence->resetTimeStamp();
 	m_hmmStateSpeech->resetTimeStamp();
-	unsigned int iTimeFrameLast = m_iTimeFrame+iFeatures;
+	unsigned int iTimeFrameLast = m_iTimeFrame+mFeatures.getRows();
 	
 	// first time frame?
 	if (m_iTimeFrame == 0) {
@@ -222,24 +222,20 @@ void SADModule::processFeatures(float *fFeatures, int iFeatures) {
 		}
 				
 		// initialize the first states
-		m_grid[0][0].fScore = m_hmmStateSilence->computeEmissionProbabilityNearestNeighborPDE(fFeatures,0);
-		m_grid[0][HMM_STATES_CLASS].fScore = m_hmmStateSpeech->computeEmissionProbabilityNearestNeighborPDE(fFeatures,0) + m_fPenaltySilenceToSpeech;
+		m_grid[0][0].fScore = m_hmmStateSilence->computeEmissionProbability(mFeatures.getRowData(0),0);
+		m_grid[0][HMM_STATES_CLASS].fScore = m_hmmStateSpeech->computeEmissionProbability(mFeatures.getRowData(0),0) + m_fPenaltySilenceToSpeech;
 		m_iTimeFrame++;
 	}
 	
 	// fill the grid
 	int iPrevSelf = -1;
 	int iPrevLeft = -1;
-	float *fFeatureVector = fFeatures;
-	for(unsigned int i=m_iTimeFrame ; i < iTimeFrameLast ; ++i,++m_iTimeFrame) {
+	int iFeatureVector = 1;
+	for(unsigned int i=m_iTimeFrame ; i < iTimeFrameLast ; ++i,++m_iTimeFrame, ++iFeatureVector) {
 		
 		// silence states (all of them share the same mixture)		
 		float fSilenceScore = -FLT_MAX;
-		#ifdef SIMD
-			fSilenceScore = m_hmmStateSilence->computeEmissionProbabilityNearestNeighborSIMD(fFeatureVector,i);	
-		#else
-			fSilenceScore = m_hmmStateSilence->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,i);
-		#endif		
+		fSilenceScore = m_hmmStateSilence->computeEmissionProbability(mFeatures.getRowData(iFeatureVector),i);	
 		for(unsigned int j=0 ; j < HMM_STATES_CLASS ; ++j) {
 					
 			float fLeft = -FLT_MAX;
@@ -271,11 +267,7 @@ void SADModule::processFeatures(float *fFeatures, int iFeatures) {
 		
 		// speech states (all of them share the same mixture)
 		float fSpeechScore = -FLT_MAX;
-		#ifdef SIMD
-			fSpeechScore = m_hmmStateSpeech->computeEmissionProbabilityNearestNeighborSIMD(fFeatureVector,i);	
-		#else
-			fSpeechScore = m_hmmStateSpeech->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,i);
-		#endif		
+		fSpeechScore = m_hmmStateSpeech->computeEmissionProbability(mFeatures.getRowData(iFeatureVector),i);	
 		for(unsigned int j=0 ; j < HMM_STATES_CLASS ; ++j) {
 					
 			float fLeft = -FLT_MAX;
@@ -304,7 +296,6 @@ void SADModule::processFeatures(float *fFeatures, int iFeatures) {
 				m_grid[i][j+HMM_STATES_CLASS].iPrev = iPrevSelf;
 			}
 		}
-		fFeatureVector += m_iDim;
 	}
 }
 

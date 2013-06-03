@@ -55,7 +55,7 @@ VTLEstimator::VTLEstimator(ConfigurationFeatures *configurationFeatures, HMMMana
 	m_bRealignData = bRealignData;
 	m_iCepstralNormalizationMode = iCepstralNormalizationMode;
 	m_iCepstralNormalizationMethod = iCepstralNormalizationMethod;	
-	m_iDim = m_hmmManager->getFeatureDimensionality();
+	m_iDim = m_hmmManager->getFeatureDim();
 }
 
 // destructor
@@ -120,8 +120,7 @@ void VTLEstimator::estimateWarpFactor(const char *strBatchFile, unsigned char iA
 		UtteranceData utteranceData;
 		utteranceData.samples.sSamples = sSamples;
 		utteranceData.samples.iSamples = iSamples;
-		utteranceData.features.fFeatures = NULL;
-		utteranceData.features.iFeatures = -1;
+		utteranceData.mFeatures = NULL;
 		vUtteranceData.push_back(utteranceData);
 	}	
 	
@@ -205,13 +204,12 @@ void VTLEstimator::estimateWarpFactor(const char *strBatchFile, unsigned char iA
 			// align warped features to the given word sequence
 			double dUttLikelihood;
 			int iErrorCode = -1;
-			float *fFeatures = vUtteranceData[iUtterance].features.fFeatures;
-			int iFeatures = vUtteranceData[iUtterance].features.iFeatures;
+			Matrix<float> *mFeatures = vUtteranceData[iUtterance].mFeatures;
 			
 			VPhoneAlignment *vPhoneAlignment = vPhoneAlignmentBase; 
 			if (m_bRealignData) {
 				Alignment *alignment = viterbiX.processUtterance(vLexUnit,false,vLexUnitOptional,
-					fFeatures,iFeatures,&dUttLikelihood,iErrorCode);
+					*mFeatures,&dUttLikelihood,iErrorCode);
 				if (alignment == NULL) {
 					BVC_ERROR << "unable to perform the alignment";
 				}
@@ -220,7 +218,7 @@ void VTLEstimator::estimateWarpFactor(const char *strBatchFile, unsigned char iA
 			}
 			
 			// check consistency
-			if (iFeatures != vPhoneAlignment->back()->iStateEnd[NUMBER_HMM_STATES-1]+1) {
+			if ((int)mFeatures->getRows() != vPhoneAlignment->back()->iStateEnd[NUMBER_HMM_STATES-1]+1) {
 				BVC_ERROR << "timing inconsitency detected between alignment file: " << batchFile.getField(iUtterance,"alignment") << " and raw file: " << 
 				batchFile.getField(iUtterance,"raw");
 			}	
@@ -246,8 +244,7 @@ void VTLEstimator::estimateWarpFactor(const char *strBatchFile, unsigned char iA
 							BVC_ERROR << "HMM-state was not found, unable to compute acoustic likelihood for warp factor";
 						}
 						for(int iFrame = (*it)->iStateBegin[iState] ; iFrame <= (*it)->iStateEnd[iState] ; ++iFrame) {
-							fLikelihood = hmmStateDecoding->computeEmissionProbabilityNearestNeighborPDE(
-								fFeatures+(iFrame*m_iDim),iFrame);
+							fLikelihood = hmmStateDecoding->computeEmissionProbability(mFeatures->getRow(iFrame).getData(),iFrame);
 							fLikelihoodUtterance += fLikelihood;
 							dLikelihoodTest[iTest] += fLikelihood;
 						}
@@ -267,8 +264,7 @@ void VTLEstimator::estimateWarpFactor(const char *strBatchFile, unsigned char iA
 			} 
 			
 			// clean-up
-			delete [] vUtteranceData[iUtterance].features.fFeatures;
-			vUtteranceData[iUtterance].features.iFeatures = -1;
+			delete vUtteranceData[iUtterance].mFeatures;
 			if (m_bRealignData) {
 				AlignmentFile::destroyPhoneAlignment(vPhoneAlignment);
 			}

@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "AudioFile.h"
 #include "FileInput.h"
@@ -49,7 +50,7 @@ short *AudioFile::load(const char *strFile, int *iSamples) {
 	
 		file.close();
 
-	} catch (ExceptionBase) {
+	} catch (std::runtime_error) {
 		BVC_ERROR<< "unable to load the audio file: " << strFile;
 	}
 

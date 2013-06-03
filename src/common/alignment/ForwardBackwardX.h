@@ -65,9 +65,6 @@ class ForwardBackwardX {
 		HMMManager *m_hmmManagerAlignment;				// models used to do the forward/backward alignment
 		HMMManager *m_hmmManagerAccumulation;			// models for which data is accumulated
 		
-		int m_iFeatureDimensionalityAlignment;
-		int m_iFeatureDimensionalityAccumulation;
-		
 		// pruning 
 		float m_fForwardPruningBeam;
 		float m_fBackwardPruningBeam;
@@ -82,7 +79,7 @@ class ForwardBackwardX {
 		int m_iTrellisCacheSize;					// size of the cached trellis		
 		
 		// forward/backward computation on the trellis
-		FBTrellisNode *forwardBackward(int iFeatures, float *fFeatures, int iNodes, FBNodeHMM **nodes, 
+		FBTrellisNode *forwardBackward(MatrixBase<float> &mFeatures, int iNodes, FBNodeHMM **nodes, 
 			int iEdges, FBNodeHMM *nodeInitial, FBNodeHMM *nodeFinal, float fBeamForward, float fBeamBackward, const char **strReturnCode);
 			
 		// compute the number of unused positions in the trellis (used for analysis)
@@ -109,12 +106,12 @@ class ForwardBackwardX {
 		
 		// process the given utterance
 		Alignment *processUtterance(VLexUnit &vLexUnitTranscription, bool bMultiplePronunciations, 
-			VLexUnit &vLexUnitOptional, float *fFeaturesAlignment, float *fFeaturesAccumulation, int iFeatures, 
+			VLexUnit &vLexUnitOptional, MatrixBase<float> &mFeaturesAlignment, MatrixBase<float> &mFeaturesAccumulation, 
 			double *dUtteranceLikelihood, const char **strReturnCode);
 			
 		// aligns a lattice against the given feature vectors using Posterior Probabilities as the edge occupation
 		// probability (discriminative training)
-		Alignment *processLattice(HypothesisLattice *lattice, float *fFeatures, int iFeatures, const char **strReturnCode);
+		Alignment *processLattice(HypothesisLattice *lattice, MatrixBase<float> &mFeatures, const char **strReturnCode);
 };
 
 };	// end-of-namespace

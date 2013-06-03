@@ -28,12 +28,11 @@ using namespace std;
 #include <vector>
 #include <iomanip>
 
-#if defined __linux__ || defined __APPLE__
-using namespace __gnu_cxx;
-#include <ext/hash_map>
-#elif _WIN32
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
+#include <tr1/unordered_map>
+#elif _MSC_VER
 #include <hash_map>
-#else
+#else 
 	#error "unsupported platform"
 #endif
 
@@ -44,6 +43,8 @@ using namespace __gnu_cxx;
 namespace Bavieca {
 
 class HMMManager;
+class LMARPA;
+class LMFSM;
 class LMManager;
 class PhoneSet;
 
@@ -86,7 +87,7 @@ typedef vector<LeafRightContext> VLeafRightContext;
 
 typedef struct {
 	unsigned int *iLeafRightContext;
-	LeafRightContext **leafRightContext;	// one for each lexical unit (it provides an array of pairs (leaf,group of right contexts that it models)	
+	LeafRightContext **leafRightContext;	// one per lexical unit (it provides an array of pairs (leaf,group of right contexts that it models))	
 	State *stateRoot;
 } LexiconTree;
 
@@ -111,8 +112,8 @@ typedef map<Transition*,vector<unsigned char> > MLeafTransitionVRightContext;
 typedef struct _Transition {
 	unsigned int iSymbol;					// input/output symbol
 	float fWeight;								// weight 
-	State *state;								// destination state
 	unsigned int iRightContextGroup;		// right context group
+	State *state;								// destination state
 } Transition;
 
 typedef struct _Transition2 {
@@ -136,7 +137,7 @@ typedef list<LeafToProcess*> LLeafToProcess;
 struct stateHashMapFunctions
 {
 
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 	
 	// comparison function (used for matching, comparison for equality)
 	bool operator()(const State *state1, const State *state2) const {
@@ -144,7 +145,7 @@ struct stateHashMapFunctions
 		return (state1 == state2);
 	}
 
-#elif _WIN32
+#elif _MSC_VER
 
 	static const size_t bucket_size = 4;
 	static const size_t min_buckets = 8;
@@ -164,10 +165,10 @@ struct stateHashMapFunctions
 	}
 };
 
-#if defined __linux__ || defined __APPLE__
-typedef hash_map<State*,bool,stateHashMapFunctions,stateHashMapFunctions> MStateBool;
-typedef hash_map<State*,unsigned int,stateHashMapFunctions,stateHashMapFunctions> MStateSymbol;
-#elif _WIN32
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
+typedef std::tr1::unordered_map<State*,bool,stateHashMapFunctions,stateHashMapFunctions> MStateBool;
+typedef std::tr1::unordered_map<State*,unsigned int,stateHashMapFunctions,stateHashMapFunctions> MStateSymbol;
+#elif _MSC_VER
 typedef hash_map<State*,bool,stateHashMapFunctions> MStateBool;
 typedef hash_map<State*,unsigned int,stateHashMapFunctions> MStateSymbol;
 #endif
@@ -191,7 +192,11 @@ struct statePairHashMapFunctions
 };
 
 // maps a pair (State in G, left context) to the root state in L
-typedef hash_map<pair<State*, unsigned char>, State*,statePairHashMapFunctions,statePairHashMapFunctions> MGStateLRoot;
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
+typedef std::tr1::unordered_map<pair<State*, unsigned char>, State*,statePairHashMapFunctions,statePairHashMapFunctions> MGStateLRoot;
+#elif _MSC_VER
+typedef hash_map<pair<State*, unsigned char>, State*,statePairHashMapFunctions> MGStateLRoot;
+#endif
 
 typedef struct {
 	State *state;
@@ -243,9 +248,12 @@ struct stateEquivalenceHashFunctions
 	}
 };
 
-
 // map used to perform state equivalence
-typedef hash_map<State*,State*,stateEquivalenceHashFunctions,stateEquivalenceHashFunctions> MStateState;
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
+typedef std::tr1::unordered_map<State*,State*,stateEquivalenceHashFunctions,stateEquivalenceHashFunctions> MStateState;
+#elif _MSC_VER
+typedef hash_map<State*,State*,stateEquivalenceHashFunctions> MStateState;
+#endif
 
 // Dijkstra
 #define STATE_STATUS_UNSEEN				0
@@ -265,6 +273,8 @@ class WFSABuilder {
 		LMManager *m_lmManager;
 		unsigned char m_iNGram;
 		float m_fLMScalingFactor;
+		LMFSM *m_lmFSM;
+		LMARPA *m_lmARPA;
 		
 		// stats
 		int m_iLexUnitsTotal;
@@ -291,22 +301,11 @@ class WFSABuilder {
 			transition->state = state;	
 			transition->iRightContextGroup = UINT_MAX;	
 			
-			//assert(state != NULL);
-			/*if (state->iId == 81) {
-				bool bStop = 0;
-			}*/
-			
 			return transition;
 		}
 		
 		// build a word-internal context dependent decoding network or a context-independent one
-		WFSAcceptor *buildWordInternal2();
-		
-		// build a word-internal context dependent decoding network or a context-independent one
 		WFSAcceptor *buildWordInternal();
-		
-		// build a cross-word context dependent decoding network 
-		WFSAcceptor *buildCrossWord2();
 		
 		// build a cross-word context dependent decoding network 
 		WFSAcceptor *buildCrossWord();
@@ -502,13 +501,16 @@ class WFSABuilder {
 			} 
 		}
 		
-		// sort the states in G by reverse topological order of epsilon transitions: the idea is that states with epsilon transitions
-		// will be processed first so when the epsilon transitions are seen the destination state is already processed
+		// sort the states in G by reverse topological order of epsilon transitions: the idea 
+		// is that states with epsilon transitions will be processed first so when the epsilon
+		// transitions are seen the destination state is already processed
 		void sortReverseTopologicalOrderEpsilonTransitions(State *stateRootG);	
 		
-		// perform global weight pushing, which is the first step of weighted minimization, the second step is the actual minimization
-		// note: it only works for the tropical semiring, for the log-semirint there are alternative methods
-		// note: there is always only one final state which is the destination state for end-of-sentence transitions
+		// perform global weight pushing, which is the first step of weighted minimization, the
+		// second step is the actual minimization  
+		// note(1): it only works for the tropical semiring, for the log-semiring there are alternative methods
+		// note(2): there is always only one final state which is the destination state for the 
+		// end-of-sentence transitions
 		void globalWeightPushing(State *stateInitial, State *stateFinal, int iStates, 
 			float *fWeightInitial, float *fWeightFinal);
 		
@@ -516,7 +518,7 @@ class WFSABuilder {
 	public:
     
 		// contructor
-		WFSABuilder(PhoneSet *phoneSet, HMMManager *hmmManager, LexiconManager *lexiconManager, LMManager *lmManager, unsigned char iNGram, float fLMScalingFactor);
+		WFSABuilder(PhoneSet *phoneSet, HMMManager *hmmManager, LexiconManager *lexiconManager, LMManager *lmManager, float fLMScalingFactor);
 
 		// destructor
 		~WFSABuilder();

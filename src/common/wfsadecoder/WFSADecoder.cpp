@@ -75,14 +75,14 @@ void WFSADecoder::initializeViterbi() {
 
 
 // Viterbi search
-void WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) {
+void WFSADecoder::viterbi(Matrix<float> &mFeatures) {
 
 	double dTimeBegin = TimeUtils::getTimeMilliseconds();
 
 	float fScore = 0.0;
 	HMMStateDecoding *hmmStateDecoding;
 	
-	m_iFeatureVectors = iFeatureVectors;
+	m_iFeatureVectors = mFeatures.getRows();
 	
 	m_hmmManager->resetHMMEmissionProbabilityComputation();
 	
@@ -104,14 +104,10 @@ void WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 	//exit(-1);
 	
 	// process the feature vectors
-	for(unsigned int t=0 ; t < iFeatureVectors ; ++t) {
+	for(unsigned int t=0 ; t < mFeatures.getRows() ; ++t) {
 		
 		m_fScoreBest = -FLT_MAX;
-	#ifdef SIMD		
-		float *fFeatureVector = &(fFeatureVectors[t*FEATURE_VECTOR_LENGTH_ALIGNED_16]);	
-	#else
-		float *fFeatureVector = &(fFeatureVectors[t*FEATURE_VECTOR_LENGTH]);
-	#endif
+		VectorStatic<float> vFeatureVector = mFeatures.getRow(t);
 		
 		activeStatesCurrent = m_activeStateTable->getActiveStatesCurrent(&iActiveStatesCurrent);
 		
@@ -136,11 +132,7 @@ void WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 			// (1.1) self-loop (this is a simulated transition)
 			
 			// compute emission probability
-		#ifdef SIMD
-			fScore = activeState.hmmStateDecoding->computeEmissionProbabilityNearestNeighborSIMD(fFeatureVector,t);	
-		#else
-			fScore = activeState.hmmStateDecoding->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,t);
-		#endif
+			fScore = activeState.hmmStateDecoding->computeEmissionProbability(vFeatureVector.getData(),t);	
 			
 			// preventive pruning goes here
 			if (activeState.fScore+fScore < (m_fScoreBest-m_fPruningLikelihood)) {
@@ -226,11 +218,6 @@ void WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 							if ((historyItem->iWGToken+m_activeStateTable->m_wgTokens)[i].iWordSequence == -1) {
 								break;
 							}
-							bool bFlag = false;
-							if (m_activeStateTable->m_mWGTokenDeleted.find(historyItem->iWGToken+m_activeStateTable->m_wgTokens) != m_activeStateTable->m_mWGTokenDeleted.end()) {
-								//printf("%x !!\n",historyItem->iWGToken+m_activeStateTable->m_wgTokens);
-								bFlag = true;
-							}
 							assert(historyItem->iEndFrame > (m_activeStateTable->m_historyItems+ (historyItem->iWGToken+m_activeStateTable->m_wgTokens)[i].iHistoryItem)->iEndFrame);
 						}
 						// generate a new hash value for the new word sequence
@@ -238,7 +225,7 @@ void WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 					}
 					
 					if ((transition->iSymbol & LEX_UNIT_TRANSITION_COMPLEMENT) == iLexUnitEndSentence) {
-						//bool bStop = true;
+
 					}
 					
 					for(transitionAux = *(transition->state) ; transitionAux != *(transition->state+1) ; ++transitionAux) {
@@ -277,11 +264,7 @@ void WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 						
 							// compute emission probability
 							hmmStateDecoding = &m_hmmStatesDecoding[transitionAux->iSymbol];
-						#ifdef SIMD
-							fScore = hmmStateDecoding->computeEmissionProbabilityNearestNeighborSIMD(fFeatureVector,t);	
-						#else
-							fScore = hmmStateDecoding->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,t);	
-						#endif
+							fScore = hmmStateDecoding->computeEmissionProbability(vFeatureVector.getData(),t);	
 							
 							// preventive pruning
 							if (activeState.fScore+transition->fWeight+transitionAux->fWeight+fScore < (m_fScoreBest-m_fPruningLikelihood)) {
@@ -299,8 +282,6 @@ void WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 							m_activeStateTable->activateState(transitionAux->state,
 								activeState.fScore+transition->fWeight+transitionAux->fWeight+fScore,
 								&m_fScoreBest,hmmStateDecoding,iHistoryItem,iWGToken,0.0);
-								
-							//printf("new lexical unit: %f\n",activeState.fScore+transition->fWeight+transitionAux->fWeight+fScore);
 						}
 					}
 				}
@@ -309,11 +290,7 @@ void WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 				
 					// compute emission probability
 					hmmStateDecoding = &m_hmmStatesDecoding[transition->iSymbol];	
-				#ifdef SIMD	
-					fScore = hmmStateDecoding->computeEmissionProbabilityNearestNeighborSIMD(fFeatureVector,t);
-				#else
-					fScore = hmmStateDecoding->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,t);
-				#endif
+					fScore = hmmStateDecoding->computeEmissionProbability(vFeatureVector.getData(),t);
 					
 					// preventive pruning goes here
 					if (activeState.fScore+transition->fWeight+fScore < (m_fScoreBest-m_fPruningLikelihood)) {
@@ -367,9 +344,9 @@ void WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 		}
 		
 		// (3) process epsilon transitions in topological order
-		m_activeStateTable->processEpsilonTransitions(fFeatureVector,&m_fScoreBest);
+		m_activeStateTable->processEpsilonTransitions(vFeatureVector.getData(),&m_fScoreBest);
 		
-		if (t != iFeatureVectors-1) { 
+		if (t != mFeatures.getRows()-1) { 
 		
 			// (4) apply beam pruning
 			m_activeStateTable->beamPruning(&m_fScoreBest);	
@@ -388,7 +365,7 @@ void WFSADecoder::viterbi(float *fFeatureVectors, unsigned int iFeatureVectors) 
 	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;
 	
 	BVC_VERB << "decoding time: " << FLT(8,2) << dTimeSeconds << " seconds (RTF: " <<  
-		FLT(5,2) << dTimeSeconds/(((float)iFeatureVectors)/100.0) << ")";	
+		FLT(5,2) << dTimeSeconds/(((float)mFeatures.getRows())/100.0) << ")";	
 }
 
 // return the best path

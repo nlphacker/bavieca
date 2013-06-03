@@ -823,16 +823,16 @@ void HMMGraph::print(FBNodeHMM *nodeInitial) {
 		for(FBEdgeHMM *edge = nodeAux->edgeNext ; edge != NULL ; edge = edge->edgePrev) {		
 			++iEdges;
 			
-			char strLexUnitPronunciation[MAX_LEXUNIT_LENGTH+1];
+			string strLexUnitPronunciation;
 			m_lexiconManager->getStrLexUnitPronunciation(edge->lexUnit,strLexUnitPronunciation);
 			
 			if (m_hmmManagerUpdate->getPurpose() == HMM_PURPOSE_ESTIMATION) {
 				printf("%5d %5d %5d %20s %d\n",edge->nodePrev->iNode,edge->hmmStateEstimation->getId(),
-					edge->nodeNext->iNode,strLexUnitPronunciation,edge->iPosition);
+					edge->nodeNext->iNode,strLexUnitPronunciation.c_str(),edge->iPosition);
 			} else {
 				HMMStateDecoding *hmmStateDecoding = (HMMStateDecoding*)edge->hmmStateEstimation;
 				printf("%5d %5d %5d %20s %d\n",edge->nodePrev->iNode,hmmStateDecoding->getId(),
-					edge->nodeNext->iNode,strLexUnitPronunciation,edge->iPosition);
+					edge->nodeNext->iNode,strLexUnitPronunciation.c_str(),edge->iPosition);
 			}
 				
 			if (mNode.find(edge->nodeNext) == mNode.end()) {
@@ -862,7 +862,7 @@ void HMMGraph::print(FBNodeLexUnit *nodeInitial) {
 		
 		for(FBEdgeLexUnit *edge = node->edgeNext ; edge != NULL ; edge = edge->edgePrev) {		
 		
-			char strLexUnitPronunciation[MAX_LEXUNIT_LENGTH+1];
+			string strLexUnitPronunciation;
 			m_lexiconManager->getStrLexUnitPronunciation(edge->lexUnit,strLexUnitPronunciation);	
 			cout << "(" << edge->nodePrev << " -> " << edge->nodeNext << ") " << setw(20) 
 				<< strLexUnitPronunciation << " " << setw(2) << edge->lexUnit->vPhones.size() << " phones" << endl;

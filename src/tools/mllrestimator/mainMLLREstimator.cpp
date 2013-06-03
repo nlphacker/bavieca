@@ -16,6 +16,9 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
+#include <iostream>
+#include <iomanip>
 
 #include "CommandLineManager.h"
 #include "HMMManager.h"
@@ -111,9 +114,9 @@ int main(int argc, char *argv[]) {
 		double dEndFinal = TimeUtils::getTimeMilliseconds();	
 		
 		// show the processing time
-		printf("collecting data:      %6.2f seconds\n",(dEndFeed-dBegin)/1000.0);
-		printf("computing transforms: %6.2f seconds\n",(dEndComputation-dEndFeed)/1000.0);
-		printf("applying transforms:  %6.2f seconds\n",(dEndFinal-dEndComputation)/1000.0);
+		cout << "collecting data:      " << FLT(6,2) << (dEndFeed-dBegin)/1000.0 << " seconds" << endl;
+		cout << "computing transforms: " << FLT(6,2) << (dEndComputation-dEndFeed)/1000.0 << " seconds" << endl;
+		cout << "applying transforms:  " << FLT(6,2) << (dEndFinal-dEndComputation)/1000.0 << " seconds" << endl;
 		
 		// process the batch file
 		mllrManager.feedAdaptationData(strFileBatch,strAlignmentFormat,&dLikelihoodAdapted,true);
@@ -128,7 +131,7 @@ int main(int argc, char *argv[]) {
 			hmmManager.store(strFileModelsOutput);
 		}	
 
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

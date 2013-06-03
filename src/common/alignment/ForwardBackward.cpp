@@ -19,6 +19,8 @@
 
 #include "Alignment.h"
 #include "ForwardBackward.h"
+#include "Global.h"
+#include "MatrixStatic.h"
 #include "Numeric.h"
 #include "PhoneSet.h"
 #include "TimeUtils.h"
@@ -28,8 +30,6 @@ namespace Bavieca {
 // constructor
 ForwardBackward::ForwardBackward(PhoneSet *phoneSet, HMMManager *hmmManagerEstimation, HMMManager *hmmManagerUpdate, float fForwardPruningBeam, float fBackwardPruningBeam, int iTrellisMaxSize, bool bTrellisCacheEnabled, int iTrellisCacheMaxSize)
 {
-	m_iFeatureDimensionality = hmmManagerEstimation->getFeatureDimensionality();
-	m_iFeatureDimensionalityUpdate = hmmManagerUpdate->getFeatureDimensionality();
 	m_phoneSet = phoneSet;
 	m_hmmManagerEstimation = hmmManagerEstimation;
 	m_hmmManagerUpdate = hmmManagerUpdate;
@@ -64,13 +64,14 @@ ForwardBackward::~ForwardBackward()
 }
 
 // create the trellis for an utterance (this trellis will be used to perform the forward-backward algorithm)
-Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, float *fFeaturesAlignment, 
-	float *fFeaturesAccumulation, int iFeatures, double *dUtteranceLikelihood, const char **strReturnCode) {
+Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, MatrixBase<float> &mFeaturesAlignment, 
+	MatrixBase<float> &mFeaturesAccumulation, double *dUtteranceLikelihood, const char **strReturnCode) {
 
 	double dBegin = TimeUtils::getTimeMilliseconds();
 	
-	assert(fFeaturesAlignment == fFeaturesAccumulation);
+	assert(&mFeaturesAlignment == &mFeaturesAccumulation);
 	
+	unsigned int iFeatures = mFeaturesAlignment.getRows();
 	bool bSingleGaussian = m_hmmManagerEstimation->isSingleGaussian();
 	bool bAccumulatorsLogical = m_hmmManagerEstimation->areAccumulatorsLogical();
 	bool bTrellisNotCached = false;
@@ -178,7 +179,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	// reset the emission probability computation (to avoid using cached computations that are outdated)	
 	m_hmmManagerEstimation->resetHMMEmissionProbabilityComputation(vHMMStateCompositeEstimation);
 	
-	int iHMMStates = (int)vHMMStateCompositeEstimation.size();
+	unsigned int iHMMStates = vHMMStateCompositeEstimation.size();
 	
 	// there can't be fewer feature vectors than HMM-states in the composite
 	if (iFeatures < iHMMStates) {
@@ -187,7 +188,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	}
 
 	// trellis size: # elements
-	int iTrellisSize = iFeatures*iHMMStates;
+	unsigned int iTrellisSize = iFeatures*iHMMStates;
 	
 	// check if the memory to be allocated does not exceed the maximum allowed
 	int iTrellisSizeBytes = iHMMStates*iFeatures*sizeof(NodeTrellis);
@@ -198,7 +199,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	
 	// allocate memory for the trellis (if enabled, try to reuse a cached trellis first)
 	NodeTrellis *nodeTrellis = NULL;
-	if ((m_bTrellisCacheEnabled == false) || (m_nodeTrellisCache == NULL) || (m_iTrellisCacheSize < (iHMMStates*iFeatures))) {
+	if ((m_bTrellisCacheEnabled == false) || (m_nodeTrellisCache == NULL) || (m_iTrellisCacheSize < (int)(iHMMStates*iFeatures))) {
 		// try to allocate memory for the trellis
 		try {
 			nodeTrellis = new NodeTrellis[iHMMStates*iFeatures];
@@ -224,7 +225,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 		nodeTrellis = m_nodeTrellisCache;
 	} 
 	// initialization
-	for(int i=0 ; i < iTrellisSize ; ++i) {
+	for(unsigned int i=0 ; i < iTrellisSize ; ++i) {
 		nodeTrellis[i].dForward = -DBL_MAX;
 		nodeTrellis[i].dBackward = -DBL_MAX;
 		nodeTrellis[i].fScore = -FLT_MAX;
@@ -237,7 +238,7 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	double dTimeSeconds = 0.0;
 
 	// compute forward-backward scores
-	computeFBTrellis(nodeTrellis,vHMMStateCompositeEstimation,iHMMStates,fFeaturesAlignment,iFeatures,fBackwardThreshold);
+	computeFBTrellis(nodeTrellis,vHMMStateCompositeEstimation,iHMMStates,mFeaturesAlignment,fBackwardThreshold);
 	//printTrellis(nodeTrellis,iRows,iColumns);
 		
 	double dEnd = TimeUtils::getTimeMilliseconds();
@@ -261,20 +262,21 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	Accumulator *accumulator = NULL;
 	if (bSingleGaussian) {	
 		bool bStateData = false;
-		for(int i = 0 ; i < iHMMStates ; ++i) {
+		for(unsigned int i = 0 ; i < iHMMStates ; ++i) {
 			if (bAccumulatorsLogical) {
 				accumulator = vAccumulatorComposite[i].front();	
 			} else {
 				accumulator = vAccumulatorComposite[i].front();
 			}
 			// for each time frame
-			for(int t = 0 ; t < iFeatures ; ++t) {
+			for(unsigned int t = 0 ; t < iFeatures ; ++t) {
 				// only if there is a significant occupation probability
 				if ((nodeTrellis[t*iHMMStates+i].dForward != -DBL_MAX) && (nodeTrellis[t*iHMMStates+i].dBackward != -DBL_MAX)) {
 					double dProbabilityOccupation = nodeTrellis[t*iHMMStates+i].dForward + nodeTrellis[t*iHMMStates+i].dBackward - dProbabilityUtterance;
 					bStateData = true;
 					double dOccupation = exp(dProbabilityOccupation);
-					accumulator->accumulateObservation(&fFeaturesAccumulation[t*m_iFeatureDimensionalityUpdate],dOccupation);
+					VectorStatic<float> vFeatureVector = mFeaturesAccumulation.getRow(t);
+					accumulator->accumulateObservation(vFeatureVector,dOccupation);
 					dOccupationTotal += dOccupation;
 				}
 			}
@@ -286,11 +288,11 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 	
 		bool bStateData = false;
 		// for each HMM-state
-		for(int i = 0 ; i < iHMMStates ; ++i) {
+		for(unsigned int i = 0 ; i < iHMMStates ; ++i) {
 			// for each gaussian in the mixture
 			for(unsigned int g = 0 ; g < vHMMStateCompositeUpdate[i]->getMixture().getNumberComponents() ; ++g) {	
 				// for each time frame
-				for(int t = 0 ; t < iFeatures ; ++t) {
+				for(unsigned int t = 0 ; t < iFeatures ; ++t) {
 					// only if there is a significant occupation probability
 					if ((nodeTrellis[t*iHMMStates+i].dForward != -DBL_MAX) && (nodeTrellis[t*iHMMStates+i].dBackward != -DBL_MAX)) {
 						// compute the occupation probability
@@ -319,12 +321,13 @@ Alignment *ForwardBackward::processUtterance(VLexUnit &vLexUnitTranscription, fl
 						}
 						dProbabilityOccupation += dU + log(vHMMStateCompositeEstimation[i]->getMixture()(g)->weight());
 						// compute the gaussian score
-						dProbabilityOccupation += vHMMStateCompositeEstimation[i]->computeEmissionProbabilityGaussian(g,&(fFeaturesAlignment[t*m_iFeatureDimensionality]),t);
+						dProbabilityOccupation += vHMMStateCompositeEstimation[i]->computeEmissionProbabilityGaussian(g,mFeaturesAlignment.getRow(t).getData(),t);
 						
 						bStateData = true;
 						double dOccupation = exp(dProbabilityOccupation);
 						assert(finite(dOccupation));	
-						vAccumulatorComposite[i][g]->accumulateObservation(&fFeaturesAccumulation[t*m_iFeatureDimensionalityUpdate],dOccupation);
+						VectorStatic<float> vFeatureVector = mFeaturesAccumulation.getRow(t);	
+						vAccumulatorComposite[i][g]->accumulateObservation(vFeatureVector,dOccupation);
 						dOccupationTotal += dOccupation;
 					}
 				}
@@ -403,7 +406,7 @@ void ForwardBackward::printTrellis(NodeTrellis *node, int iRows, int iColumns) {
 
 // aligns a lattice against the given feature vectors using Posterior Probabilities as the edge occupation
 // probability (discriminative training)
-MOccupation *ForwardBackward::processLattice(HypothesisLattice *lattice, float *fFeatures, int iFeatures, 
+MOccupation *ForwardBackward::processLattice(HypothesisLattice *lattice, MatrixBase<float> &mFeatures, 
 	float fScaleAM, float fScaleLM, double &dLikelihood, bool bMMI, float fBoostingFactor, const char **strReturnCode) {
 	
 	double dTimeBegin = TimeUtils::getTimeMilliseconds();	
@@ -462,7 +465,7 @@ MOccupation *ForwardBackward::processLattice(HypothesisLattice *lattice, float *
 		
 			int iFeaturesPhone = phoneAlignment->iStateEnd[NUMBER_HMM_STATES-1]-phoneAlignment->iStateBegin[0]+1;
 			int iFeaturesOffset = phoneAlignment->iStateBegin[0];
-			float *fFeaturesPhone = fFeatures+(iFeaturesOffset*m_iFeatureDimensionality);
+			MatrixStatic<float> mFeaturesPhone(mFeatures.getRowData(iFeaturesOffset),iFeaturesPhone,mFeatures.getCols());
 			
 			VHMMState vHMMStateComposite;
 			int iHMMStates = NUMBER_HMM_STATES;
@@ -478,7 +481,7 @@ MOccupation *ForwardBackward::processLattice(HypothesisLattice *lattice, float *
 			NodeTrellis *nodeTrellis = newTrellis(iHMMStates,iFeaturesPhone);
 			
 			computeFBTrellis(nodeTrellis,vHMMStateComposite,iHMMStates,
-				fFeaturesPhone,iFeaturesPhone,fBackwardThreshold,iFeaturesOffset);
+				mFeaturesPhone,fBackwardThreshold,iFeaturesOffset);
 				
 			// (2.1) sanity checks
 			//double d1 = nodeTrellis[iHMMStates*iFeaturesPhone-1].dForward;
@@ -570,45 +573,47 @@ MOccupation *ForwardBackward::processLattice(HypothesisLattice *lattice, float *
 	//printf("%12d %12.6f\n",iFeatures,dOccupationTotalAll);
 	
 	//printf("# features: %d\n",iFeatures);
-	printf("processing time: %.2f seconds (RTF: %6.2f)\n",dTimeSeconds,dTimeSeconds/(((double)iFeatures)/100.0));
+	printf("processing time: %.2f seconds (RTF: %6.2f)\n",dTimeSeconds,dTimeSeconds/(((double)mFeatures.getRows())/100.0));
 
 	return mOccupation;
 }
 
 
 // given a trellis estimates forward-backward scores
-void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMMStateComposite, int iHMMStates, 
-	float *fFeatureVectors, int iFeatureVectors, float fBackwardThreshold, int iOffset) {
+void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMMStateComposite, unsigned int iHMMStates, 
+	MatrixBase<float> &mFeatures, float fBackwardThreshold, int iOffset) {
+	
+	unsigned int iFeatureVectors = mFeatures.getRows();
 
-	// (3.1) backward probabilities
+	// (1) backward probabilities
 	NodeTrellis *node;
 	NodeTrellis *nodeSuccessor1;
 	NodeTrellis *nodeSuccessor2;	
-	float *fFeatureVector = NULL;
-	double dScoreFrameBest = -DBL_MAX;
+	double dScoreFrameBest = -DBL_MAX;	
 	// t = T
+	VectorStatic<float> vFeatureVector = mFeatures.getRow(mFeatures.getRows()-1);
 	nodeTrellis[(iFeatureVectors*iHMMStates)-1].dBackward = 0.0;
 	nodeTrellis[(iFeatureVectors*iHMMStates)-1].fScore = computeLikelihood(vHMMStateComposite[iHMMStates-1],
-		&(fFeatureVectors[(iFeatureVectors-1)*m_iFeatureDimensionality]),iFeatureVectors-1+iOffset);
+		vFeatureVector,iFeatureVectors-1+iOffset);
 	
 	// t < T
-	for(int t = iFeatureVectors-1 ; t > 0 ; --t) {
+	for(unsigned int t = iFeatureVectors-1 ; t > 0 ; --t) {
 		dScoreFrameBest = -DBL_MAX;	// keep the best frame-level score, paths with a score outside the beam will be pruned-off
-		fFeatureVector = fFeatureVectors+(t*m_iFeatureDimensionality);
+		VectorStatic<float> vFeatureVector = mFeatures.getRow(t);
 		// only one successor
 		node = &nodeTrellis[(t*iHMMStates)-1];
 		nodeSuccessor1 = &nodeTrellis[((t+1)*iHMMStates)-1];
 		if ((t > (iHMMStates-1)) && (nodeSuccessor1->dBackward != -DBL_MAX)) {	
-			nodeSuccessor1->fScore = computeLikelihood(vHMMStateComposite[iHMMStates-1],fFeatureVector,t+iOffset);		
+			nodeSuccessor1->fScore = computeLikelihood(vHMMStateComposite[iHMMStates-1],vFeatureVector,t+iOffset);		
 			node->dBackward = nodeSuccessor1->dBackward + nodeSuccessor1->fScore;
 			// keep the best frame-level score
 			if (node->dBackward > dScoreFrameBest) {
 				dScoreFrameBest = node->dBackward;
 			}
 		}		
-		int iRoof = min(iHMMStates-1,t);
-		int iFloor = max(0,(iHMMStates-1)-(iFeatureVectors)+t);
-		for(int i = iFloor ; i < iRoof ; ++i) {
+		unsigned int iRoof = std::min(iHMMStates-1,t);
+		unsigned int iFloor = std::max(0,(int)((iHMMStates-1)-(iFeatureVectors)+t));
+		for(unsigned int i = iFloor ; i < iRoof ; ++i) {
 			node = &nodeTrellis[((t-1)*iHMMStates)+i];
 			nodeSuccessor1 = &nodeTrellis[(t*iHMMStates)+i];
 			nodeSuccessor2 = &nodeTrellis[(t*iHMMStates)+(i+1)];
@@ -617,7 +622,7 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 				if (nodeSuccessor2->dBackward == -DBL_MAX) {
 					node->dBackward = -DBL_MAX;
 				} else {	
-					nodeSuccessor2->fScore = computeLikelihood(vHMMStateComposite[i+1],fFeatureVector,t+iOffset);
+					nodeSuccessor2->fScore = computeLikelihood(vHMMStateComposite[i+1],vFeatureVector,t+iOffset);
 					node->dBackward = nodeSuccessor2->dBackward + nodeSuccessor2->fScore;
 					// keep the best frame-level score
 					if (node->dBackward > dScoreFrameBest) {
@@ -626,15 +631,15 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 				}
 			} else {
 				if (nodeSuccessor2->dBackward == -DBL_MAX) {
-					nodeSuccessor1->fScore = computeLikelihood(vHMMStateComposite[i],fFeatureVector,t+iOffset);
+					nodeSuccessor1->fScore = computeLikelihood(vHMMStateComposite[i],vFeatureVector,t+iOffset);
 					node->dBackward = nodeTrellis[(t*iHMMStates)+i].dBackward + nodeSuccessor1->fScore;
 					// keep the best frame-level score
 					if (node->dBackward > dScoreFrameBest) {
 						dScoreFrameBest = node->dBackward;
 					} 
 				} else {
-					nodeSuccessor1->fScore = computeLikelihood(vHMMStateComposite[i],fFeatureVector,t+iOffset);
-					nodeSuccessor2->fScore = computeLikelihood(vHMMStateComposite[i+1],fFeatureVector,t+iOffset);
+					nodeSuccessor1->fScore = computeLikelihood(vHMMStateComposite[i],vFeatureVector,t+iOffset);
+					nodeSuccessor2->fScore = computeLikelihood(vHMMStateComposite[i+1],vFeatureVector,t+iOffset);
 					node->dBackward = Numeric::logAddition(nodeSuccessor2->dBackward+nodeSuccessor2->fScore,
 						nodeSuccessor1->dBackward+nodeSuccessor1->fScore);
 					// keep the best frame-level score
@@ -651,7 +656,7 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 					nodeTrellis[(t*iHMMStates)-1].dBackward = -DBL_MAX;
 				}
 			}
-			for(int i = 0 ; i < iHMMStates-1 ; ++i) {
+			for(unsigned int i = 0 ; i < iHMMStates-1 ; ++i) {
 				// avoid unnecessary computations
 				if ((i >= t) || (((iFeatureVectors-1)-t) < ((iHMMStates-1)-i)-1)) {
 					continue;
@@ -664,24 +669,25 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 	}
 	
 	// compute the one score that is left to compute (the backward process does not imply the computation of this score)
-	nodeTrellis[0].fScore = computeLikelihood(vHMMStateComposite[0],fFeatureVectors,0+iOffset);	
+	VectorStatic<float> vFeatureVectorFirst = mFeatures.getRow(0);
+	nodeTrellis[0].fScore = computeLikelihood(vHMMStateComposite[0],vFeatureVectorFirst,0+iOffset);	
 	
 	// forward threshold	
 	double dProbabilityUtterance = nodeTrellis[0].dBackward + nodeTrellis[0].fScore;
 	double dForwardThreshold = dProbabilityUtterance + m_fForwardPruningBeam;
 	
-	// (3.2) forward probabilities
+	// (2) forward probabilities
 	NodeTrellis *nodePredecessor1;
 	NodeTrellis *nodePredecessor2;
 	// t = 0
 	assert(nodeTrellis[0].fScore != -FLT_MAX);
 	nodeTrellis[0].dForward = nodeTrellis[0].fScore;	
 	// t > 0
-	for(int t = 1 ; t < iFeatureVectors ; ++t) {
+	for(unsigned int t = 1 ; t < iFeatureVectors ; ++t) {
 		node = &nodeTrellis[t*iHMMStates];
 		nodePredecessor2 = &nodeTrellis[((t-1)*iHMMStates)];	
 		// only one predecessor
-		if (((iFeatureVectors-1)-t)+1 > (iHMMStates-1)) {
+		if ((iFeatureVectors-t) > (iHMMStates-1)) {
 			if (node->dBackward == -DBL_MAX) {
 				node->dForward = -DBL_MAX;
 			} else {
@@ -693,7 +699,7 @@ void ForwardBackward::computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMM
 			}
 		}
 		// two possible predecessors
-		for(int i = 1 ; i < iHMMStates ; ++i) {
+		for(unsigned int i = 1 ; i < iHMMStates ; ++i) {
 			node = &nodeTrellis[(t*iHMMStates)+i];
 			nodePredecessor1 = &nodeTrellis[((t-1)*iHMMStates)+(i-1)];
 			nodePredecessor2 = &nodeTrellis[((t-1)*iHMMStates)+i];
@@ -789,7 +795,7 @@ void ForwardBackward::deleteTrellis(NodeTrellis *nodeTrellis) {
 }
 
 // forward-backward alignment preserving phone-boundaries
-Alignment *ForwardBackward::processPhoneAlignment(float *fFeatures, int iFeatures, 
+Alignment *ForwardBackward::processPhoneAlignment(MatrixBase<float> &mFeatures, 
 	VLPhoneAlignment *vLPhoneAlignment, double &dLikelihood, const char **strReturnCode) {
 
 	double dTimeBegin = TimeUtils::getTimeMilliseconds();	
@@ -811,7 +817,7 @@ Alignment *ForwardBackward::processPhoneAlignment(float *fFeatures, int iFeature
 		
 		int iFeaturesPhone = phoneAlignment->iStateEnd[NUMBER_HMM_STATES-1]-phoneAlignment->iStateBegin[0]+1;
 		int iFeaturesOffset = phoneAlignment->iStateBegin[0];
-		float *fFeaturesPhone = fFeatures+(iFeaturesOffset*m_iFeatureDimensionality);	
+		MatrixStatic<float> mFeaturesPhone(mFeatures.getRowData(iFeaturesOffset),iFeaturesPhone,mFeatures.getCols());		
 		
 		VHMMState vHMMStateComposite;
 		int iHMMStates = NUMBER_HMM_STATES;
@@ -827,7 +833,7 @@ Alignment *ForwardBackward::processPhoneAlignment(float *fFeatures, int iFeature
 		NodeTrellis *nodeTrellis = newTrellis(iHMMStates,iFeaturesPhone);
 		
 		computeFBTrellis(nodeTrellis,vHMMStateComposite,iHMMStates,
-			fFeaturesPhone,iFeaturesPhone,fBackwardThreshold,iFeaturesOffset);
+			mFeaturesPhone,fBackwardThreshold,iFeaturesOffset);
 			
 		// (2.1) sanity checks
 		//double d1 = nodeTrellis[iHMMStates*iFeaturesPhone-1].dForward;
@@ -865,7 +871,8 @@ Alignment *ForwardBackward::processPhoneAlignment(float *fFeatures, int iFeature
 	
 	*strReturnCode = FB_RETURN_CODE_SUCCESS;
 	
-	printf("processing time: %.2f seconds (RTF: %6.2f)\n",dTimeSeconds,dTimeSeconds/(((double)iFeatures)/100.0));
+	BVC_VERB << "processing time: " << FLT(6,2) << dTimeSeconds << " seconds (RTF:"
+		<< FLT(6,2) << dTimeSeconds/(((double)mFeatures.getRows())/100.0) << ")";
 
 	return alignment;
 }
@@ -900,7 +907,7 @@ Alignment *ForwardBackward::getAlignment(MOccupation *mOccupation, int iFrames) 
 }
 
 // compute observation prob
-float ForwardBackward::computeLikelihood(HMMState *hmmState, float *fFeatures, int iT) {
+float ForwardBackward::computeLikelihood(HMMState *hmmState, VectorBase<float> &vFeatureVector, int iT) {
 
 	// use cache?
 	if (m_mLikelihoodCache != NULL) {
@@ -908,7 +915,7 @@ float ForwardBackward::computeLikelihood(HMMState *hmmState, float *fFeatures, i
 		pair<int,int> timeState(iT,hmmState->getId());
 		MLikelihood::iterator it = m_mLikelihoodCache->find(timeState);
 		if (it == m_mLikelihoodCache->end()) {
-			float fLikelihood = hmmState->computeEmissionProbability(fFeatures,-1);
+			float fLikelihood = hmmState->computeEmissionProbability(vFeatureVector.getData(),-1);
 			m_mLikelihoodCache->insert(MLikelihood::value_type(timeState,fLikelihood));
 			return fLikelihood;
 		} else {
@@ -917,7 +924,7 @@ float ForwardBackward::computeLikelihood(HMMState *hmmState, float *fFeatures, i
 	}
 	// cache disabled: 
 	else {
-		return hmmState->computeEmissionProbability(fFeatures,-1);
+		return hmmState->computeEmissionProbability(vFeatureVector.getData(),-1);
 	}
 }
 

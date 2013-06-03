@@ -27,7 +27,7 @@ GMMEditor::GMMEditor(HMMManager *hmmManager, MAccumulatorPhysical *mAccumulatorP
 {
 	m_hmmManager = hmmManager;
 	m_mAccumulatorPhysical = mAccumulatorPhysical;
-	m_iDim = hmmManager->getFeatureDimensionality();
+	m_iDim = hmmManager->getFeatureDim();
 	m_iCovarianceModeling = hmmManager->getCovarianceModelling();
 	m_iCovarianceElements = HMMManager::getCovarianceElements(m_iDim,m_iCovarianceModeling);
 	m_iHMMStates = -1;

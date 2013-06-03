@@ -99,7 +99,7 @@ class SADModule {
 		void endSession();
 		
 		// proces the given features
-		void processFeatures(float *fFeatures, int iFeatures);
+		void processFeatures(MatrixBase<float> &mFeatures);
 		
 		// recover speech segments by doing back-tracking on the grid
 		void recoverSpeechSegments(VSpeechSegment &vSpeechSegment);	

@@ -21,7 +21,6 @@
 #define LOGMESSAGE_H
 
 #include "Global.h"
-#include "ExceptionBase.h"
 
 #include <iostream>
 
@@ -31,7 +30,7 @@ using namespace std;
 
 namespace Bavieca {
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define __func__ __FUNCTION__
 #endif
 

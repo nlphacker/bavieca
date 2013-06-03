@@ -26,6 +26,7 @@
 #include "MatrixBase.h"
 #include "SMatrix.h"
 #include "TMatrix.h"
+#include "LogMessage.h"
 
 namespace Bavieca {
 
@@ -42,15 +43,30 @@ class Matrix : public MatrixBase<Real> {
 		
 			assert(this->m_iCols > 0);
 			assert(this->m_iRows > 0);
+		#if defined __AVX__ || defined __SSE__
+			// round up the dimensionality to the nearest multiple	
+			unsigned int iReminder = this->m_iCols%(ALIGN_BOUNDARY/sizeof(Real));
+			this->m_iStride = (iReminder == 0) ? this->m_iCols : this->m_iCols + (ALIGN_BOUNDARY/sizeof(Real))-iReminder;
+			assert(this->m_iStride % (ALIGN_BOUNDARY/sizeof(Real)) == 0);
+			if (posix_memalign((void**)&this->m_rData,ALIGN_BOUNDARY,this->getSize()*sizeof(Real))) {
+				BVC_ERROR << "memory allocation error, unable to allocate aligned memory using posix_memalign";
+			}
+		#else	
 			this->m_iStride = this->m_iCols;
-			this->m_rData = new Real[this->m_iStride*this->m_iRows];
+			this->m_rData = new Real[this->getSize()];
+		#endif
 		}
 		
 		// deallocate memory
 		void deallocate() {
 		
 			assert(this->m_rData);
+		#if defined __AVX__ || defined __SSE__
+			free(this->m_rData);
+		#else
 			delete [] this->m_rData;
+		#endif
+			this->m_rData = NULL;
 		}
 
 	public:
@@ -60,36 +76,36 @@ class Matrix : public MatrixBase<Real> {
 		}
 		
 		// constructor for square matrices
-		Matrix(int iDim) : MatrixBase<Real>(iDim,iDim) {
+		Matrix(unsigned int iDim) : MatrixBase<Real>(iDim,iDim) {
 			allocate();
 			this->zero();
 		}
 		
 		// constructor
-		Matrix(int iRows, int iCols) : MatrixBase<Real>(iRows,iCols) {
+		Matrix(unsigned int iRows, unsigned int iCols) : MatrixBase<Real>(iRows,iCols) {
 			allocate();
 			this->zero();
 		}
 		
 		// constructor from another matrix
-		Matrix(Matrix<Real> &m) : MatrixBase<Real>(m.getRows(),m.getCols()) {		
+		Matrix(Matrix<Real> &m) : MatrixBase<Real>(m.getRows(),m.getCols()) {
 			allocate();
-			memcpy(this->m_rData,m.getData(),this->getRows()*this->getStride()*sizeof(Real));
+			memcpy(this->m_rData,m.getData(),this->getSize()*sizeof(Real));
 		}		
 		
 		// constructor from another matrix
 		template<typename Real2>
 		Matrix(Matrix<Real2> &m) : MatrixBase<Real>(m.getRows(),m.getCols()) {		
-			allocate();
-			for(int i=0 ; i < m.getElements() ; ++i) {
-				this->m_rData[i] = (Real)m.getData()[i];
+			allocate(); 
+			for(unsigned int i=0 ; i < m.getSize() ; ++i) {
+				this->m_rData[i] = (Real2)m.getData()[i];
 			}
-		}		
+		}
 		
 		// constructor from another matrix
 		Matrix(MatrixBase<Real> &m) : MatrixBase<Real>(m.getRows(),m.getCols()) {
 			allocate();
-			memcpy(this->m_rData,m.getData(),this->getRows()*this->getCols()*sizeof(Real));
+			memcpy(this->m_rData,m.getData(),this->getSize()*sizeof(Real));
 		}		
 		
 		// constructor from a symmetric matrix
@@ -97,8 +113,8 @@ class Matrix : public MatrixBase<Real> {
 		
 			allocate();
 			
-			for(int i=0 ; i < MatrixBase<Real>::m_iRows ; i++) {
-				for(int j=0 ; j < i ; j++) {
+			for(unsigned int i=0 ; i < MatrixBase<Real>::m_iRows ; i++) {
+				for(unsigned int j=0 ; j < i ; j++) {
 					(*this)(i,j) = (*this)(j,i) = sm(i,j);
      			}
 				(*this)(i,i) = sm(i,i);
@@ -110,8 +126,8 @@ class Matrix : public MatrixBase<Real> {
 		
 			allocate();
 			
-			for(int i=0 ; i < MatrixBase<Real>::m_iRows ; i++) {
-				for(int j=0 ; j < i ; j++) {
+			for(unsigned int i=0 ; i < MatrixBase<Real>::m_iRows ; i++) {
+				for(unsigned int j=0 ; j < i ; j++) {
 					(*this)(i,j) = (*this)(j,i) = tm(i,j);
      			}
 				(*this)(i,i) = tm(i,i);
@@ -127,7 +143,7 @@ class Matrix : public MatrixBase<Real> {
 		}
 		
 		// resize the matrix
-		void resize(int iRows, int iCols) {
+		void resize(unsigned int iRows, unsigned int iCols) {
 			
 			assert((iRows > 0) && (iCols > 0));
 		
@@ -145,8 +161,19 @@ class Matrix : public MatrixBase<Real> {
 			this->zero();
 		}
 		
+		// swap the contents of two matrices
+		void swap(Matrix<Real> &m) {
+		
+			assert((this->m_iRows == m.getRows()) && (this->m_iCols == m.getCols()));
+			std::swap(this->m_rData,m.m_rData);
+		}
+		
 		// read the matrix
 		static Matrix<Real> *read(istream &is);
+		
+		// read the matrix data
+		void readData(istream &is);
+		
 };
 
 };	// end-of-namespace

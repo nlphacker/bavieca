@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "CommandLineManager.h"
 #include "ContextModeling.h"
@@ -100,7 +101,7 @@ int main(int argc, char *argv[]) {
 		//printf("ww: %d cw: %d\n",iContextModelingOrderWW,iContextModelingOrderCW);
 		
 		// do the clustering
-		ContextModeling contextModeling(hmmManager.getFeatureDimensionality(),
+		ContextModeling contextModeling(hmmManager.getFeatureDim(),
 			COVARIANCE_MODELLING_TYPE_DIAGONAL,
 			&phoneSet,iContextModelingOrderWW,iContextModelingOrderCW,strFilePhoneticRules,bGlobalClustering,
 			bBottomUpMerging,fMinimumClusterOccupation,fMinimumLikelihoodGain);
@@ -120,7 +121,7 @@ int main(int argc, char *argv[]) {
 		// clean-up
 		Accumulator::destroy(mAccumulatorLogical);
 	
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

@@ -20,6 +20,7 @@
 #include "MatrixBase.h"
 #include "IOBase.h"
 #include "Matrix.h"
+#include "VectorStatic.h"
 
 #include <stdlib.h>
 
@@ -27,18 +28,18 @@ namespace Bavieca {
 
 // copy a vector to a given row
 template<typename Real>
-void MatrixBase<Real>::copyRow(VectorBase<Real> &v, int iRow) {
+void MatrixBase<Real>::copyRow(VectorBase<Real> &v, unsigned int iRow) {
 
 	assert(m_iCols == v.getDim());
-	memcpy(m_rData+iRow*m_iCols,v.getData(),m_iCols*sizeof(Real));
+	memcpy(m_rData+iRow*m_iStride,v.getData(),v.getDim()*sizeof(Real));
 }
 
 // copy a vector to a given column
 template<typename Real>
-void MatrixBase<Real>::copyCol(VectorBase<Real> &v, int iCol) {
+void MatrixBase<Real>::copyCol(VectorBase<Real> &v, unsigned int iCol) {
 
 	assert(m_iRows == v.getDim());
-	for(int i=0; i < m_iRows ; ++i) {
+	for(unsigned int i=0; i < m_iRows ; ++i) {
 		(*this)(i,iCol) = v(i);
 	}
 }
@@ -48,8 +49,8 @@ template<typename Real>
 void MatrixBase<Real>::copyRows(VectorBase<Real> &v) {
 
 	assert(m_iCols == v.getDim());
-	for(int i=0; i < m_iRows ; ++i) {
-		memcpy(m_rData+i*m_iCols,v.getData(),m_iCols*sizeof(Real));
+	for(unsigned int i=0; i < m_iRows ; ++i) {
+		memcpy(m_rData+i*m_iStride,v.getData(),m_iStride*sizeof(Real));
 	}
 }
 
@@ -58,8 +59,8 @@ template<typename Real>
 void MatrixBase<Real>::copyCols(VectorBase<Real> &v) {
 
 	assert(m_iRows == v.getDim());
-	for(int j=0; j < m_iRows ; ++j) {
-		for(int i=0; i < m_iCols ; ++i) {
+	for(unsigned int j=0; j < m_iRows ; ++j) {
+		for(unsigned int i=0; i < m_iCols ; ++i) {
 			(*this)(j,i) = v(j);
 		}
 	}
@@ -67,32 +68,24 @@ void MatrixBase<Real>::copyCols(VectorBase<Real> &v) {
 
 // return a matrix row
 template<typename Real>
-VectorStatic<Real> MatrixBase<Real>::getRow(int iRow) {
+Real *MatrixBase<Real>::getRowData(unsigned int iRow) {
 
-	return VectorStatic<Real>(m_rData+iRow*m_iCols,m_iCols);
-}
-
-// return a matrix row
-template<typename Real>
-Real *MatrixBase<Real>::getRowData(int iRow) {
-
-	return m_rData+iRow*m_iCols;
+	return m_rData+iRow*m_iStride;
 }
 
 // return a submatrix of the given matrix
 template<typename Real>
-MatrixStatic<Real> MatrixBase<Real>::getSubMatrix(int iRowStart, int iRows, int iColStart, int iCols) const {
+MatrixStatic<Real> MatrixBase<Real>::getSubMatrix(unsigned int iRowStart, unsigned int iRows, unsigned int iColStart, unsigned int iCols) const {
 
 	return MatrixStatic<Real>(*this,iRowStart,iRows,iColStart,iCols);
 }
 
 // set to zero
-// needs to be done row by row because of the stride
 template<typename Real>
 void MatrixBase<Real>::zero() {
 
-	for(int i=0; i < m_iRows; ++i) {
-		for(int j=0; j < m_iCols ; ++j) {
+	for(unsigned int i=0; i < m_iRows; ++i) {
+		for(unsigned int j=0; j < m_iCols ; ++j) {
 			m_rData[i*m_iStride+j] = 0.0;
 		}
 	}
@@ -102,8 +95,8 @@ void MatrixBase<Real>::zero() {
 template<typename Real>
 bool MatrixBase<Real>::isZero(Real rEpsilon = 0.00001) {
 
-	for(int i=0; i < m_iRows; ++i) {
-		for(int j=0; j < m_iCols ; ++j) {
+	for(unsigned int i=0; i < m_iRows; ++i) {
+		for(unsigned int j=0; j < m_iCols ; ++j) {
 			if (fabs(m_rData[i*m_iStride+j]) > rEpsilon) {
 				return false;
 			}
@@ -117,8 +110,8 @@ bool MatrixBase<Real>::isZero(Real rEpsilon = 0.00001) {
 template<typename Real>
 bool MatrixBase<Real>::equal(MatrixBase<Real> &m, Real rEpsilon) {
 
-	for(int i=0; i < m_iRows; ++i) {
-		for(int j=0; j < m_iCols ; ++j) {
+	for(unsigned int i=0; i < m_iRows; ++i) {
+		for(unsigned int j=0; j < m_iCols ; ++j) {
 			if (fabs((*this)(i,j)-m(i,j)) > rEpsilon) {
 				return false;
 			}
@@ -134,8 +127,8 @@ void MatrixBase<Real>::add(Real r, MatrixBase<Real> &matrix) {
 
 	assert(m_iRows == matrix.getRows());
 	assert(m_iCols == matrix.getCols());
-	for(int i=0; i < m_iRows ; ++i) {
-		for(int j=0; j < m_iCols ; ++j) {
+	for(unsigned int i=0; i < m_iRows ; ++i) {
+		for(unsigned int j=0; j < m_iCols ; ++j) {
 			(*this)(i,j) += r*matrix(i,j);
 		}
 	}
@@ -148,8 +141,8 @@ void MatrixBase<Real>::addVecMul(Real r, VectorBase<Real> &v1, VectorBase<Real> 
 	assert(isSquare());	
 	assert(m_iRows == v1.getDim());
 	assert(m_iRows == v2.getDim());	
-	for(int i=0; i < m_iRows ; ++i) {
-		for(int j=0; j < m_iCols ; ++j) {
+	for(unsigned int i=0; i < m_iRows ; ++i) {
+		for(unsigned int j=0; j < m_iCols ; ++j) {
 			(*this)(i,j) += r*v1(i)*v2(j);
 		}
 	}
@@ -160,8 +153,8 @@ void MatrixBase<Real>::addVecMul(Real r, VectorBase<Real> &v1, VectorBase<Real> 
 template<typename Real>
 void MatrixBase<Real>::mul(Real r) {
 
-	for(int i=0; i < m_iRows ; ++i) {
-		for(int j=0; j < m_iCols ; ++j) {
+	for(unsigned int i=0; i < m_iRows ; ++i) {
+		for(unsigned int j=0; j < m_iCols ; ++j) {
 			(*this)(i,j) *= r;
 		}
 	}
@@ -172,8 +165,8 @@ template<typename Real>
 void MatrixBase<Real>::mulRows(VectorBase<Real> &v) {
 
 	assert(v.getDim() == m_iCols);
-	for(int i=0 ; i < m_iRows ; ++i) {
-		for(int j=0 ; j < m_iCols ; ++j) {
+	for(unsigned int i=0 ; i < m_iRows ; ++i) {
+		for(unsigned int j=0 ; j < m_iCols ; ++j) {
 			(*this)(i,j) *= v(j);
 		}	
 	}
@@ -184,8 +177,8 @@ template<typename Real>
 void MatrixBase<Real>::mulCols(VectorBase<Real> &v) {
 
 	assert(v.getDim() == m_iCols);
-	for(int i=0 ; i < m_iRows ; ++i) {
-		for(int j=0 ; j < m_iCols ; ++j) {
+	for(unsigned int i=0 ; i < m_iRows ; ++i) {
+		for(unsigned int j=0 ; j < m_iCols ; ++j) {
 			(*this)(i,j) *= v(i);
 		}	
 	}
@@ -253,8 +246,8 @@ void MatrixBase<Real>::addMul(MatrixBase<Real> &mA, MatrixTransposed transA,
 	int iBCols = (transB == no) ? mB.getCols() : mB.getRows();
 	int iCCols = (transC == no) ? mC.getCols() : mC.getRows();
 	
-	assert(m_iRows == iARows);
-	assert(m_iCols == iCCols);
+	assert(m_iRows == (unsigned int)iARows);
+	assert(m_iCols == (unsigned int)iCCols);
 
 	Matrix<Real> mAB(iARows,iBCols);
 	mAB.addMul(mA,transA,mB,transB);
@@ -267,7 +260,7 @@ float MatrixBase<float>::invert() {
 
 	assert(isSquare());
 	
-	integer iLDA = m_iRows;
+	integer iLDA = m_iStride;
 	integer *iPivot = new integer[m_iRows];
 	integer iInfo;
 	integer iRows = m_iRows;
@@ -283,9 +276,9 @@ float MatrixBase<float>::invert() {
 	
 	bool bPositive = true;
 	float fDet = 1.0;
-	for(int i=0 ; i<m_iCols ; ++i) {
+	for(unsigned int i=0 ; i<m_iCols ; ++i) {
 		fDet *= (*this)(i,i);
-		if (iPivot[i] != (i+1)) {
+		if (iPivot[i] != (int)(i+1)) {
 			bPositive = !bPositive;
 		}
 	}
@@ -308,7 +301,7 @@ double MatrixBase<double>::invert() {
 
 	assert(isSquare());
 	
-	integer iLDA = m_iRows;
+	integer iLDA = m_iStride;
 	integer *iPivot = new integer[m_iRows];
 	integer iInfo;
 	integer iRows = m_iRows;
@@ -324,9 +317,9 @@ double MatrixBase<double>::invert() {
 	
 	bool bPositive = true;
 	double dDet = 1.0;
-	for(int i=0 ; i<m_iCols ; ++i) {
+	for(unsigned int i=0 ; i<m_iCols ; ++i) {
 		dDet *= (*this)(i,i);
-		if (iPivot[i] != (i+1)) {
+		if (iPivot[i] != (int)(i+1)) {
 			bPositive = !bPositive;
 		}
 	}
@@ -357,8 +350,8 @@ void MatrixBase<Real>::matrixCofactor() {
 template<typename Real>
 void MatrixBase<Real>::invertElements() {
 	
-	for(int i=0 ; i < m_iRows ; ++i) {
-		for(int j=0 ; j < m_iCols ; ++j) {
+	for(unsigned int i=0 ; i < m_iRows ; ++i) {
+		for(unsigned int j=0 ; j < m_iCols ; ++j) {
 			m_rData(i,j) = 1.0/m_rData(i,j);
 		}
 	}
@@ -375,15 +368,36 @@ void MatrixBase<Real>::add() {
 template<typename Real>
 void MatrixBase<Real>::svd(VectorBase<Real> vEigenvalues, MatrixBase<Real> mU, MatrixBase<Real> mV) {
 
-}	
+}
+
+// compute derivative (iDelta = size of the regression window)
+template<typename Real> void MatrixBase<Real>::delta(MatrixBase<Real> &mDelta, unsigned int iDelta) {
+
+	// precompute the constant
+	Real rDiv = 0.0;
+	for(unsigned int i=1 ; i <= iDelta ; ++i) {
+		rDiv += i*i;
+	}
+	
+	// compute the derivatives
+	for(unsigned int i = 0 ; i < getRows() ; ++i) {
+		VectorStatic<Real> vDelta = mDelta.getRow(i);
+		vDelta.zero();
+		for(unsigned int j = 1 ; j <= iDelta ; ++j) {
+			vDelta.add(j,getRow(std::min(i+j,getRows()-1)));
+			vDelta.add(-((int)j),getRow(std::max(0,(int)(i-j))));
+		}
+		vDelta.mul(1.0/rDiv);
+	}	
+}
 
 // print the vector
 template<typename Real>
 void MatrixBase<Real>::print() {
 	
 	cout << m_iRows << " x " << m_iCols << endl;
-	for(int i=0 ; i < m_iRows ; ++i) {
-		for(int j=0 ; j < m_iCols ; ++j) {
+	for(unsigned int i=0 ; i < m_iRows ; ++i) {
+		for(unsigned int j=0 ; j < m_iCols ; ++j) {
 			cout << (*this)(i,j) << " ";
 		}
 		cout << endl;
@@ -405,17 +419,19 @@ template<typename Real>
 void MatrixBase<Real>::writeData(ostream &os) {
 
 	// write the data row by row since the # of columns can be different than the stride
-	for(int i=0 ; i<m_iRows ; ++i) {
+	for(unsigned int i=0 ; i<m_iRows ; ++i) {
 		IOBase::writeBytes(os,reinterpret_cast<char*>(getRowData(i)),m_iCols*sizeof(Real));
 	}
 }
 
 template void MatrixBase<float>::copyRows(VectorBase<float> &v);
 template void MatrixBase<float>::copyCols(VectorBase<float> &v);
-template VectorStatic<float> MatrixBase<float>::getRow(int iRow);
-template VectorStatic<double> MatrixBase<double>::getRow(int iRow);
-template float *MatrixBase<float>::getRowData(int iRow);
-template double *MatrixBase<double>::getRowData(int iRow);
+template const VectorStatic<float> MatrixBase<float>::getRow(unsigned int iRow) const;
+template const VectorStatic<double> MatrixBase<double>::getRow(unsigned int iRow) const;
+template VectorStatic<float> MatrixBase<float>::getRow(unsigned int iRow);
+template VectorStatic<double> MatrixBase<double>::getRow(unsigned int iRow);
+template float *MatrixBase<float>::getRowData(unsigned int iRow);
+template double *MatrixBase<double>::getRowData(unsigned int iRow);
 template void MatrixBase<float>::zero();
 template void MatrixBase<double>::zero();
 template bool MatrixBase<float>::equal(MatrixBase<float> &m, float rEpsilon);
@@ -434,6 +450,8 @@ template void MatrixBase<float>::mulRows(VectorBase<float> &v);
 template void MatrixBase<double>::mulRows(VectorBase<double> &v);
 template void MatrixBase<float>::mulCols(VectorBase<float> &v);
 template void MatrixBase<double>::mulCols(VectorBase<double> &v);
+template void MatrixBase<float>::delta(MatrixBase<float> &mDelta, unsigned int iDelta);
+template void MatrixBase<double>::delta(MatrixBase<double> &mDelta, unsigned int iDelta);
 template void MatrixBase<float>::print();
 template void MatrixBase<double>::print();
 template void MatrixBase<float>::write(ostream &os);

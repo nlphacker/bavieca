@@ -15,52 +15,61 @@
  * See the License for the specific language governing permissions and                         *
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
-
-
-#include "WarpFactorFile.h"
+ 
+ 
+#include <iostream>
+#include <iomanip>
+ 
+#include "Global.h"
+#include "IOBase.h"
+#include "NBestListEntry.h"
 
 namespace Bavieca {
 
 // constructor
-WarpFactorFile::WarpFactorFile(const char *strFile) {
-
-	m_strFile = strFile;
+NBestListEntry::NBestListEntry(LexiconManager *lexiconManager) {
+	m_lexiconManager = lexiconManager;
+	m_dLikelihood = 0.0;
+	m_dPP = 0.0;
 }
 
 // destructor
-WarpFactorFile::~WarpFactorFile() {
-
-	for(VWarpFactorSpeaker::iterator it = m_vWarpFactorSpeaker.begin() ; it != m_vWarpFactorSpeaker.end() ; ++it) {
-		delete *it;	
+NBestListEntry::~NBestListEntry() {
+	for(VNBestListEntryElement::iterator it = m_vElements.begin() ; it != m_vElements.end() ; ++it) {
+		delete *it;
 	}
 }
 
-// load warp factors from the file
-bool WarpFactorFile::load() {
-
-	// open the file
-	FILE *file = fopen(m_strFile.c_str(),"r");
-	if (file == NULL) {
-		return false;
+// store to disk
+void NBestListEntry::store(ostream &os, bool bTextFormat) {
+	 
+	if (bTextFormat) {
+		ostringstream oss;
+		oss << FLT(12,4) << m_dLikelihood;
+		IOBase::writeString(os,oss);
+		for(VNBestListEntryElement::iterator it = m_vElements.begin() ; it != m_vElements.end() ; ++it) {
+			string str = " ";
+			IOBase::writeString(os,str);
+			(*it)->store(os,bTextFormat,m_lexiconManager);
+		}
+		string str = "\n";
+		IOBase::writeString(os,str);
+	} else {
+		IOBase::write(os,(unsigned int)m_vElements.size(),true);
+		for(VNBestListEntryElement::iterator it = m_vElements.begin() ; it != m_vElements.end() ; ++it) {
+			(*it)->store(os);
+		}
 	}
+}
 
-	char strSpeakerId[1024+1];
-	float fWarpFactor;
-
-	// read the file line by line
-	while(fscanf(file,"%s %f\n",strSpeakerId,&fWarpFactor) == 2) {
-		WarpFactorSpeaker *warpFactorSpeaker = new WarpFactorSpeaker();
-		warpFactorSpeaker->strSpeakerId = strSpeakerId;
-		warpFactorSpeaker->fWarpFactor = fWarpFactor;
-		m_vWarpFactorSpeaker.push_back(warpFactorSpeaker);
-	}	
-	
-	// close the file
-	if (fclose(file) == EOF) {
-		return false;
+// print the entry
+void NBestListEntry::print() {
+ 
+	cout << FLT(12,4) << m_dLikelihood << " ";
+	for(VNBestListEntryElement::iterator it = m_vElements.begin() ; it != m_vElements.end() ; ++it) {
+		cout << m_lexiconManager->getStrLexUnit((*it)->getLexUnit()->iLexUnit) << " ";
 	}
-
-	return true;
+	cout << endl;
 }
 
 };	// end-of-namespace

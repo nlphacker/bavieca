@@ -33,16 +33,15 @@ using namespace std;
 #include <list>
 #include <map>
 #include <sstream>
-               
+
 #include "Global.h"
 #include "PhoneSet.h"
 
-#if defined __linux__ || defined __APPLE__
-using namespace __gnu_cxx;
-#include <ext/hash_map>
-#elif _WIN32
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
+#include <tr1/unordered_map>
+#elif _MSC_VER
 #include <hash_map>
-#else
+#else 
 	#error "unsupported platform"
 #endif
 
@@ -51,10 +50,10 @@ namespace Bavieca {
 #define NON_LEXUNIT_ID      -100
 
 // maximum length of a lexical unit including the end-of-string character 
-#define MAX_LEXUNIT_LENGTH  200 
+#define MAX_LEXUNIT_LENGTH  1024 
 
 // maximum number of alternative pronunciations a lexical unit can have
-#define MAX_LEXUNIT_PRONUNCIATIONS	256
+#define MAX_LEXUNIT_PRONUNCIATIONS	1024
 
 // lexical unit types
 #define LEX_UNIT_TYPE_STANDARD 				0
@@ -63,7 +62,7 @@ namespace Bavieca {
 #define LEX_UNIT_TYPE_UNKNOWN					3
 
 #define LEX_UNIT_SILENCE_SYMBOL				"<SIL>"
-#define LEX_UNIT_BEGINNING_SENTENCE			"<s>"
+#define LEX_UNIT_BEG_SENTENCE					"<s>"
 #define LEX_UNIT_END_SENTENCE					"</s>"
 #define LEX_UNIT_UNKNOWN						"<UNK>"
 
@@ -92,7 +91,7 @@ typedef list<LexUnit*> LLexUnit;
 struct MLexUnitFunctions
 {
 
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 
 	// comparison function (used for matching, comparison for equality)
 	bool operator()(const char *strLexUnit1, const char *strLexUnit2) const {
@@ -100,7 +99,7 @@ struct MLexUnitFunctions
 		return (strcmp(strLexUnit1,strLexUnit2) == 0);
 	}
 
-#elif _WIN32
+#elif _MSC_VER
 
 	static const size_t bucket_size = 4;
 	static const size_t min_buckets = 8;
@@ -144,9 +143,9 @@ typedef struct {
 typedef vector<LexUnitX*> VLexUnitX;
 
 // maps lexical units as strings of characters to their corresponding data structure
-#if defined __linux__ || defined __APPLE__
-typedef hash_map<const char*,LexUnitX*,MLexUnitFunctions,MLexUnitFunctions> MLexUnit;
-#elif _WIN32
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
+typedef std::tr1::unordered_map<const char*,LexUnitX*,MLexUnitFunctions,MLexUnitFunctions> MLexUnit;
+#elif _MSC_VER
 typedef hash_map<const char*,LexUnitX*,MLexUnitFunctions> MLexUnit;
 #else
 	#error "unsupported platform"
@@ -320,7 +319,7 @@ class LexiconManager {
 			char strLexUnit[MAX_LEXUNIT_LENGTH];
 			unsigned char iPronunciation;
 			
-			if (strcmp(strLexUnitPronunciation,LEX_UNIT_BEGINNING_SENTENCE) == 0) {
+			if (strcmp(strLexUnitPronunciation,LEX_UNIT_BEG_SENTENCE) == 0) {
 				return m_lexUnitBegSentence;
 			} else if (strcmp(strLexUnitPronunciation,LEX_UNIT_END_SENTENCE) == 0) {
 				return m_lexUnitEndSentence;
@@ -469,9 +468,6 @@ class LexiconManager {
 			}
 		}
 		
-		// creates a new lexicon file from the given lexical units (the new lexicon is a subset of the original lexicon)
-		bool createLexicon(const char *strFile, MLexUnitInt &mLexUnitSeen, MLexUnitLexUnit &mLexUnitLexUnit);	
-		
 		// return a lexical unit with its pronunciation
 		inline bool getLexUnitAndPronunciation(const char *strLexUnitSrc, char *strLexUnit, unsigned char *iPronunciation) {
 		
@@ -481,7 +477,7 @@ class LexiconManager {
 				cAlternative = NULL;
 			if (cAlternative) {
 				for(int i = 1 ; cAlternative[i] != ')' ; ++i) {
-					// make sure it is a number (by the way this checks that the end of string is not reached before the ')')
+					// make sure it is a number (btw, this checks that the end of string is not reached before the ')')
 					if ((cAlternative[i] > 57) || (cAlternative[i] < 48)) {	
 						return false;	
 					}
@@ -537,22 +533,6 @@ class LexiconManager {
 		// tranform a sequence of lexical units from text format to object format
 		bool getLexUnits(const char *strText, VLexUnitX &vLexUnitX, bool &bAllKnown);
 		
-		// check that the lexical units are consistent with language model (ith lexical unit == ith unigram)
-		bool checkConsistency(vector<string> &vStrLexUnit);
-		
-		// arrange the lexical units to match the order in the given vector
-		void arrangeLexUnits(vector<string> &vStrLexUnit);
-		
-		// writes the lexical unit along with its pronunciation number into the given buffer
-		void getStrLexUnitPronunciation(LexUnit *lexUnit, char *strLexUnitPronunciation) {
-		
-			if (lexUnit->iPronunciation == 0) {
-				sprintf(strLexUnitPronunciation,"%s",getStrLexUnit(lexUnit->iLexUnit));
-			} else {
-				sprintf(strLexUnitPronunciation,"%s(%d)",getStrLexUnit(lexUnit->iLexUnit),lexUnit->iPronunciation+1);
-			}
-		}
-		
 		// writes the lexical unit along with its pronunciation number into the given buffer
 		void getStrLexUnitPronunciation(LexUnit *lexUnit, string &strLexUnitPronunciation) {	
 			
@@ -564,11 +544,8 @@ class LexiconManager {
 			strLexUnitPronunciation = oss.str();
 		}
 		
-		// store the lexicon into a file
-		bool store(const char *strFile);	
-		
 		// map lexical units from pronunciation format to non-pron format
-		void map(VLexUnit &vLexUnitInput, VLexUnitX &vLexUnitOutput);
+		void map(VLexUnit &vLexUnitInput, VLexUnitX &vLexUnitOutput);		
 		
 		// remove non-standard lexical units
 		void removeNonStandardLexUnits(VLexUnit &vLexUnit);

@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <iomanip>
 
 #include "AlignmentFile.h"
 #include "BatchFile.h"
@@ -35,7 +36,7 @@ FMLLREstimator::FMLLREstimator(PhoneSet *phoneSet, HMMManager *hmmManager, int i
 	m_hmmManager = hmmManager;
 	m_iIterations = iIterations;
 	m_bBestComponentOnly = bBestComponentOnly;
-	m_iDim = hmmManager->getFeatureDimensionality();
+	m_iDim = hmmManager->getFeatureDim();
 	m_fOccupancyTotal = 0;
 }
 
@@ -72,21 +73,20 @@ void FMLLREstimator::uninitializeEstimation() {
 // note: it is possible to accumulate statistics at the Gaussian component or at the transform level
 // - Gaussian component level: O(n^2) per Gaussian component
 // - Transform level: O(n^3) per transform + O(n) per Gaussian component
-void FMLLREstimator::feedAdaptationData(float *fFeatures, unsigned int iFeatures, Alignment *alignment, 
-	double *dLikelihood) {
+void FMLLREstimator::feedAdaptationData(MatrixBase<float> &mFeatures, Alignment *alignment, double *dLikelihood) {
 
 	// sanity check
-	assert(iFeatures == alignment->getFrames());
+	assert((unsigned int)mFeatures.getRows() == alignment->getFrames());
 
-	m_fOccupancyTotal += iFeatures;
+	m_fOccupancyTotal += mFeatures.getRows();
 
 	*dLikelihood = 0.0;
-	for(unsigned int t=0 ; t<iFeatures ; ++t) {
+	for(unsigned int t=0 ; t<mFeatures.getRows() ; ++t) {
 		
-		float *fFeatureVector = fFeatures+(t*m_iDim);
+		VectorStatic<float> vFeatureVector = mFeatures.getRow(t);
 		
 		// extended observation vector
-		Vector<double> vObsEx(VectorStatic<float>(fFeatureVector,m_iDim));
+		Vector<double> vObsEx(vFeatureVector);
 		vObsEx.appendFront(1.0);	
 		
 		// for each HMM-state the observation is assigned to
@@ -97,7 +97,7 @@ void FMLLREstimator::feedAdaptationData(float *fFeatures, unsigned int iFeatures
 			// (case 1) all the frame-level adaptation data goes to the best scoring Gaussian component (faster)
 			if (m_bBestComponentOnly) {
 				float fLikelihood = -FLT_MAX;
-				GaussianDecoding *gaussian = hmmStateDecoding->getBestScoringGaussian(fFeatureVector,&fLikelihood);
+				GaussianDecoding *gaussian = hmmStateDecoding->getBestScoringGaussian(vFeatureVector.getData(),&fLikelihood);
 				*dLikelihood += std::max<float>(fLikelihood,LOG_LIKELIHOOD_FLOOR);
 					
 				Vector<float> vCovariance(VectorStatic<float>(gaussian->fCovariance,m_iDim));		
@@ -125,7 +125,7 @@ void FMLLREstimator::feedAdaptationData(float *fFeatures, unsigned int iFeatures
 				double *dProbGaussian = new double[hmmStateDecoding->getGaussianComponents()];
 				double dProbTotal = 0.0;
 				for(int g=0 ; g < hmmStateDecoding->getGaussianComponents() ; ++g) {	
-					dProbGaussian[g] = exp(hmmStateDecoding->computeGaussianProbability(g,fFeatureVector));
+					dProbGaussian[g] = exp(hmmStateDecoding->computeGaussianProbability(g,vFeatureVector.getData()));
 					dProbTotal += dProbGaussian[g];
 					assert((finite(dProbGaussian[g])) && (finite(dProbTotal)));	
 				}
@@ -163,7 +163,7 @@ void FMLLREstimator::feedAdaptationData(float *fFeatures, unsigned int iFeatures
 
 // feed adaptation data from a batch file containing entries (rawFile alignmentFile)
 void FMLLREstimator::feedAdaptationData(const char *strBatchFile, const char *strAlignmentFormat, 
-	double *dLikelihood, bool bVerbose) {
+	double *dLikelihood) {
 
 	BatchFile batchFile(strBatchFile,"features|alignment");
 	batchFile.load();
@@ -187,40 +187,36 @@ void FMLLREstimator::feedAdaptationData(const char *strBatchFile, const char *st
 		// load the feature vectors
 		FeatureFile featureFile(batchFile.getField(i,"features"),MODE_READ);
 		featureFile.load();
-		unsigned int iFeatureVectors = -1;
-		float *fFeatures = featureFile.getFeatureVectors(&iFeatureVectors);
+		Matrix<float> *mFeatures = featureFile.getFeatureVectors();
 		
 		// load and apply the transform
-		/*Transform *transform = new Transform();
-		transform->load("/home/speech/wsj/scripts/test/fmllr/transform.bin");
-		float *fFeaturesX = new float[iFeatureVectors*m_iDim];
-		for(int j=0;j<iFeatureVectors;++j) {
-			transform->apply(fFeatures+j*m_iDim,fFeaturesX+j*m_iDim);
-		}
-		fFeatures = fFeaturesX;
-		delete transform;*/
+		/*
+		Transform *transform = new Transform();
+		transform->load("/data/daniel/tasks/wsj/experiments/may16th_2013_CMNUtterance/5/fmllr1/transforms/440m.fmllr.bin");
+		Matrix<float> *mFeaturesX = transform->apply(*mFeatures);
+		mFeatures = mFeaturesX;
+		delete transform;
+		*/
 		
 		// check consistency
-		if (iFeatureVectors != alignment->getFrames()) {
+		if (mFeatures->getRows() != alignment->getFrames()) {
 			BVC_ERROR << "inconsistent number of feature vectors / alignment file";
 		}
 		
 		// accumulate adaptation data
 		double dLikelihoodAlignment = 0.0;
-		feedAdaptationData(fFeatures,iFeatureVectors,alignment,&dLikelihoodAlignment);
-		if (bVerbose) {
-			printf("loaded file: %s likelihood: %10.2f (%6d frames)\n",batchFile.getField(i,"alignment"),dLikelihoodAlignment,iFeatureVectors);
-		}
+		feedAdaptationData(*mFeatures,alignment,&dLikelihoodAlignment);
+		BVC_VERB << "loaded file: " << batchFile.getField(i,"alignment") << " likelihood: " << FLT(10,2) 
+			<< dLikelihoodAlignment << " (" << mFeatures->getRows() << "frames)";	
 		*dLikelihood += dLikelihoodAlignment;
 		
 		// clean-up
 		delete alignment;
-		delete [] fFeatures;		
+		delete mFeatures;
 	}
-	if (bVerbose) {
-		double dLikelihoodFrame = (*dLikelihood)/m_fOccupancyTotal;
-		printf("total likelihood: %20.6f (likelihood per frame: %8.4f)\n",*dLikelihood,dLikelihoodFrame);
-	}
+	double dLikelihoodFrame = (*dLikelihood)/m_fOccupancyTotal;
+	BVC_VERB << "total likelihood: " << FLT(20,6) << *dLikelihood << " (likelihood per frame: " 
+		<< FLT(8,4) << dLikelihoodFrame << ")";
 }
 
 // estimate the feature transform for the given data (typically speaker adaptation data)
@@ -289,7 +285,7 @@ Transform *FMLLREstimator::estimateTransform(Transform *transformInitial) {
 			matrixW.getRow(i).mul(vAux2,matrixGInverted);
 			
 			// update A
-			matrixA.getRow(i).copy(VectorStatic<double>(matrixW.getRowData(i)+1,m_iDim));
+			matrixA.getRow(i).copy(matrixW.getRowData(i)+1,m_iDim);
 			
 			// compute the matrix of cofactors after updating the row of the transform
 			matrixP.copy(matrixA);

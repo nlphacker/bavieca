@@ -30,6 +30,7 @@ class BestPath;
 class HMMManager;
 class PhoneSet;
 class LMLookAhead;
+class LMFSM;
 class LMManager;
 
 #define NUMBER_BINS_HISTOGRAM							50
@@ -109,12 +110,10 @@ class DynamicDecoderX {
 		PhoneSet *m_phoneSet;
 		HMMManager *m_hmmManager;
 		LexiconManager *m_lexiconManager;
+		LMFSM *m_lmFSM;
 		LMManager *m_lmManager;
 		unsigned char m_iNGram;
 		DynamicNetworkX *m_dynamicNetwork;
-		
-		// feature dimensionality
-		int m_iDim;
 		
 		// network properties
 		int m_iArcs;
@@ -266,16 +265,17 @@ class DynamicDecoderX {
 		}		
 		
 		// root-node expansion
-		void expandRoot(float *fFeatureVector);
+		void expandRoot(VectorBase<float> &vFeatureVector);
 		
 		// regular expansion
-		void expand(float *fFeatureVector, int t);
+		void expand(VectorBase<float> &vFeatureVector, int t);
 		
 		// expand a series of tokens to a hmm-state
-		void expandToHMM(DNode *node, DArc *arcNext, float *fFeatureVector, int t);
+		void expandToHMM(DNode *node, DArc *arcNext, VectorBase<float> &vFeatureVector, int t);
 		
 		// expand a series of tokens to a hmm-state after obsering a new word
-		void expandToHMMNewWord(DNode *node, DArc *arcNext, LexUnit *lexUnit, LMTransition *lmTransition, float *fFeatureVector, int t);	
+		void expandToHMMNewWord(DNode *node, DArc *arcNext, LexUnit *lexUnit, LMTransition *lmTransition, 
+			VectorBase<float> &vFeatureVector, int t);	
 		
 		// pruning (token based)
 		void pruningOriginal();
@@ -544,7 +544,7 @@ class DynamicDecoderX {
 		// print a history item
 		inline void printHistoryItem(HistoryItem *historyItem) {
 		
-			char strLexUnit[1024];
+			string strLexUnit;
 			LexUnit *lexUnit = m_lexiconManager->getLexUnitPron(historyItem->iLexUnitPron);
 			m_lexiconManager->getStrLexUnitPronunciation(lexUnit,strLexUnit);
 			
@@ -596,7 +596,7 @@ class DynamicDecoderX {
 		// constructor
 		DynamicDecoderX(PhoneSet *phoneSet, HMMManager *hmmManager, 
 			LexiconManager *lexiconManager, LMManager *lmManager, float fLMScalingFactor, 
-			unsigned char iNGram, DynamicNetworkX *dynamicNetwork, int iMaxActiveNodes, 
+			DynamicNetworkX *dynamicNetwork, int iMaxActiveNodes, 
 			int iMaxActiveNodesWE, int iMaxActiveTokensNode, float fBeamWidthNodes, 
 			float fBeamWidthNodesWE, float fBeamWidthTokensNode, bool bWordGraphGeneration, 
 			int iMaxWordSequencesState);
@@ -617,7 +617,7 @@ class DynamicDecoderX {
 		void endUtterance();
 		
 		// process input feature vectors
-		void process(float *fFeatures, int iFeatures);	
+		void process(MatrixBase<float> &mFeatures);	
 		
 		// return the BestPath
 		BestPath *getBestPath();

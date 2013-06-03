@@ -52,6 +52,7 @@ Accumulator::Accumulator(int iDim, int iCovarianceModeling, unsigned char *iIden
 		m_mObservationSquare = new SMatrix<double>(m_iDim);
 	}
 	m_dOccupation = 0.0;
+	m_bDataAllocated = true;	
 	// next 
 	m_accumulatorNext = NULL;
 	
@@ -83,6 +84,7 @@ Accumulator::Accumulator(int iDim, int iCovarianceModeling, int iHMMState, int i
 		m_mObservationSquare = new SMatrix<double>(m_iDim);
 	}
 	m_dOccupation = 0.0;
+	m_bDataAllocated = true;		
 	// next 
 	m_accumulatorNext = NULL;
 	

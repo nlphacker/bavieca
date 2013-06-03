@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "FileInput.h"
 #include "IOBase.h"
@@ -104,7 +105,7 @@ void LexiconManager::load() {
 		m_lexUnitBegSentence->fInsertionPenalty = 0.0;
 		lexUnitX = new LexUnitX;
 		lexUnitX->iLexUnit = iLexUnitId++;
-		lexUnitX->strLexUnit = LEX_UNIT_BEGINNING_SENTENCE;
+		lexUnitX->strLexUnit = LEX_UNIT_BEG_SENTENCE;
 		lexUnitX->vLexUnitPronunciations.push_back(m_lexUnitBegSentence);
 		m_lexiconX.push_back(lexUnitX);
 		m_lexicon.push_back(m_lexUnitBegSentence);
@@ -175,7 +176,7 @@ void LexiconManager::load() {
 			}
 		}
    
-   } catch(ExceptionBase) {
+   } catch(std::runtime_error) {
    	BVC_ERROR << "unable to load the lexicon file: " << m_strFile;
    }
 }
@@ -400,7 +401,7 @@ unsigned char LexiconManager::getLexicalUnitType(const char *strLexUnit) {
 	assert(iLength > 0);
 
 	// beginning/end of sentence
-	if ((strcmp(strLexUnit,LEX_UNIT_BEGINNING_SENTENCE) == 0) || (strcmp(strLexUnit,LEX_UNIT_END_SENTENCE) == 0)) {
+	if ((strcmp(strLexUnit,LEX_UNIT_BEG_SENTENCE) == 0) || (strcmp(strLexUnit,LEX_UNIT_END_SENTENCE) == 0)) {
 		return LEX_UNIT_TYPE_SENTENCE_DELIMITER;
 	}	
 	// unknown
@@ -422,7 +423,7 @@ void LexiconManager::destroy() {
    
    for(VLexUnitX::iterator it = m_lexiconX.begin() ; it != m_lexiconX.end() ; ++it) {
    	if ((strcmp((*it)->strLexUnit,LEX_UNIT_UNKNOWN) != 0) &&
-   		(strcmp((*it)->strLexUnit,LEX_UNIT_BEGINNING_SENTENCE) != 0) && 
+   		(strcmp((*it)->strLexUnit,LEX_UNIT_BEG_SENTENCE) != 0) && 
    		(strcmp((*it)->strLexUnit,LEX_UNIT_END_SENTENCE) != 0)) {
 			delete [] (*it)->strLexUnit;
 		}
@@ -480,119 +481,6 @@ void LexiconManager::getVLexUnitFiller(VLexUnit &vLexUnit) {
 float LexiconManager::computeAveragePronunciationVariations() {
 
 	return ((float)m_iLexicalUnitsStandard)/((float)m_iLexicalUnitsUnique);
-}
-
-// creates a new lexicon file from seen lexical units (the new lexicon is a subset of the original lexicon)
-// all the lexical units have to correspond to the actual lexicon object
-bool LexiconManager::createLexicon(const char *strFile, MLexUnitInt &mLexUnitSeen, MLexUnitLexUnit &mLexUnitLexUnit) {
-
-	// open the file for reading
-	FILE *file = fopen(strFile,"wt");
-	if (file == NULL) {
-		printf("Error: unable to create the lexicon file: %s\n",strFile);
-		return false;
-	}
-	
-	// (1) compute pronunciation probabilities from lexical unit frequencies
-	// note that lexical units are sorted alphabetically and by pronunciation	
-	LLexUnit lLexUnit;	// list of lexical units as they will be written to the file
-	int iIndex = 0;	
-	int iLexUnitPrev = -1;
-	int iOccurrencesTotal = 0;			// within-lexical unit occurrences (all alternative pronunciations)	
-	for(MLexUnitInt::iterator it = mLexUnitSeen.begin() ; it != mLexUnitSeen.end() ; ++it) {
-	
-		// create a copy of the lexical unit
-		LexUnit *lexUnitAux = new LexUnit;
-		lexUnitAux->iLexUnit = it->first->iLexUnit;
-		for(vector<int>::iterator kt = it->first->vPhones.begin() ; kt != it->first->vPhones.end() ; ++kt) {
-			lexUnitAux->vPhones.push_back(*kt);
-		}
-		lexUnitAux->iPronunciation = UCHAR_MAX;									// yet to be determined
-		lexUnitAux->iType = it->first->iType;
-		lexUnitAux->fProbability = -1;												// yet to be determined
-		lexUnitAux->fInsertionPenalty = it->first->fInsertionPenalty;
-		
-		// compute the probability
-		// update the denominator?
-		if (it->first->iLexUnit != iLexUnitPrev) {
-			iLexUnitPrev = it->first->iLexUnit;
-			iOccurrencesTotal = 0;			
-			for(MLexUnitInt::iterator jt = it ; ((jt != mLexUnitSeen.end()) && (jt->first->iLexUnit == it->first->iLexUnit)) ; ++jt) {
-				assert(it->second > 0.0);
-				iOccurrencesTotal += jt->second;
-				++iIndex;
-			}
-		}
-		lexUnitAux->fProbability = ((float)it->second)/((float)iOccurrencesTotal);
-		
-		// create a new entry in the map
-		mLexUnitLexUnit.insert(MLexUnitLexUnit::value_type(it->first,lexUnitAux));
-		lLexUnit.push_back(lexUnitAux);
-	}
-	
-	assert(iIndex == (int)mLexUnitSeen.size());
-	
-	// sort the list of lexical units alphabetically and then by pronunciation probability
-	lLexUnit.sort(LexiconManager::comparePronProbability);	
-	
-	// get the lenght of the longest lexical unit (for formatting purposes)
-	int iLengthMax = -1;
-	for(MLexUnitInt::iterator it = mLexUnitSeen.begin() ; it != mLexUnitSeen.end() ; ++it) {		
-		int iLen = (int)strlen(getStrLexUnit(it->first->iLexUnit));
-		if (it->first->iPronunciation > 0) {
-			iLen += 3;
-		}
-		if (iLen > iLengthMax) {
-			iLengthMax = iLen;
-		}
-	}
-	
-	// (2) write the lexical units to the file
-	// note: pronunciation numbers might need to be recalculated because some of the original pronunciations might not be seen
-	char strAux[MAX_LEXUNIT_LENGTH+1];
-	iLexUnitPrev = -1;
-	int iPronunciation = -1;
-	int i=0;
-	for(LLexUnit::iterator it = lLexUnit.begin() ; it != lLexUnit.end() ; ++it, ++i) {
-		// determine the pronunciation number
-		if ((*it)->iLexUnit == iLexUnitPrev) {
-			iPronunciation++;
-		} else {
-			iLexUnitPrev = (*it)->iLexUnit;
-			iPronunciation = 0;
-		}
-		(*it)->iPronunciation = iPronunciation;
-		// print the lexical unit
-		if (iPronunciation == 0) { 
-			sprintf(strAux,"%s",getStrLexUnit((*it)->iLexUnit));
-		} else if (iPronunciation >= 1) {
-			sprintf(strAux,"%s(%d)",getStrLexUnit((*it)->iLexUnit),(*it)->iPronunciation+1);
-		} else {
-			assert(0);
-		}
-		fprintf(file,"%-*s",iLengthMax,strAux);	
-		
-		// print the probability
-		assert(((*it)->fProbability >= 0.0) && ((*it)->fProbability <= 1.0));
-		if ((*it)->fProbability == 1.0) {
-			fprintf(file,"           ");
-		} else {
-			fprintf(file,"   %.4f  ",(*it)->fProbability);
-		}
-		
-		// print the phonetic transcription
-		for(vector<int>::iterator jt = (*it)->vPhones.begin() ; jt != (*it)->vPhones.end() ; ++jt) {
-			fprintf(file," %s",m_phoneSet->getStrPhone(*jt));
-		}
-		fprintf(file,"\n");
-	}
-	
-	// close the file
-	if (fclose(file) == EOF) {
-		return false;
-	}
-
-	return true;
 }
 
 // return the silence lexical unit
@@ -690,136 +578,6 @@ bool LexiconManager::getLexUnits(const char *strText, VLexUnitX &vLexUnitX, bool
 
 	return true;
 }
-
-
-// check that the lexical units are consistent with language model (ith lexical unit == ith unigram)
-bool LexiconManager::checkConsistency(vector<string> &vStrLexUnit) {
-
-	int i=0;
-	for(vector<string>::iterator it = vStrLexUnit.begin() ; it != vStrLexUnit.end() ; ++it, ++i) {
-		//printf("%s %s\n",(*it).c_str(),m_lexiconX[i]->strLexUnit);
-		if ((*it).compare(m_lexiconX[i]->strLexUnit) != 0) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
-// arrange the lexical units to match the order in the given vector of unigrams
-void LexiconManager::arrangeLexUnits(vector<string> &vStrLexUnit) { 
-
-	// initialize all the ids to -1 and move them to a temporal vector
-	for(VLexUnitX::iterator it = m_lexiconX.begin() ; it != m_lexiconX.end() ; ++it) {
-		(*it)->iLexUnit = -1;
-	}
-	
-	// create a vector with the lexical units ordered as in the vector of unigrams
-	int iIndex = 0;
-	VLexUnitX vLexUnitX;
-	for(vector<string>::iterator it = vStrLexUnit.begin() ; it != vStrLexUnit.end() ; ++it, ++iIndex) {
-		LexUnitX *lexUnitX = getLexUnit((*it).c_str());
-		if (lexUnitX == NULL) {
-			BVC_ERROR << "lexical unit \"" << (*it).c_str() << "\" is not in the lexicon (is it in the language model?)";
-		}
-		lexUnitX->iLexUnit = iIndex;
-		for(VLexUnit::iterator jt = lexUnitX->vLexUnitPronunciations.begin() ; jt != lexUnitX->vLexUnitPronunciations.end() ; ++jt) {
-			(*jt)->iLexUnit = iIndex;
-		}
-		vLexUnitX.push_back(lexUnitX);
-	}
-	
-	// delete lexical units that are not in the language model (except the unknown lexical unit,
-	// the filler lexical units and the sentence delimiters, which are used by the decoder)
-	for(VLexUnitX::iterator it = m_lexiconX.begin() ; it != m_lexiconX.end() ; ++it) {
-		if ((*it)->iLexUnit == -1) {
-			// IMPORTANT: sentence delimiters and unknown need to be preserved (are needed by the decoder)
-			if ((strcmp((*it)->strLexUnit,LEX_UNIT_UNKNOWN) == 0) || (strcmp((*it)->strLexUnit,LEX_UNIT_BEGINNING_SENTENCE) == 0) || (strcmp((*it)->strLexUnit,LEX_UNIT_END_SENTENCE) == 0)) {
-				(*it)->iLexUnit = (int)vLexUnitX.size();
-				assert((*it)->vLexUnitPronunciations.size() == 1);
-				(*it)->vLexUnitPronunciations.front()->iLexUnit = (*it)->iLexUnit;
-				vLexUnitX.push_back(*it);
-			} 
-			// fillers: such as <UHM>, <BR>, etc
-			else if ((*it)->vLexUnitPronunciations.front()->iType == LEX_UNIT_TYPE_FILLER) {
-				(*it)->iLexUnit = (int)vLexUnitX.size();
-				for(VLexUnit::iterator jt = (*it)->vLexUnitPronunciations.begin() ; jt != (*it)->vLexUnitPronunciations.end() ; ++jt) {
-					(*jt)->iLexUnit = (*it)->iLexUnit;
-				}
-				vLexUnitX.push_back(*it);
-			}
-			// these are words that do not have ids
-			else {
-				printf("lexical unit \"%s\" was removed from the lexicon\n",(*it)->strLexUnit);
-				for(VLexUnit::iterator jt = (*it)->vLexUnitPronunciations.begin() ; jt != (*it)->vLexUnitPronunciations.end() ; ++jt) {
-					delete *jt;
-				}
-				delete *it;
-			}
-		}	
-	}
-	
-	// clear the data structures that keep the old arrangement of lexical units
-	m_lexiconX.clear();
-	m_lexicon.clear();
-	m_mLexUnit->clear();
-		
-	// regenerate the data structures and create lexical unit ids including pronunciations
-   int iLexUnitPron = 0;
-	for(VLexUnitX::iterator it = vLexUnitX.begin() ; it != vLexUnitX.end() ; ++it) {
-		for(VLexUnit::iterator jt = (*it)->vLexUnitPronunciations.begin() ; jt != (*it)->vLexUnitPronunciations.end() ; ++jt) {
-   		(*jt)->iLexUnitPron = iLexUnitPron++;
-			m_lexicon.push_back(*jt);
-		}
-		m_lexiconX.push_back(*it);
-		m_mLexUnit->insert(MLexUnit::value_type((*it)->strLexUnit,*it));
-	}	
-   assert((int)m_lexicon.size() == iLexUnitPron);
-}
-
-// store the lexicon into a file
-bool LexiconManager::store(const char *strFile) {
-
-	char strLexUnitPronunciation[1024];
-
-	// create the output file
-	FILE *file = fopen(strFile,"wt");
-	if (file == NULL) {
-		return false;
-	}
-	
-	int iTotalLexicalUnits = m_iLexicalUnitsFiller+m_iLexicalUnitsStandard;
-	
-	fprintf(file,"## ---------------------------------------------------\n");
-	fprintf(file,"## total lexical units:  %7d\n",iTotalLexicalUnits);
-	fprintf(file,"## - fillers:            %7d\n",m_iLexicalUnitsFiller);
-	fprintf(file,"## - standard(unique):   %7d\n",m_iLexicalUnitsUnique);
-	fprintf(file,"## - standard(+prons):   %7d\n",m_iLexicalUnitsStandard);
-	fprintf(file,"## pronunciation-ratio:  %7.2f\n",((float)m_iLexicalUnitsStandard)/((float)m_iLexicalUnitsUnique));
-	fprintf(file,"## ---------------------------------------------------\n");
-	
-   for(VLexUnitX::iterator it = m_lexiconX.begin() ; it != m_lexiconX.end() ; ++it) {
-   	for(VLexUnit::iterator jt = (*it)->vLexUnitPronunciations.begin() ; jt != (*it)->vLexUnitPronunciations.end() ; ++jt) {
-			if ((isSentenceDelimiter(*jt)) || (isUnknown(*jt))) {
-				continue;
-			}
-   		getStrLexUnitPronunciation(*jt,strLexUnitPronunciation);
-   		fprintf(file,"%-30s",strLexUnitPronunciation);
-   		for(vector<int>::iterator kt = (*jt)->vPhones.begin() ; kt != (*jt)->vPhones.end() ; ++kt) {
-				fprintf(file," %s",m_phoneSet->getStrPhone(*kt));	
-   		}
-   		fprintf(file,"\n");
-   	}
-   } 
-	
-	// close the file
-	if (fclose(file) == EOF) {	
-		return false;
-	}	
-	
-	return true;
-}
-
 
 // map lexical units from pronunciation format to non-pron format
 void LexiconManager::map(VLexUnit &vLexUnitInput, VLexUnitX &vLexUnitOutput) {

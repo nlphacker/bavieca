@@ -87,7 +87,7 @@ class ViterbiX {
 		void print(VPhoneAlignment &vPhoneAlignment) {
 		
 			if (vPhoneAlignment.empty()) {
-				printf("<empty alignment>\n");
+				cout << "<empty alignment>" << endl;
 				return;
 			}
 		
@@ -117,7 +117,8 @@ class ViterbiX {
 				if (m_lexiconManager != NULL) {
 					strLexUnit = m_lexiconManager->getStrLexUnit((*it)->lexUnit->iLexUnit);
 				} 
-				printf("%*s %.4f (%d) %-s\n",iPhoneCharactersMax,m_phoneSet->getStrPhone((*it)->iPhone),(*it)->fLikelihood,(*it)->iPosition,strLexUnit.c_str());
+				printf("%*s %.4f (%d) %-s\n",iPhoneCharactersMax,m_phoneSet->getStrPhone((*it)->iPhone),
+					(*it)->fLikelihood,(*it)->iPosition,strLexUnit.c_str());
 			}
 		}		
 		
@@ -126,10 +127,10 @@ class ViterbiX {
 		// - handles multiple pronunciations
 		// - handles optional symbols (typically silence+fillers)
 		Alignment *processUtterance(VLexUnit &vLexUnitTranscription, bool bMultiplePronunciations, 
-			VLexUnit &vLexUnitOptional, float *fFeatures, int iFeatures, double *dUtteranceLikelihood, int &iErrorCode);
+			VLexUnit &vLexUnitOptional, MatrixBase<float> &mFeatures, double *dUtteranceLikelihood, int &iErrorCode);
 			
 		// forward/backward computation on the trellis
-		VTrellisNode *viterbi(int iFeatures, float *fFeatures, int iNodes, FBNodeHMM **nodes, int iEdges, FBNodeHMM *nodeInitial, FBNodeHMM *nodeFinal, float fBeam, int *iErrorCode);
+		VTrellisNode *viterbi(MatrixBase<float> &mFeatures, int iNodes, FBNodeHMM **nodes, int iEdges, FBNodeHMM *nodeInitial, FBNodeHMM *nodeFinal, float fBeam, int *iErrorCode);
 		
 		// allocate memory for the trellis
 		VTrellisNode *newTrellis(int iFeatures, int iEdges, int *iErrorCode);

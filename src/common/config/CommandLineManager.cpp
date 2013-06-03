@@ -16,9 +16,9 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "CommandLineManager.h"
-#include "ExceptionBase.h"
 
 namespace Bavieca {
 
@@ -126,7 +126,7 @@ bool CommandLineManager::parseParameters(int argc, char *argv[]) {
 	
 	try {
 		parse(vParameterValue);
-	} catch (ExceptionBase) {
+	} catch (std::runtime_error) {
 		return false;
 	}
 	

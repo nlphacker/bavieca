@@ -23,11 +23,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// support for SIMD instructions
+#ifdef __SSE__
 #include <xmmintrin.h>
-//#include <smmintrin.h>
-//#include <pmmintrin.h>
+#endif
 
-#if defined __linux__ || defined _WIN32
+// support for AVX (Intel Advanced Vector Extensions) instructions
+#ifdef __AVX__
+#include <immintrin.h>
+#endif
+
+#if defined __linux__ || defined __MINGW32__ || defined _MSC_VER
 #include <malloc.h>
 #elif __APPLE__
 #include <sys/malloc.h>
@@ -39,6 +45,7 @@ using namespace std;
 
 #include <string>
 #include "Global.h"
+#include "Matrix.h"
 
 namespace Bavieca {
 
@@ -60,13 +67,7 @@ class FeatureFile {
 	private:
 	
 		string m_strFile;						// file name
-	#ifdef SIMD		
-		__attribute__((aligned(16))) float *m_fFeatureVectors;		// aligned to 16 bytes to speed up memory access
-		int m_iDimAligned16;					// dimensionality needed to store a 16 bytes aligned feature vector
-	#else
-		float *m_fFeatureVectors;			// feature vectors
-	#endif
-		unsigned int m_iFeatureVectors;	// # feature vectors
+		Matrix<float> *m_mFeatures;		// feature vectors (each row in the matrix is a feature vector)
 		char m_iMode;							// mode
 		char m_iFormat;						// file format (default, HTK, etc)
 		int m_iDim;								// dimensionality
@@ -83,13 +84,13 @@ class FeatureFile {
 		void load();
 		
 		// store the features 
-		void store(float *fFeatureVectors, unsigned int iFeatureVectors);
+		void store(MatrixBase<float> &mFeatures);
 		
 		// return a reference to the features
-		float *getFeatureVectors(unsigned int *iFeatureVectors);		
+		Matrix<float> *getFeatureVectors();
 		
 		// print the features (debugging)
-		static void print(float *fFeatures, unsigned int iFeatures, unsigned int iDim, unsigned int iDelta);
+		static void print(MatrixBase<float> &mFeatures, unsigned int iDelta);
 };
 
 };	// end-of-namespace

@@ -36,8 +36,6 @@ ForwardBackwardX::ForwardBackwardX(PhoneSet *phoneSet, LexiconManager *lexiconMa
 	m_lexiconManager = lexiconManager;
 	m_hmmManagerAlignment = hmmManagerAlignment;
 	m_hmmManagerAccumulation = hmmManagerAccumulation;
-	m_iFeatureDimensionalityAlignment = m_hmmManagerAlignment->getFeatureDimensionality();	
-	m_iFeatureDimensionalityAccumulation = m_hmmManagerAccumulation->getFeatureDimensionality();	
 	
 	// pruning
 	m_fForwardPruningBeam = fForwardPruningBeam;
@@ -65,7 +63,7 @@ ForwardBackwardX::~ForwardBackwardX()
 // - handles multiple pronunciations
 // - handles optional symbols (typically silence+fillers)
 Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, bool bMultiplePronunciations, 
-	VLexUnit &vLexUnitOptional, float *fFeaturesAlignment, float *fFeaturesAccumulation, int iFeatures, 
+	VLexUnit &vLexUnitOptional, MatrixBase<float> &mFeaturesAlignment, MatrixBase<float> &mFeaturesAccumulation, 
 	double *dUtteranceLikelihood, const char **strReturnCode) {
 	
 	//double dTimeBegin = TimeUtils::getTimeMilliseconds();
@@ -99,6 +97,7 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 	//double dTimeMiddle1 = TimeUtils::getTimeMilliseconds();
 	
 	// there can't be fewer feature vectors than HMM-states in the composite
+	int iFeatures = mFeaturesAlignment.getRows();
 	if (iFeatures < nodeInitial->iDistanceEnd) {
 		HMMGraph::destroy(nodes,iNodes);
 		*strReturnCode = FB_RETURN_CODE_INSUFFICIENT_NUMBER_FEATURE_VECTORS;
@@ -116,7 +115,7 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 	m_hmmManagerAlignment->resetHMMEmissionProbabilityComputation(vHMMState);
 	
 	// do the actual forward-backward
-	FBTrellisNode *trellis = forwardBackward(iFeatures,fFeaturesAlignment,iNodes,nodes,iEdges,
+	FBTrellisNode *trellis = forwardBackward(mFeaturesAlignment,iNodes,nodes,iEdges,
 		nodeInitial,nodeFinal,m_fForwardPruningBeam,m_fBackwardPruningBeam,strReturnCode);
 	if (trellis == NULL) {
 		HMMGraph::destroy(nodes,iNodes);
@@ -177,7 +176,7 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 		
 		// traverse the trellis
 		for(int t = 0 ; t < iFeatures ; ++t) {
-			float *fFeatureVectorAccumulation = fFeaturesAccumulation+(t*m_iFeatureDimensionalityAccumulation);
+			VectorStatic<float> vFeatureVectorAccumulation = mFeaturesAccumulation.getRow(t);
 			for(int i = 0 ; i < iActiveCurrent ; ++i) {
 				int s = edgeActiveCurrent[i]->iEdge;
 				FBTrellisNode *nodeTrellis = &trellis[t*iEdges+s];
@@ -189,7 +188,7 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 				assert(finite(dOccProbability));
 				assert(!edgeActiveCurrent[i]->vAccumulator.empty());
 				// accumulate statistics
-				edgeActiveCurrent[i]->vAccumulator[0]->accumulateObservation(fFeatureVectorAccumulation,dOccProbability);
+				edgeActiveCurrent[i]->vAccumulator[0]->accumulateObservation(vFeatureVectorAccumulation,dOccProbability);
 				dOccupationTotal += dOccProbability;
 			}
 			// determine active states for next time frame
@@ -249,8 +248,8 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 		double dOccupationTotal = 0.0;
 		for(int t = 0 ; t < iFeatures ; ++t) {
 			FrameAlignment *frameAlignment = new FrameAlignment;
-			float *fFeatureVectorAlignment = fFeaturesAlignment+(t*m_iFeatureDimensionalityAlignment);
-			float *fFeatureVectorAccumulation = fFeaturesAccumulation+(t*m_iFeatureDimensionalityAccumulation);
+			VectorStatic<float> vFeatureVectorAlignment = mFeaturesAlignment.getRow(t);
+			VectorStatic<float> vFeatureVectorAccumulation = mFeaturesAccumulation.getRow(t);
 			for(int i = 0 ; i < iActiveCurrent ; ++i) {
 				int s = edgeActiveCurrent[i]->iEdge;
 				FBTrellisNode *nodeTrellis = &trellis[t*iEdges+s];
@@ -284,7 +283,7 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 				double dGaussianAux = 0.0;
 				for(unsigned int g = 0 ; g < edgeActiveCurrent[i]->hmmStateEstimation->getMixture().getNumberComponents() ; ++g) {
 					
-					double dOccLikGaussian = edgeActiveCurrent[i]->hmmStateEstimation->computeEmissionProbabilityGaussian(g,fFeatureVectorAlignment,t) + dOccupationLikelihood + log(edgeActiveCurrent[i]->hmmStateEstimation->getMixture()(g)->weight());	
+					double dOccLikGaussian = edgeActiveCurrent[i]->hmmStateEstimation->computeEmissionProbabilityGaussian(g,vFeatureVectorAlignment.getData(),t) + dOccupationLikelihood + log(edgeActiveCurrent[i]->hmmStateEstimation->getMixture()(g)->weight());	
 					
 					double dOccProbability = exp(dOccLikGaussian);
 					assert(finite(dOccProbability));
@@ -292,11 +291,11 @@ Alignment *ForwardBackwardX::processUtterance(VLexUnit &vLexUnitTranscription, b
 					assert(!edgeActiveCurrent[i]->vAccumulator.empty());
 					// global accumulators
 					if (bAccumulatorsLogical) {
-						edgeActiveCurrent[i]->vAccumulator[0]->accumulateObservation(fFeatureVectorAccumulation,dOccProbability);
+						edgeActiveCurrent[i]->vAccumulator[0]->accumulateObservation(vFeatureVectorAccumulation,dOccProbability);
 					}
 					// local accumulators
 					else {
-						edgeActiveCurrent[i]->vAccumulator[g]->accumulateObservation(fFeatureVectorAccumulation,dOccProbability);
+						edgeActiveCurrent[i]->vAccumulator[g]->accumulateObservation(vFeatureVectorAccumulation,dOccProbability);
 					}
 					dOccupationTotal += dOccProbability;
 				}
@@ -395,11 +394,14 @@ void ForwardBackwardX::print(FBTrellisNode *node, int iRows, int iColumns) {
 }
 
 // forward/backward computation on the trellis
-FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures, int iNodes, FBNodeHMM **nodes, int iEdges, FBNodeHMM *nodeInitial, FBNodeHMM *nodeFinal, float fBeamForward, float fBeamBackward, const char **strReturnCode) {
+FBTrellisNode *ForwardBackwardX::forwardBackward(MatrixBase<float> &mFeatures, int iNodes, FBNodeHMM **nodes, 
+	int iEdges, FBNodeHMM *nodeInitial, FBNodeHMM *nodeFinal, float fBeamForward, float fBeamBackward, 
+	const char **strReturnCode) {
 
 	//double dTimeBegin = TimeUtils::getTimeMilliseconds();
 
 	// allocate memory for the trellis
+	int iFeatures = mFeatures.getRows();
 	FBTrellisNode *trellis = newTrellis(iFeatures,iEdges,strReturnCode);
 	if (trellis == NULL) {
 		return NULL;
@@ -447,7 +449,7 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 	// fill the trellis	
 	for(int t = iFeatures-2 ; t >= 0 ; --t) {
 		// (a) compute backward scores for the time frame	
-		float *fFeatureVector = fFeatures+((t+1)*m_iFeatureDimensionalityAlignment);
+		VectorBase<float> vFeatureVector = mFeatures.getRow(t+1);
 		for(int i = 0 ; i < iActiveCurrent ; ++i) {
 			int s = edgeActiveCurrent[i]->iEdge;
 			FBTrellisNode *nodeTrellis = &trellis[t*iEdges+s];
@@ -457,7 +459,7 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 			if (iFeatures-2-t >= edgeActiveCurrent[i]->nodeNext->iDistanceEnd) {
 				FBTrellisNode *nodeSame = &trellis[(t+1)*iEdges+s];
 				if (nodeSame->dBackward != -DBL_MAX) {
-					nodeSame->fScore = edgeActiveCurrent[i]->hmmStateEstimation->computeEmissionProbability(fFeatureVector,t+1);
+					nodeSame->fScore = edgeActiveCurrent[i]->hmmStateEstimation->computeEmissionProbability(vFeatureVector.getData(),t+1);
 					nodeTrellis->dBackward = nodeSame->dBackward + nodeSame->fScore;
 				}
 			}
@@ -466,7 +468,7 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 				if (iFeatures-2-t >= edge->nodeNext->iDistanceEnd) {
 					FBTrellisNode *nodeNext = &trellis[(t+1)*iEdges+edge->iEdge];
 					if (nodeNext->dBackward != -DBL_MAX) {
-						nodeNext->fScore = edge->hmmStateEstimation->computeEmissionProbability(fFeatureVector,t+1);
+						nodeNext->fScore = edge->hmmStateEstimation->computeEmissionProbability(vFeatureVector.getData(),t+1);
 						nodeTrellis->dBackward = Numeric::logAddition(nodeTrellis->dBackward,nodeNext->dBackward+nodeNext->fScore);
 					}
 				}
@@ -526,7 +528,7 @@ FBTrellisNode *ForwardBackwardX::forwardBackward(int iFeatures, float *fFeatures
 	// compute the only scores that are left to compute 
 	// (the backward process does not imply the computation of these scores)
 	for(FBEdgeHMM *edge = nodeInitial->edgeNext ; edge != NULL ; edge = edge->edgePrev) {
-		trellis[edge->iEdge].fScore = edge->hmmStateEstimation->computeEmissionProbability(fFeatures,0);
+		trellis[edge->iEdge].fScore = edge->hmmStateEstimation->computeEmissionProbability(mFeatures.getRow(0).getData(),0);
 	}	
 	
 	// get the utterance likelihood from the initial edges

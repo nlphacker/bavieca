@@ -16,12 +16,12 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-
-#include "BaviecaAPI.h"
+#include <stdexcept>
 
 #include "ViterbiX.h"
 #include "AlignmentFile.h"
 #include "AudioFile.h"
+#include "BaviecaAPI.h"
 #include "BatchFile.h"
 #include "BestPath.h"
 #include "ConfigurationBavieca.h"
@@ -31,13 +31,13 @@
 #include "NetworkBuilderX.h"
 #include "FeatureExtractor.h"
 #include "FeatureFile.h"
-#include "FileUtils.h"
 #include "FillerManager.h"
 #include "HMMManager.h"
 #include "LexiconManager.h"
 #include "LexUnitsFile.h"
 #include "LMManager.h"
 #include "LogMessage.h"
+#include "MatrixStatic.h"
 #include "PhoneSet.h"
 #include "SADModule.h"
 #include "TextAligner.h"
@@ -204,9 +204,6 @@ bool BaviecaAPI::initialize(unsigned char iFlags, ParamValuesI *paramValues) {
 				m_configuration->getStrParameterValue("languageModel.type"); 
 			float m_fLanguageModelScalingFactor = 
 				m_configuration->getFloatParameterValue("languageModel.scalingFactor"); 
-			const char *m_strLanguageModelNGram = 
-				m_configuration->getStrParameterValue("languageModel.ngram"); 
-			int m_iNGram = LMManager::getNGram(m_strLanguageModelNGram);
 			//bool m_bLanguageCrossUtterance = 
 				//m_configuration->getBoolParameterValue("languageModel.crossUtterance");
 					
@@ -246,10 +243,8 @@ bool BaviecaAPI::initialize(unsigned char iFlags, ParamValuesI *paramValues) {
 			m_lmManager = new LMManager(m_lexiconManager,
 												m_strLanguageModelFile,
 												m_strLanguageModelFormat,
-												m_strLanguageModelType,
-												m_strLanguageModelNGram); 
+												m_strLanguageModelType); 
 			m_lmManager->load();
-			m_lmManager->buildLMGraph();
 			
 			m_networkBuilder = new NetworkBuilderX(m_phoneSet,m_hmmManager,m_lexiconManager);
 			
@@ -260,7 +255,7 @@ bool BaviecaAPI::initialize(unsigned char iFlags, ParamValuesI *paramValues) {
 			}
 		
 			m_dynamicDecoder = new DynamicDecoderX(m_phoneSet,m_hmmManager,m_lexiconManager,
-					m_lmManager,m_fLanguageModelScalingFactor,m_iNGram,m_network,m_iMaxActiveArcs,
+					m_lmManager,m_fLanguageModelScalingFactor,m_network,m_iMaxActiveArcs,
 					m_iMaxActiveArcsWE,m_iMaxActiveTokensArc,m_fBeamWidthArcs,m_fBeamWidthArcsWE,m_fBeamWidthTokensArc,
 					m_bLatticeGeneration,m_iMaxWordSequencesState);
 					
@@ -272,7 +267,7 @@ bool BaviecaAPI::initialize(unsigned char iFlags, ParamValuesI *paramValues) {
 			
 		}
 			
-	} catch (ExceptionBase) {	
+	} catch (std::runtime_error) {	
 		return false;
 	}	
 
@@ -326,7 +321,16 @@ float *BaviecaAPI::extractFeatures(short *sSamples, unsigned int iSamples, unsig
 
 	assert(m_bInitialized);
 	
-	return m_featureExtractor->extractFeaturesStream(sSamples,iSamples,iFeatures);
+	MatrixBase<float> *mFeatures = m_featureExtractor->extractFeaturesStream(sSamples,iSamples);
+	if (!mFeatures) {
+		*iFeatures = -1;
+		return NULL;
+	}	
+	
+	assert(0);
+	cout << "features might be aligned to 16 byte boundaries or other, conversion needs to be done";
+	*iFeatures = mFeatures->getRows();
+	return mFeatures->getData();
 }
 
 // return feature dimensionality
@@ -334,7 +338,7 @@ int BaviecaAPI::getFeatureDim() {
 
 	assert(m_bInitialized);
 	assert(m_featureExtractor);	
-	return m_featureExtractor->getFeatureDimensionality();
+	return m_featureExtractor->getFeatureDimContainer();
 }
 
 // free features extracted using extractFeatures(...)
@@ -362,7 +366,8 @@ void BaviecaAPI::sadEndSession() {
 void BaviecaAPI::sadFeed(float *fFeatures, unsigned int iFeatures) {
 
 	assert(m_bInitialized);
-	m_sadModule->processFeatures(fFeatures,iFeatures);
+	MatrixStatic<float> mFeatures(fFeatures,iFeatures,m_featureExtractor->getFeatureDim());	
+	m_sadModule->processFeatures(mFeatures);
 }
 
 // recover speech segments by doing back-tracking on the grid
@@ -405,8 +410,9 @@ AlignmentI *BaviecaAPI::align(float *fFeatures, unsigned int iFeatures, const ch
 	
 	VLexUnit vLexUnitOptional;
 	vLexUnitOptional.push_back(m_lexiconManager->getLexUnitSilence());
+	MatrixStatic<float> mFeatures(fFeatures,iFeatures,m_featureExtractor->getFeatureDim());	
 	Alignment *alignment = m_viterbiX->processUtterance(vLexUnit,bMultiplePronunciations,
-			vLexUnitOptional,fFeatures,iFeatures,&dUtteranceLikelihood,iErrorCode);
+			vLexUnitOptional,mFeatures,&dUtteranceLikelihood,iErrorCode);
 	if (alignment == NULL) {
 		return NULL;
 	}
@@ -461,7 +467,8 @@ void BaviecaAPI::decProcess(float *fFeatures, unsigned int iFeatures) {
 
 	assert(m_bInitialized);
 	assert(m_iFlags & INIT_DECODER);
-	m_dynamicDecoder->process(fFeatures,iFeatures);	
+	MatrixStatic<float> mFeatures(fFeatures,iFeatures,m_featureExtractor->getFeatureDim());
+	m_dynamicDecoder->process(mFeatures);	
 }
 
 // get decoding results

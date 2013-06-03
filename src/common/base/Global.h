@@ -42,14 +42,25 @@
 
 // emission probability computation
 #define OPTIMIZED_COMPUTATION					// precomputed constants and inverted covariance
-//#define SIMD										// special memory alignment to work with simd instructions
+ 
+// byte boundaries for memory alignment
+#ifdef __AVX__
+	#include <immintrin.h>
+	#define ALIGN_BOUNDARY		sizeof(__m256i)
+#elif __SSE__
+	#include <xmmintrin.h>
+	#define ALIGN_BOUNDARY		sizeof(__m128i)
+#endif
+
+// macro to check memory alignment
+#define is_aligned(POINTER, BYTE_COUNT) (((uintptr_t)(const void *)(POINTER)) % (BYTE_COUNT) == 0)
 
 // open-mp
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define NOMINMAX
 #include <windows.h>
 #undef min
@@ -59,13 +70,14 @@
 #endif
 
 // verbose output
-//#define BVC_VERBOSE_ENABLED
+#define BVC_VERBOSE_ENABLED
 
 // asserts
 //#define NDEBUG 
 #include <assert.h> 
 #include <math.h>
 #include <float.h>
+#include <stdint.h>
 
 const double PI_NUMBER = 2.0*acos(0.0);
 
@@ -73,10 +85,10 @@ const double PI_NUMBER = 2.0*acos(0.0);
 #define FLT(width,precision) std::setw(width) << std::setiosflags(ios::fixed) << std::setprecision(precision)
 
 // inlining
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 	#define FORCE_INLINE __attribute__((always_inline))
 	#define NO_INLINE __attribute__((noinline))
-#elif _WIN32
+#elif _MSC_VER
 	#define FORCE_INLINE __forceinline
 	#define NO_INLINE __declspec(noinline)
 #else

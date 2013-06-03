@@ -29,6 +29,8 @@ using namespace std;
 #undef max
 #undef abs
 
+#include "Global.h"
+
 namespace Bavieca {
 
 template<typename Real>
@@ -42,13 +44,13 @@ class VectorBase {
 
 	protected: 
 	
-		int m_iDim;			// dimensionality
-		Real *m_rData;		// data
+		unsigned int m_iDim;			// dimensionality
+		Real *m_rData;					// data
 		
 		VectorBase() {
 		}
 		
-		VectorBase(int iDim) {
+		VectorBase(unsigned int iDim) {
 			m_iDim = iDim;
 			m_rData = NULL;
 		}
@@ -56,7 +58,7 @@ class VectorBase {
 	public:
 	
 		// return the dimensionality
-		int getDim() const {
+		unsigned int getDim() const {
 		
 			return m_iDim;
 		}
@@ -68,14 +70,14 @@ class VectorBase {
 		}
 		
 		// returns the given element as a r-value
-		Real& operator() (int i) {
+		Real& operator() (unsigned int i) {
 		
 			assert((i>=0) && (i < m_iDim));
 			return m_rData[i];
 		}	
 				
 		// returns the given element as a r-value
-		Real operator() (int i) const {
+		Real operator() (unsigned int i) const {
 		
 			assert((i>=0) && (i < m_iDim));
 			return m_rData[i];
@@ -84,7 +86,7 @@ class VectorBase {
 		// invert vector elements
 		void invertElements() {
 			
-			for(int i=0 ; i<m_iDim ; ++i) {
+			for(unsigned int i=0 ; i<m_iDim ; ++i) {
 				m_rData[i] = (Real)(1.0/m_rData[i]);
 			}
 		}
@@ -93,7 +95,7 @@ class VectorBase {
 		Real min() {
 		
 			Real rMin = m_rData[0];
-			for(int i=1 ; i<m_iDim ; ++i) {
+			for(unsigned int i=1 ; i<m_iDim ; ++i) {
 				if (m_rData[i] < rMin) {
 					rMin = m_rData[i]; 
 				}
@@ -106,7 +108,7 @@ class VectorBase {
 		Real max() {
 		
 			Real rMax = m_rData[0];
-			for(int i=1 ; i<m_iDim ; ++i) {
+			for(unsigned int i=1 ; i<m_iDim ; ++i) {
 				if (m_rData[i] > rMax) {
 					rMax = m_rData[i]; 
 				}
@@ -133,7 +135,7 @@ class VectorBase {
 			
 			assert(m_iDim == v.getDim());
 		 
-			for(int i=0 ; i<m_iDim ; ++i) {
+			for(unsigned int i=0 ; i<m_iDim ; ++i) {
 				m_rData[i] += r*v(i);
 			}
 		}
@@ -144,7 +146,7 @@ class VectorBase {
 			
 			assert(m_iDim == v.getDim());
 		 
-			for(int i=0 ; i<m_iDim ; ++i) {
+			for(unsigned int i=0 ; i<m_iDim ; ++i) {
 				m_rData[i] += (Real)(r*v(i));
 			}
 		}
@@ -154,7 +156,7 @@ class VectorBase {
 			
 			assert(m_iDim == v.getDim());
 		 
-			for(int i=0 ; i<m_iDim ; ++i) {
+			for(unsigned int i=0 ; i<m_iDim ; ++i) {
 				m_rData[i] += r*v(i)*v(i);
 			}
 		}
@@ -165,15 +167,50 @@ class VectorBase {
 			
 			assert(m_iDim == v.getDim());
 		 
-			for(int i=0 ; i<m_iDim ; ++i) {
+			for(unsigned int i=0 ; i<m_iDim ; ++i) {
 				m_rData[i] += r*v(i)*v(i);
 			}
+		}
+		
+		// add the rows of the given matrix
+		void addRows(MatrixBase<Real> &m) {
+		
+			assert(m_iDim == m.getCols());
+			for(unsigned int i=0 ; i<m.getRows() ; ++i) {
+				for(unsigned int j=0 ; j<m_iDim ; ++j) {
+					m_rData[j] += m(i,j);
+				}
+			}	
+		}
+		
+		// add the rows of the given matrix
+		template<typename Real2>
+		void addRows(MatrixBase<Real2> &m) {
+		
+			assert(m_iDim == m.getCols());
+			for(unsigned int i=0 ; i<m.getRows() ; ++i) {
+				for(unsigned int j=0 ; j<m_iDim ; ++j) {
+					m_rData[j] += m(i,j);
+				}
+			}	
+		}
+		
+		// add the square of the rows of the given matrix
+		template<typename Real2>
+		void addRowsSquare(MatrixBase<Real2> &m) {
+		
+			assert(m_iDim == m.getCols());
+			for(unsigned int i=0 ; i<m.getRows() ; ++i) {
+				for(unsigned int j=0 ; j<m_iDim ; ++j) {
+					m_rData[j] += m(i,j)*m(i,j);
+				}
+			}	
 		}
 		
 		// set elements to zero
 		void zero() {
 		
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] = 0.0;
 			}
 		}
@@ -181,17 +218,17 @@ class VectorBase {
 		// scale elements by the given factor
 		void scale(Real rFactor) {
 		
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] *= rFactor;
 			}
 		}
 		
 		// copy from memory
-		void copy(Real *rData, int iDim);
+		void copy(Real *rData, unsigned int iDim);
 		
 		// copy from memory
-		template<typename Real2>
-		void copy(Real2 *rData, int iDim);
+		//template<typename Real2>
+		//void copy(Real2 *rData, unsigned int iDim);
 		
 		// copy from another vector (same length and type)
 		void copy(const VectorBase<Real> &v) {
@@ -205,17 +242,46 @@ class VectorBase {
 		void copy(const VectorBase<Real2> &v) {
 		
 			assert(m_iDim == v.getDim());
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] = (Real)v(i);
+			}		
+		}
+		
+		// copy from another vector (diff length, same type)
+		void copy(const VectorBase<Real> &v, unsigned int iOffset, unsigned int iLen) {
+		
+			assert((iOffset >= 0) && (iOffset < m_iDim));
+			assert((iLen > 0) && (iOffset+iLen <= m_iDim));
+			for(unsigned int i=0 ; i < iLen ; ++i) {
+				m_rData[iOffset+i] = (Real)v(i);
 			}		
 		}
 		
 		// apply the square root
 		void sqrt();
 		
+		// divide the vector by another vector
+		void divide(VectorBase<Real> &v) {
+			
+			assert(this->m_iDim == v.getDim());
+			for(unsigned int i=0 ; i < this->m_iDim ; ++i) {
+				this->m_rData[i] /= v(i);
+			}
+		}
+		
+		// divide the vector by another vector
+		/*template<typename Real2>
+		void divide(VectorBase<Real2> &v) {
+			
+			assert(this->m_iDim == v.getDim());
+			for(unsigned int i=0 ; i < this->m_iDim ; ++i) {
+				this->m_rData[i] /= v(i);
+			}
+		}*/	
+		
 		// multiply by a scalar
 		void mul(Real r) {
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] *= r;
 			}
 		}
@@ -225,7 +291,7 @@ class VectorBase {
 			
 			assert(m_iDim == v.getDim());
 		 
-			for(int i=0 ; i<m_iDim ; ++i) {
+			for(unsigned int i=0 ; i<m_iDim ; ++i) {
 				m_rData[i] = r*v(i);
 			}
 		}
@@ -236,7 +302,7 @@ class VectorBase {
 			
 			assert(m_iDim == v.getDim());
 		 
-			for(int i=0 ; i<m_iDim ; ++i) {
+			for(unsigned int i=0 ; i<m_iDim ; ++i) {
 				m_rData[i] = (Real)(r*v(i));
 			}
 		}		
@@ -244,7 +310,7 @@ class VectorBase {
 		// multiply by a matrix diagonal
 		void mulDiagonal(MatrixBase<Real> &m) {
 			
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] *= m(i,i);
 			}
 		}
@@ -252,7 +318,7 @@ class VectorBase {
 		// multiply vector elements
 		void mulElements(VectorBase<Real> &v) {
 			
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] *= v(i);
 			}	
 		}
@@ -261,7 +327,7 @@ class VectorBase {
 		template<typename Real2>
 		void mulElements(VectorBase<Real2> &v) {
 			
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] *= (Real)v(i);
 			}	
 		}
@@ -270,7 +336,7 @@ class VectorBase {
 		template<typename Real2>
 		void mulDiagonal(MatrixBase<Real2> &m) {
 			
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] *= (Real)m(i,i);
 			}
 		}
@@ -281,7 +347,7 @@ class VectorBase {
 			assert(m_iDim == v.getDim());
 		
 			Real r = 0;
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				r += m_rData[i] * v(i);
 			}
 				
@@ -295,9 +361,9 @@ class VectorBase {
 			assert(m_iDim == v.m_iDim);
 			assert(m_iDim == m.getCols());
 			
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] = 0.0;
-				for(int j=0 ; j < m.getRows() ; ++j) {
+				for(unsigned int j=0 ; j < m.getRows() ; ++j) {
 					m_rData[i] += v(j)*m(j,i);
 				}
 			}
@@ -311,9 +377,9 @@ class VectorBase {
 			assert(m_iDim == m.getRows());
 			assert(m.getCols() == v.getDim());
 				
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] = 0.0;
-				for(int j=0 ; j < m.getCols() ; ++j) {
+				for(unsigned int j=0 ; j < m.getCols() ; ++j) {
 					m_rData[i] += m(i,j)*v(j);
 				}
 			}	
@@ -326,9 +392,9 @@ class VectorBase {
 			assert(m_iDim == m.getRows());
 			assert(m.getCols() == v.getDim());
 				
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] = 0.0;
-				for(int j=0 ; j < m.getCols() ; ++j) {
+				for(unsigned int j=0 ; j < m.getCols() ; ++j) {
 					m_rData[i] += m(i,j)*v(j);
 				}
 			}
@@ -342,9 +408,9 @@ class VectorBase {
 			assert(m_iDim == m.getRows());
 			assert(m.getCols() == v.getDim());
 				
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] = 0.0;
-				for(int j=0 ; j < m.getCols() ; ++j) {
+				for(unsigned int j=0 ; j < m.getCols() ; ++j) {
 					m_rData[i] += m(i,j)*v(j);
 				}
 			}	
@@ -358,9 +424,9 @@ class VectorBase {
 			assert(m_iDim == m.getRows());
 			assert(m.getCols() == v.getDim());
 				
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] = 0.0;
-				for(int j=0 ; j < m.getCols() ; ++j) {
+				for(unsigned int j=0 ; j < m.getCols() ; ++j) {
 					m_rData[i] += m(i,j)*v(j);
 				}
 			}	
@@ -374,9 +440,9 @@ class VectorBase {
 			assert(m_iDim == m.getRows());
 			assert(m.getCols() == v.getDim());
 				
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] = 0.0;
-				for(int j=0 ; j < m.getCols() ; ++j) {
+				for(unsigned int j=0 ; j < m.getCols() ; ++j) {
 					m_rData[i] += m(i,j)*v(j);
 				}
 			}	
@@ -385,19 +451,16 @@ class VectorBase {
 		// multiply vector elements
 		void squareElements() {
 			
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				m_rData[i] *= m_rData[i];
 			}	
 		}		
-		
-		// divide the vector by another vector
-		void divide(VectorBase<Real> &v);
 		
 		// return the sum of all elements
 		Real sum() {
 		
 			Real r = 0.0;
-			for(int i=0 ; i<m_iDim ; ++i) {
+			for(unsigned int i=0 ; i<m_iDim ; ++i) {
 				r += m_rData[i]; 
 			}
 			
@@ -408,7 +471,7 @@ class VectorBase {
 		Real sumLog() {
 		
 			Real r = 0.0;
-			for(int i=0 ; i<m_iDim ; ++i) {
+			for(unsigned int i=0 ; i<m_iDim ; ++i) {
 				r += log(m_rData[i]); 
 			}
 			
@@ -418,7 +481,7 @@ class VectorBase {
 		// floor the vector elements to the given values
 		void floor(VectorBase<Real> &vFloor) {
 		
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				if (m_rData[i] < vFloor(i)) {
 					m_rData[i] = vFloor(i);
 				}
@@ -429,7 +492,7 @@ class VectorBase {
 		template<typename Real2>
 		void floor(VectorBase<Real2> &vFloor) {
 		
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				if (m_rData[i] < vFloor(i)) {
 					m_rData[i] = (Real)vFloor(i);
 				}
@@ -437,12 +500,12 @@ class VectorBase {
 		}
 		
 		// shift the vector elements to the right
-		void shiftRight(int iOffset);	
+		void shiftRight(unsigned int iOffset);	
 		
 		// return whether all elements are positive
 		bool isPositive() {
 		
-			for(int i=0 ; i < m_iDim ; ++i) {
+			for(unsigned int i=0 ; i < m_iDim ; ++i) {
 				if (m_rData[i] <= 0) {
 					return false;
 				}

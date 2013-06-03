@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "CommandLineManager.h"
 #include "FeatureFile.h"
@@ -78,8 +79,7 @@ int main(int argc, char *argv[]) {
 		FeatureFile featureFile(strFileFeatures,MODE_READ);
 		featureFile.load();
 		
-		unsigned int iFeatures = 0;
-		float *fFeatures = featureFile.getFeatureVectors(&iFeatures);
+		Matrix<float> *mFeatures = featureFile.getFeatureVectors();
 		
 		// create the SAD module
 		SADModule sadModule(&phoneSet,&hmmManager,iMaxGaussianComponentsSilence,
@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
 	
 		// perform the actual segmentation
 		sadModule.beginSession();	
-		sadModule.processFeatures(fFeatures,iFeatures);	
+		sadModule.processFeatures(*mFeatures);	
 		VSpeechSegment vSpeechSegment;
 		sadModule.recoverSpeechSegments(vSpeechSegment);
 		//sadModule.printSegments(vSpeechSegment);	
@@ -98,17 +98,17 @@ int main(int argc, char *argv[]) {
 		
 		double dTimeEnd = TimeUtils::getTimeMilliseconds();	
 		double dSecondsProcessing = (dTimeEnd-dTimeBegin)/1000.0;
-		double dSecondsAudio = ((float)iFeatures)/100.0;
-		printf("feature frames: %u (RTF: %.2f)\n",iFeatures,dSecondsProcessing/dSecondsAudio);
+		double dSecondsAudio = ((float)mFeatures->getRows())/100.0;
+		printf("feature frames: %u (RTF: %.2f)\n",mFeatures->getRows(),dSecondsProcessing/dSecondsAudio);
 		
 		// write the segmentation to file
 		SADModule::store(strFileOutput,vSpeechSegment);
 		
 		// clean-up
 		SADModule::deleteVSpeechSegment(vSpeechSegment);
-		delete [] fFeatures;
+		delete mFeatures;
 		
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

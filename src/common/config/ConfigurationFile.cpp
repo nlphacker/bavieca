@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "ConfigurationFile.h"
 #include "FileInput.h"
@@ -71,7 +72,7 @@ void ConfigurationFile::load() {
 		}
 		
 		file.close();
-	} catch (ExceptionBase) {
+	} catch (std::runtime_error) {
 		BVC_ERROR << "unable to load the configuration file: " << m_strFile;
 	}
 }

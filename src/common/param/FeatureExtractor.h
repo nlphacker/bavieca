@@ -67,16 +67,7 @@ class ConfigurationFeatures;
 #define STR_CEPSTRAL_NORMALIZATION_METHOD_CMN		"CMN"
 #define STR_CEPSTRAL_NORMALIZATION_METHOD_CMVN		"CMVN"
 
-// DEPRECATED  	TODO
-#define  FEATURE_VECTOR_LENGTH				39
-#define  FEATURE_VECTOR_LENGTH_ALIGNED_16		40				// 40*sizeof(float) is multiple of 16bytes
-
-typedef struct {
-	float *fFeatures;
-	unsigned int iFeatures;
-} FeaturesUtterance;
-
-typedef vector<FeaturesUtterance> VFeaturesUtterance; 
+typedef vector<Matrix<float>* > VUtteranceFeatures; 
 
 typedef struct {
 	short *sSamples;
@@ -85,7 +76,7 @@ typedef struct {
 
 typedef struct {
 	SamplesUtterance samples;	
-	FeaturesUtterance features;	
+	Matrix<float> *mFeatures;	
 } UtteranceData;
 
 typedef vector<UtteranceData> VUtteranceData;
@@ -138,18 +129,18 @@ class FeatureExtractor {
 		int m_iCoefficientsTotal;		// total number of coefficients in the whole feature vectors
 		
 			
-		float *m_fCenterFrequencyMel;		// center frequencies of the filters in the Mel scale 		
+		double *m_dCenterFrequencyMel;		// center frequencies of the filters in the Mel scale 		
 		
 		// FFT
 		unsigned int m_iFFTPoints;			// number of points in the Fast Fourier Transform
-		int *m_iFFTPointBin;			// keeps the lower bin of a given point in the FFT (each point is connected to two bins)
-		float *m_fFFTPointGain;
+		int *m_iFFTPointBin;					// keeps the lower bin of a given point in the FFT (each point is connected to two bins)
+		double *m_dFFTPointGain;
 		
 		// cepstral buffer: it is used for different purposes
 		// - cepstral normalization (mean/variance)
 		// - cepstral context in live mode (last feature vectors from the previous speech chunk are used)	
 		int m_iCepstralBufferPointer;		// pointer to the last used position in the cepstral buffer
-		float *m_fCepstralBuffer;		// cepstral buffer
+		Matrix<float> *m_mCepstralBuffer;		// cepstral buffer
 		
 		// auxiliar variables
 		unsigned int m_iSamplesFrame;
@@ -210,51 +201,46 @@ class FeatureExtractor {
 		double computeLogEnergy(double *dFrame, int iWindowLength);
 		
 		// convert Mel frequency to linear frequency
-		float melToLinear(float fFrequency) {
+		double melToLinear(double dFrequency) {
 		
-			return (float)(700.0*(exp(fFrequency/1127.0)-1.0));
+			return 700.0*(exp(dFrequency/1127.0)-1.0);
 		}
 
 		// convert Mel frequency to linear frequency
-		float linearToMel(float fFrequency) {
+		double linearToMel(double dFrequency) {
 		
-			return (float)(1127.0*log((1.0)+(fFrequency/700.0)));
+			return 1127.0*log((1.0)+(dFrequency/700.0));
 		}
 		
 		// compute the lower bin connected to each FFT point
 		void computeFFTPointBin();
 		
 		// extract MFCC features (only the static coefficients)
-		float *extractStaticFeaturesMFCC(short *sSamples, unsigned int iSamples, unsigned int *iFeatures);
+		Matrix<float> *extractStaticFeaturesMFCC(short *sSamples, unsigned int iSamples);
 		
 		// extract PLP features (only the static coefficients)
-		float *extractStaticFeaturesPLP(short *sSamples, unsigned int iSamples, unsigned int *iFeatures);		
+		Matrix<float> *extractStaticFeaturesPLP(short *sSamples, unsigned int iSamples);
 		
 		// compute derivatives
-		float *computeDerivatives(float *fFeatures, int iFeatures);
+		Matrix<float> *computeDerivatives(MatrixBase<float> &mStatic);
 		
 		// stack features
-		float *spliceFeatures(float *fFeatures, int iFeatures, int iElements);	
+		Matrix<float> *spliceFeatures(MatrixBase<float> &mFeatures, unsigned int iElements);	
 		
 		// compute CMN over a set of utterances (session mode)
-		void applyCMN(FeaturesUtterance *featuresUtterance, unsigned int iUtterances, unsigned int iCoefficients, 
-			unsigned int iCoefficientsNormalization);	
+		void applyCMN(VUtteranceFeatures &vUtteranceFeatures, unsigned int iCoeffNorm);	
 		
 		// compute CMVN over a set of utterances (session mode)
-		void applyCMVN(FeaturesUtterance *featuresUtterance, unsigned int iUtterances, unsigned int iCoefficients, 
-			unsigned int iCoefficientsNormalization);	
+		void applyCMVN(VUtteranceFeatures &vUtteranceFeatures, unsigned int iCoeffNorm);	
 		
 		// aplly utterance-based cepstral mean normalization
-		void applyCMN(float *fFeatures, unsigned int iFeatures, unsigned int iCoefficients, 
-			unsigned int iCoefficientsNormalization);
+		void applyCMN(Matrix<float> &mFeatures, unsigned int iCoeffNorm);
 		
 		// apply utterance-based cepstral mean variance normalization
-		void applyCMVN(float *fFeatures, unsigned int iFeatures, unsigned int iCoefficients, 
-			unsigned int iCoefficientsNormalization);	
+		void applyCMVN(Matrix<float> &mFeatures, unsigned int iCoeffNorm);	
 		
 		// apply stream-based cepstral mean normalization
-		void applyCMNStream(float *fFeatures, unsigned int iFeatures, unsigned int iCoefficients, 
-			unsigned int iCoefficientsNormalization);	
+		void applyCMNStream(Matrix<float> &mFeatures, unsigned int iCoeffNorm);	
 		
 		// build the filter bank (it takes into account the warp factor)
 		void buildFilterBank();	
@@ -312,23 +298,34 @@ class FeatureExtractor {
 		void extractFeatures(const char *strFileRaw, const char *strFileFea);
 			
 		// extract features (utterance-based cepstral normalization)
-		float *extractFeatures(const char *strFile, unsigned int *iFeatures);
+		Matrix<float> *extractFeatures(const char *strFile);
 		
 		// extract static features in stream mode (make use of "left context" speech samples)
-		float *extractFeaturesStream(short *sSamples, unsigned int iSamples, unsigned int *iFeatures);		
+		Matrix<float> *extractFeaturesStream(short *sSamples, unsigned int iSamples);
 		
 		// extract features (utterance or stream-based cepstral normalization)
-		float *extractFeatures(short *sSamples, unsigned int iSamples, unsigned int *iFeatures);	
+		Matrix<float> *extractFeatures(short *sSamples, unsigned int iSamples);	
 		
 		// extract static features 
-		float *extractStaticFeatures(short *sSamples, unsigned int iSamples, unsigned int *iFeatures);	
+		Matrix<float> *extractStaticFeatures(short *sSamples, unsigned int iSamples);	
 		
-		// print the features (debugging)
-		void print(float *fFeatures, int iFeatures);
-		
-		int getFeatureDimensionality() {
+		// return the feature dimensionality
+		unsigned int getFeatureDim() {
 		
 			return m_iCoefficientsTotal;
+		}
+		
+		// return the dimensionality of a feature container (considers memory alignment)
+		inline unsigned int getFeatureDimContainer() {
+		#if defined __AVX__ || defined __SSE__
+			// round up the dimensionality to the nearest multiple	
+			unsigned int iReminder = m_iCoefficientsTotal%(ALIGN_BOUNDARY/sizeof(float));
+			unsigned int iDimContainer = (iReminder == 0) ? m_iCoefficientsTotal : m_iCoefficientsTotal + (ALIGN_BOUNDARY/sizeof(float))-iReminder;
+			assert(iDimContainer % ALIGN_BOUNDARY == 0);
+			return iDimContainer;
+		#else 
+			return getFeatureDim();
+		#endif	
 		}
 		
 		// reset the stream for stream based feature extraction

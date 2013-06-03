@@ -16,7 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-
+#include "FileOutput.h"
 #include "TextAlignment.h"
 
 namespace Bavieca {
@@ -66,36 +66,36 @@ void TextAlignment::addElement(int iAlignmentEvent, int iIndexReference, int iLe
 }
 
 // print the alignment
-void TextAlignment::print(bool bDetailed, FILE *file) {
+void TextAlignment::print(bool bDetailed, ostream &os) {
 
-	fprintf(file,"# align score:       %6d\n",m_iScore);
-	fprintf(file,"# reference words:   %6d\n",m_iWordsReference);
-	fprintf(file,"# hypothesis words:  %6d\n",m_iWordsHypothesis);
-	fprintf(file,"# correct:           %6d\n",m_iAlignmentEvents[0]);
-	fprintf(file,"# substitutions:     %6d\n",m_iAlignmentEvents[1]);
-	fprintf(file,"# deletions:         %6d\n",m_iAlignmentEvents[2]);
-	fprintf(file,"# insertions:        %6d\n",m_iAlignmentEvents[3]);
+	os << "# align score:       " << m_iScore << endl;
+	os << "# reference words:   " << m_iWordsReference << endl;
+	os << "# hypothesis words:  " << m_iWordsHypothesis << endl;
+	os << "# correct:           " << m_iAlignmentEvents[0] << endl;
+	os << "# substitutions:     " << m_iAlignmentEvents[1] << endl;
+	os << "# deletions:         " << m_iAlignmentEvents[2] << endl;
+	os << "# insertions:        " << m_iAlignmentEvents[3] << endl;
 	// actual alignment
 	if (bDetailed) {
-		fprintf(file,"# event         reference            hypothesis\n");
+		os << "# event         reference            hypothesis" << endl;
 		for(VTAElement::iterator it = m_vTAElement.begin() ; it != m_vTAElement.end() ; ++it) {
 			switch((*it)->iAlignmentEvent) {
 				case TEXT_ALIGNMENT_EVENT_CORRECT: {
-					fprintf(file,"correct:        %-20s %-20s\n",m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference),
-					m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis));
+					os << "correct:      " << m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference) << " " <<
+						m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis) << endl;
 					break;
 				}
 				case TEXT_ALIGNMENT_EVENT_SUBSTITUTION: {
-					fprintf(file,"substitution:   %-20s %-20s\n",m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference),
-					m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis));
+					os << "substitution: " << m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference) << " " <<
+						m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis) << endl;
 					break;
 				}
 				case TEXT_ALIGNMENT_EVENT_DELETION: {
-					fprintf(file,"deletion:       %-20s %-20s\n",m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference),"-");
+					os << "deletion:     " << m_lexiconManager->getStrLexUnit((*it)->iLexUnitReference) << endl;
 					break;
 				}
 				case TEXT_ALIGNMENT_EVENT_INSERTION: {
-					fprintf(file,"insertion:      %-20s %-20s\n","-",m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis));
+					os << "insertion:    " << m_lexiconManager->getStrLexUnit((*it)->iLexUnitHypothesis) << endl;
 					break;
 				}
 			}
@@ -104,22 +104,10 @@ void TextAlignment::print(bool bDetailed, FILE *file) {
 }
 
 // store the alignment into the given file
-bool TextAlignment::store(const char *strFile, bool bDetailed) {
+void TextAlignment::store(const char *strFile, bool bDetailed) {
 
-	// create the file
-	FILE *file = fopen(strFile,"wt");
-	if (file == NULL) {
-		return false;
-	}
-	
-	print(bDetailed,file);
-	
-	// close the file
-	if (fclose(file) == EOF) {
-		return false;
-	}
-
-	return true;
+	FileOutput file(strFile,false);
+	print(bDetailed,file.getStream());
 }
 
 

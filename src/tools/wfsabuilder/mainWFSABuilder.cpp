@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "CommandLineManager.h"
 #include "FillerManager.h"
@@ -37,7 +38,6 @@ int main(int argc, char *argv[]) {
 		commandLineManager.defineParameter("-mod","acoustic models",PARAMETER_TYPE_FILE,false);
 		commandLineManager.defineParameter("-lex","pronunciation dictionary (lexicon)",PARAMETER_TYPE_FILE,false);
 		commandLineManager.defineParameter("-lm","language model",PARAMETER_TYPE_FILE,false);
-		commandLineManager.defineParameter("-ngram","n-gram",PARAMETER_TYPE_STRING,false,"zerogram|unigram|bigram|trigram");
 		commandLineManager.defineParameter("-scl","language model scaling factor",PARAMETER_TYPE_FLOAT,false);
 		commandLineManager.defineParameter("-ip","insertion penalty (standard lexical units)",PARAMETER_TYPE_FLOAT,false);
 		commandLineManager.defineParameter("-ips","insertion penalty (silence and filler lexical units)",PARAMETER_TYPE_FLOAT,false);	
@@ -56,7 +56,6 @@ int main(int argc, char *argv[]) {
 		const char *strFileLanguageModel = commandLineManager.getStrParameterValue("-lm");
 		const char *strLanguageModelFormat = "ARPA";
 		const char *strLanguageModelType = "ngram";
-		const char *strLanguageModelNGram = commandLineManager.getStrParameterValue("-ngram");
 		const char *strFileModels = commandLineManager.getStrParameterValue("-mod");
 		float fLMScalingFactor = commandLineManager.getFloatParameterValue("-scl");
 		float fInsertionPenaltyStandard = commandLineManager.getFloatParameterValue("-ip");
@@ -66,60 +65,6 @@ int main(int argc, char *argv[]) {
 			strFileInsertionPenaltyFiller = commandLineManager.getStrParameterValue("-ipf");
 		}
 		const char *strFileDecodingNetwork = commandLineManager.getStrParameterValue("-net");
-	
-		// parameter injection
-		
-		// wsj
-		/*string strPhoneticSetFile = "/home/hmmdecoder/src/config/wsj/phoneset.txt";
-		string strLexiconFile = "/home/hmmdecoder/src/config/WFST/wsj-5k.lex";
-		string strLanguageModelFile = "/home/hmmdecoder/src/config/WFST/wsj-5k-cnp.arpa";
-		//string strLanguageModelFile = "/home/hmmdecoder/src/config/wsj/wsj-5k-cnp-bigram.arpa";	
-		//string strFileModels = "/home/hmmtrainer/src/data/models80h/july26/gi_500_2_100_sil/models28.bin";
-		//string strFileModels = "/home/hmmtrainer/src/data/models3|30min/(6)/models/models05.bin";
-		//string strFileModels = "/home/hmmtrainer/src/data/models3|30min/(6)/models/models16.bin";
-		string strFileModels = "/home/hmmdecoder/src/config/WFST/wsj/models25.bin";
-		string strFileList = "/home/hmmdecoder/src/config/wsj/list.txt";*/
-		
-		/*string strPhoneticSetFile = "/home/speech/wsj/scripts/test/config/phoneset.txt";
-		string strLexiconFile = "/home/speech/wsj/scripts/test/lm/wsj-5k.lex";
-		string strLanguageModelFile = "/home/speech/wsj/scripts/test/lm/wsj-5k-cnp.arpa";
-		string strFileModels = "/home/speech/wsj/models/may18th/1400_400_0.05_paramMyFixedHamming/gi/models25.bin";
-		string strFileNetwork = "/home/speech/wsj/scripts/test/wfsa/unigram.bin";
-		//float fLMScalingFactor = 0.0;
-		float fLMScalingFactor = 25.0;
-		//float fInsertionPenalty = 0.0;
-		float fInsertionPenalty = -18.0;	*/
-		
-		// ScienceTutor
-		/*string strPhoneticSetFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/phoneset.txt";
-		//string strLexiconFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/lexicon.lex";
-		string strLexiconFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/lexicon2Filler.lex";
-		//string strLexiconFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/lexicon1Filler.lex";
-		//string strLexiconFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/lexiconNoFiller.lex";
-		string strLanguageModelFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/lm.arpa";
-		//string strLexiconFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/MS/lexicon.lex";
-		//string strLanguageModelFile = "/home/hmmdecoder/src/config/WFST/ScienceTutor/MS/lm.arpa";
-		//string strFileModels = "/home/hmmdecoder/src/config/WFST/ScienceTutor/models05.bin";
-		string strFileModels = "/home/hmmdecoder/src/config/WFST/ScienceTutor/models20.bin";
-		float fLMScalingFactor = 25.0;
-		float fInsertionPenalty = -20.0;*/
-		
-		// kids
-		/*string strPhoneticSetFile = "/home/hmmdecoder/src/config/WFST/kids/phoneset.txt";
-		//string strLexiconFile = "/home/hmmdecoder/src/config/WFST/kids/story.lex";
-		string strLexiconFile = "/home/hmmdecoder/src/config/WFST/kids/storyNoFiller.lex";
-		string strLanguageModelFile = "/home/hmmdecoder/src/config/WFST/kids/racer-lm.arpa.gen";
-		//string strFileModels = "/home/hmmdecoder/src/config/WFST/kids/models05.bin";
-		string strFileModels = "/home/hmmdecoder/src/config/WFST/kids/models25.bin";
-		float fLMScalingFactor = 40.0;
-		float fInsertionPenalty = 0.0;*/
-		
-		/*string strLanguageModelFileFormat = "text";
-		string strLanguageModelFormat = "CMU";
-		string strLanguageModelType = "ngram";
-		string strLanguageModelNGram = "unigram";*/
-		//string strLanguageModelNGram = "bigram";
-		//string strLanguageModelNGram = "trigram";
 	
 		// load the phone set
 		PhoneSet phoneSet(strFilePhoneticSet);
@@ -144,14 +89,11 @@ int main(int argc, char *argv[]) {
 		lexiconManager.print();  
 		
 		// load the language model
-		LMManager lmManager(&lexiconManager,strFileLanguageModel,strLanguageModelFormat,
-									strLanguageModelType,strLanguageModelNGram); 
+		LMManager lmManager(&lexiconManager,strFileLanguageModel,strLanguageModelFormat,strLanguageModelType); 
 		lmManager.load();
-		lmManager.print();
 	
 		// build the decoding network
-		int iNGram = LMManager::getNGram(strLanguageModelNGram);
-		WFSABuilder wfsaBuilder(&phoneSet,&hmmManager,&lexiconManager,&lmManager,iNGram,fLMScalingFactor);
+		WFSABuilder wfsaBuilder(&phoneSet,&hmmManager,&lexiconManager,&lmManager,fLMScalingFactor);
 		
 		double dBegin = TimeUtils::getTimeMilliseconds();
 		
@@ -170,7 +112,7 @@ int main(int argc, char *argv[]) {
 	
 		delete wfsAcceptor;
 	
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

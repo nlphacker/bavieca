@@ -79,34 +79,39 @@ void Transform::print(bool bPrintData) {
 }
 
 // apply the transform
-void Transform::apply(float *fInput, float *fX) {
+void Transform::apply(VectorBase<float> &vInput, VectorBase<float> &vOutput) {
 	
-	assert(0);
+	// linear transform (columns in transform == feature dimension)
+	if (m_iType == TRANSFORM_TYPE_LINEAR) {
 	
-	// linear transform
-	/*if (m_iType == TRANSFORM_TYPE_LINEAR) {
-	
-		// transform the features
-		for(int i=0 ; i < m_iRows ; ++i) {
-			fX[i] = 0.0f;
-			for(int j=0 ; j < m_iColumns ; ++j) {
-				fX[i] += m_fTransform[i*m_iColumns+j]*fInput[j];
-			}
-		}	
+		vOutput.mul(*m_matrix,vInput);
 	} 
-	// affine transform
+	// affine transform (columns in transform == feature dimension+1, append 1 to feature vector)
 	else {
 		assert(m_iType == TRANSFORM_TYPE_AFFINE);
 		
-		int iDim = m_iRows;
-		for(int i=0 ; i < iDim ; ++i) {
-			fX[i] = m_fTransform[i*(iDim+1)];
-			for(int j=1 ; j < iDim+1 ; ++j) {
-				fX[i] += m_fTransform[i*(iDim+1)+j]*fInput[j-1];
-			}	
-		}	
-	}*/
+		// create the extended vector
+		Vector<float> vInputEx(vInput);
+		vInputEx.appendFront(1.0);
+		// apply transform
+		vOutput.mul(*m_matrix,vInputEx);
+	}
 }
+
+
+// apply the transform to a series of features
+Matrix<float> *Transform::apply(MatrixBase<float> &mFeatures) {
+
+	Matrix<float> *mFeaturesX = new Matrix<float>(mFeatures.getRows(),m_matrix->getRows());
+	for(unsigned int i=0 ; i < mFeatures.getRows() ; ++i) {
+		VectorStatic<float> vFeatureVector = mFeatures.getRow(i);
+		VectorStatic<float> vFeatureVectorX = mFeaturesX->getRow(i);
+		apply(vFeatureVector,vFeatureVectorX);
+	}
+	
+	return mFeaturesX;
+}
+
 
 };	// end-of-namespace
 

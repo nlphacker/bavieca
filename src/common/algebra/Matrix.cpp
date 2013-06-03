@@ -29,18 +29,26 @@ Matrix<Real> *Matrix<Real>::read(istream &is) {
 	int iRows,iCols;
 	IOBase::read(is,&iRows);
 	IOBase::read(is,&iCols);
-	Matrix<Real> *matrix = new Matrix<Real>(iRows,iCols);	
-	IOBase::readBytes(is,reinterpret_cast<char*>(matrix->m_rData),matrix->getElements()*sizeof(Real));
+	Matrix<Real> *matrix = new Matrix<Real>(iRows,iCols);
+	matrix->readData(is);
 	
 	return matrix;
+}
+
+// read the matrix data
+template<typename Real> void Matrix<Real>::readData(istream &is) {
+
+	// read the matrix row by row to preserve memory alignment
+	for(unsigned int i=0 ; i < this->m_iRows ; ++i) {
+		IOBase::readBytes(is,reinterpret_cast<char*>(this->m_rData+(i*this->m_iStride)),this->m_iCols*sizeof(Real));
+	}
 }
 
 // read the matrix
 template Matrix<float> *Matrix<float>::read(istream &is);
 template Matrix<double> *Matrix<double>::read(istream &is);
+template void Matrix<float>::readData(istream &is);
+template void Matrix<double>::readData(istream &is);
 
 };	// end-of-namespace
-
-
-
 

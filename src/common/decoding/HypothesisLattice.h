@@ -37,9 +37,10 @@ namespace Bavieca {
 
 class Alignment;
 class BestPath;
-class ExceptionBase;
+class LMFSM;
 class LMManager;
 class Mappings;
+class NBestList;
 class PhoneSet;
 
 // lattice properties
@@ -74,11 +75,11 @@ typedef map<string,string> MProperty;
 
 // phone-level alignments
 typedef struct {
-	unsigned char iPhone;						// phonetic symbol relative to the phonetic symbol set
-	unsigned char iPosition;					// position of the phone within the word
 	int iStateBegin[NUMBER_HMM_STATES];		// first time frame aligned to each of the HMM-states in the phone
 	int iStateEnd[NUMBER_HMM_STATES];		// first time frame aligned to each of the HMM-states in the phone
 	int iHMMState[NUMBER_HMM_STATES];		// index of each of the HMM-states in the phone (clustered HMM-state)
+	unsigned char iPhone;						// phonetic symbol relative to the phonetic symbol set
+	unsigned char iPosition;					// position of the phone within the word
 } LPhoneAlignment;
 
 typedef vector<LPhoneAlignment*> VLPhoneAlignment;
@@ -104,8 +105,11 @@ typedef struct _LEdge {
 	int iPhones;								// number of phones
 	LPhoneAlignment *phoneAlignment;		// phone-level alignment
 	// forward/backward scores
-	double dScoreForward;					// forward score (different meaning for n-best and post prob)
-	double dScoreBackward;					// backward score (different meaning for n-best and post prob)
+	double dScoreForward;					// forward score 
+	double dScoreBackward;					// backward score
+	// viterbi scores
+	double dScoreViterbi;					// viterbi score (score of best path up to the edge)
+	double dScoreViterbiReverse;			// reverse viterbi score (score of best path from the edge up to the end)
 	// posterior probabilities + confidence estimation
 	float fPP;									// posterior probability
 	float fConfidence;						// confidence score	
@@ -118,6 +122,7 @@ typedef struct _LEdge {
 	bool bTouched;
 	bool bBestPath;
 	_LEdge *edgeNextAux;	
+	_LEdge *edgePrevAux;	
 	int iLMState;								// language model state
 	int iLMStatePrev;							// language model state of previous edge
 } LEdge;
@@ -166,22 +171,26 @@ typedef struct {
 #define ALIGNMENT_EVENT_INSERTION			1
 #define ALIGNMENT_EVENT_DELETION 			2
 #define ALIGNMENT_EVENT_SUBSTITUTION		3
-#define ALIGNMENT_EVENT_SKIP					4
-
-#define ALIGNMENT_EVENTS_TOTAL				4
+#define ALIGNMENT_EVENT_SKIP_HYP				4
+#define ALIGNMENT_EVENT_SKIP_REF				5
 
 // alignment penalties
-#define ALIGNMENT_PENALTY_INSERTION			1.0
-#define ALIGNMENT_PENALTY_DELETION			1.0
-#define ALIGNMENT_PENALTY_SUBSTITUTION		1.0
+#define ALIGNMENT_PENALTY_INSERTION			1
+#define ALIGNMENT_PENALTY_DELETION			1
+#define ALIGNMENT_PENALTY_SUBSTITUTION		1
+
+// lattice WER computation
+#define LATTICE_WER_MAX_TOKENS				5000000
+#define LATTICE_WER_MAX_ACTIVE_TOKENS		20000
+#define LATTICE_WER_HISTORY_ITEMS_START	100000
 
 // beam size for Word Error Rate computation
-#define LATTICE_WER_COMPUTATION_BEAM		5.0
+#define LATTICE_WER_COMPUTATION_BEAM		5
 
 // structure for the backtrace (Lattice WER computation)
 typedef struct _LWERHistoryItem {
 	int iPrev;									// previous history item
-	LEdge *edge;								// edge in the lattice
+	int iEdge;									// edge in the lattice
 	int iReference;							// reference index
 	unsigned char iAlignmentEvent;		// ins|del|subs
 	bool bUsed;
@@ -189,11 +198,11 @@ typedef struct _LWERHistoryItem {
 
 // token to compute the lattice WER
 typedef struct _LWERToken {
-	float fScore;					// alignment score
-	LNode *node;					// node in the lattice
-	int iReference;				// reference index
-	int iHistoryItem;				// last history-item (back-trace)
-	_LWERToken *prev;				// previous token in the list of active tokens for a given lattice node
+	int iScore;					// alignment score
+	int iNode;					// node in the lattice
+	int iReference;			// reference index
+	int iHistoryItem;			// last history-item (back-trace)
+	int iPrev;					// previous token in the list of active tokens for a given lattice node
 } LWERToken;
 
 // confidence measures (all of them are based on posterior probabilities)
@@ -221,7 +230,6 @@ class HypothesisLattice {
 	
 		PhoneSet *m_phoneSet;						// phonetic symbol set
 		LexiconManager *m_lexiconManager;		// lexicon manager
-		bool m_bVerbose;								// verbose output
 		int m_iNodes;									// # nodes in the lattice
 		int m_iEdges;									// # edges in the lattice
 		LNode *m_lnodeInitial;						// initial node in the lattice
@@ -238,12 +246,11 @@ class HypothesisLattice {
 		float m_fLMScalingFactor;
 		
 		// Lattice WER computation
-		int m_iMaxActiveTokens;						// maximum number of active tokens
 		LWERToken *m_tokenCurrent;					// current active tokens
 		int m_iActiveTokensCurrent;
 		LWERToken *m_tokenNext;						// next active tokens
 		int m_iActiveTokensNext;
-		LWERToken **m_tokenNode;					// table of nodes used to keep the active tokens at each node
+		int *m_iTokenNode;							// table of nodes used to keep the active tokens at each node
 		LWERHistoryItem *m_historyItems;			// history items allocated
 		int m_iHistoryItems;							// # history items allocated
 		int m_iHistoryItemAvailable;				// next history item that is available
@@ -257,7 +264,7 @@ class HypothesisLattice {
 	public:
 
 		// constructor
-		HypothesisLattice(PhoneSet *phoneSet, LexiconManager *lexiconManager, bool bVerbose = false);
+		HypothesisLattice(PhoneSet *phoneSet, LexiconManager *lexiconManager);
 
 		// destructor
 		~HypothesisLattice();
@@ -402,6 +409,24 @@ class HypothesisLattice {
 			lnode1->edgeNext = ledge;
 			ledge->edgeNext = lnode2->edgePrev;
 			lnode2->edgePrev = ledge;	
+		}
+		
+		// delete an edge
+		static void deleteEdge(LEdge *ledge) {
+		
+			if (ledge->phoneAlignment) {
+				delete [] ledge->phoneAlignment;
+			}
+			if (ledge->fPhoneAccuracy) {
+				delete [] ledge->fPhoneAccuracy;
+			}
+			if (ledge->iContextLeft) {
+				delete [] ledge->iContextLeft;
+			}
+			if (ledge->iContextRight) {
+				delete [] ledge->iContextRight;
+			}
+			delete ledge;	
 		}
 		
 		// print the lattice (using the lattice container)
@@ -617,6 +642,9 @@ class HypothesisLattice {
 		
 		// mark all the edges as not touched
 		void untouchEdges();
+		
+		// reset all the auxiliar edges
+		void resetAuxEdges();
 			
 		// set all the acoustic-scores to the given value
 		void setAMScores(float fValue);
@@ -676,7 +704,8 @@ class HypothesisLattice {
 		// lattice Word Error Rate -------------------------------------------------------------
 		
 		// compute the Lattice Word Error Rate (also known as oracle)
-		LatticeWER *computeWER(VLexUnit &vLexUnitReference, Mappings *mappings = NULL);
+		LatticeWER *computeWER(VLexUnit &vLexUnitReference, BestPath **bestPath = NULL, 
+			Mappings *mappings = NULL, bool bPerfectMatch = false, int iBeam = LATTICE_WER_COMPUTATION_BEAM);
 			
 		// history item garbage collection: free-up unused history items
 		void historyItemGarbageCollection();
@@ -694,7 +723,7 @@ class HypothesisLattice {
 		
 			historyItem->iPrev = iPrev;
 			historyItem->iAlignmentEvent = iAlignmentEvent;
-			historyItem->edge = edge;	
+			historyItem->iEdge = edge ? edge->iEdge : -1;	
 			historyItem->iReference = iReference;
 		
 			return (int)(historyItem-m_historyItems);
@@ -712,25 +741,25 @@ class HypothesisLattice {
 		
 			LWERToken *token = &m_tokenNext[m_iActiveTokensNext];
 			
-			if (edge != NULL) {
-				token->node = edge->nodeNext;
+			if (edge) {
+				token->iNode = edge->nodeNext->iNode;
 			} else {
-				token->node = tokenPrev->node;
+				token->iNode = tokenPrev->iNode;
 			}
-			token->fScore = tokenPrev->fScore;
+			token->iScore = tokenPrev->iScore;
 			switch(iAlignmentEvent) {
 				case ALIGNMENT_EVENT_INSERTION: {
-					token->fScore += ALIGNMENT_PENALTY_INSERTION;
+					token->iScore += ALIGNMENT_PENALTY_INSERTION;
 					token->iReference = tokenPrev->iReference;
 					break;
 				}
 				case ALIGNMENT_EVENT_DELETION: {
-					token->fScore += ALIGNMENT_PENALTY_DELETION;
+					token->iScore += ALIGNMENT_PENALTY_DELETION;
 					token->iReference = tokenPrev->iReference+1;
 					break;
 				}
 				case ALIGNMENT_EVENT_SUBSTITUTION: {
-					token->fScore += ALIGNMENT_PENALTY_SUBSTITUTION;
+					token->iScore += ALIGNMENT_PENALTY_SUBSTITUTION;
 					token->iReference = tokenPrev->iReference+1;
 					break;
 				}
@@ -738,24 +767,33 @@ class HypothesisLattice {
 					token->iReference = tokenPrev->iReference+1;
 					break;
 				}
-				case ALIGNMENT_EVENT_SKIP: {
+				case ALIGNMENT_EVENT_SKIP_HYP: {
 					token->iReference = tokenPrev->iReference;
+					break;
+				}
+				case ALIGNMENT_EVENT_SKIP_REF: {
+					token->iReference = tokenPrev->iReference+1;
 					break;
 				}
 				default: {
 					assert(0);
 				}
 			}
+			if (token->iScore > m_tokenBest.iScore) {
+				return;
+			}
+			
 			token->iHistoryItem = newLWERHistoryItem(tokenPrev->iHistoryItem,iAlignmentEvent,edge,token->iReference);
-			assert(token->node != NULL);
+			assert(token->iNode != -1);
 			
 			// try to recombine
-			bool bRecombined = false;
-			for(LWERToken *tokenAux = m_tokenNode[token->node->iNode] ; tokenAux != NULL ; tokenAux = tokenAux->prev) {
-				assert(tokenAux->node != NULL);
-				if ((tokenAux->node == token->node) && (tokenAux->iReference == token->iReference)) {
-					if (tokenAux->fScore > token->fScore) {
-						tokenAux->fScore = token->fScore;
+			bool bRecombined = false;			
+			for(int iTokenAux = m_iTokenNode[token->iNode] ; iTokenAux != -1 ; iTokenAux = (m_tokenNext+iTokenAux)->iPrev) {
+				LWERToken *tokenAux = m_tokenNext+iTokenAux; 
+				assert(tokenAux->iNode != -1);
+				if ((tokenAux->iNode == token->iNode) && (tokenAux->iReference == token->iReference)) {
+					if (tokenAux->iScore > token->iScore) {
+						tokenAux->iScore = token->iScore;
 						deleteLWERHistoryItem(tokenAux->iHistoryItem);
 						tokenAux->iHistoryItem = token->iHistoryItem;
 					} else {
@@ -766,11 +804,11 @@ class HypothesisLattice {
 				}
 			}	
 			if (bRecombined == false) {
-				token->prev = m_tokenNode[token->node->iNode];
-				m_tokenNode[token->node->iNode] = token;
-				assert(token->node != NULL);
+				token->iPrev = m_iTokenNode[token->iNode];
+				m_iTokenNode[token->iNode] = token-m_tokenNext;
+				assert(token->iNode != -1);
 				++m_iActiveTokensNext;
-				assert(m_iActiveTokensNext < m_iMaxActiveTokens);
+				assert(m_iActiveTokensNext < LATTICE_WER_MAX_TOKENS);
 			}
 		}
 		
@@ -829,14 +867,15 @@ class HypothesisLattice {
 		// print 
 		static void print(LatticeWER *latticeWER) {
 		
-			printf("-- wer depth stats ------------\n");
+			printf("-- wer stats ------------------\n");
 			printf("events:\n");
 			printf(" -sub:      %8d\n",latticeWER->iSubstitutions);
 			printf(" -del:      %8d\n",latticeWER->iDeletions);
 			printf(" -ins:      %8d\n",latticeWER->iInsertions);
 			printf(" -correct:  %8d\n",latticeWER->iCorrect);
 			printf(" -errors:   %8d\n",latticeWER->iErrors);
-			printf(" -OOV:      %8d (%8.2f%%)\n",latticeWER->iOOV,(latticeWER->iOOV*100.0)/((float)latticeWER->iWordsReference));
+			printf(" -OOV:      %8d (%8.2f%%)\n",
+				latticeWER->iOOV,(latticeWER->iOOV*100.0)/((float)latticeWER->iWordsReference));
 			printf("WER:       %8.2f%%\n",latticeWER->fWER);
 			printf("Accuracy:  %8.2f%%\n",100.0-latticeWER->fWER);
 			printf("-------------------------------\n");
@@ -1011,7 +1050,7 @@ class HypothesisLattice {
 		// attach lm-probabilities to the edges of the lattice
 		// note: lattice expansion may be needed in order for each edge to have a unique
 		//       word context
-		void attachLMProbabilities(LMManager *lmManager);
+		void attachLMProbabilities(LMFSM *lmFSM);
 		
 		// attach insertion penalties
 		void attachInsertionPenalty(LexiconManager *lexiconManager);	
@@ -1019,6 +1058,22 @@ class HypothesisLattice {
 		// compute lattice likelihood
 		double getLikelihood();
 		
+		// n-best list generation -----------------------------------------------
+		
+		// create a n-best list from the lattice
+		NBestList *createNBestList(int iN, const char *strRescoringMethod);
+		
+		// viterbi: for each edge keep predecessor edge and path score up to the edge
+		void viterbi(LEdge *edge);
+		
+		// reverse viterbi: for each edge keep successor edge and path score from the edge
+		void viterbiReverse(LEdge *edge);	
+		
+		// compare to nodes based on the path score
+		static bool comparePathScore(const LEdge *edgeA, const LEdge *edgeB) {
+		
+			return ((edgeA->dScoreViterbi + edgeA->dScoreViterbiReverse) > (edgeB->dScoreViterbi + edgeB->dScoreViterbiReverse));	
+		}
 };
 
 };	// end-of-namespace

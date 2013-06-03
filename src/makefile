@@ -24,7 +24,7 @@ all:
 	(cd api; $(MAKE) all)
 	(cd tools; $(MAKE) all)
 
-cmd_tools:
+btools:
 	(cd common; $(MAKE) static)
 	(cd tools; $(MAKE) all)
 

@@ -17,49 +17,66 @@
  *---------------------------------------------------------------------------------------------*/
 
 
-#ifndef WARPFACTORFILE_H
-#define WARPFACTORFILE_H
+#ifndef NBESTLISTENTRYELEMENT_H
+#define NBESTLISTENTRYELEMENT_H
 
-#include <stdio.h>
-
-#include "Global.h"
-
-using namespace std;
-
-#include <vector>
-#include <string>
+#include "LexiconManager.h"
 
 namespace Bavieca {
 
-typedef struct {
-	string strSpeakerId;
-	float fWarpFactor;
-} WarpFactorSpeaker;
-
-typedef vector<WarpFactorSpeaker*> VWarpFactorSpeaker;
+class LexiconManager;
 
 /**
-	@author daniel <dani.bolanos@gmail.com>
+	@author root <dani.bolanos@gmail.com>
 */
-class WarpFactorFile {
+class NBestListEntryElement {
 
 	private:
 	
-		string m_strFile;
-		VWarpFactorSpeaker m_vWarpFactorSpeaker;
+		int m_iBegin;
+		int m_iEnd;
+		LexUnit *m_lexUnit;
+		double m_dLikelihoodAM;
+		double m_dLikelihoodLM;
+		double m_dIP;
+		double m_dPP;	
 
 	public:
-    
-    	// constructor
-		WarpFactorFile(const char *strFile);
+
+		// constructor
+		NBestListEntryElement(int iBegin, int iEnd, LexUnit *lexUnit, 
+			double dAM, double dLM, double dIP, double dPP);
 
 		// destructor
-		~WarpFactorFile();
+		~NBestListEntryElement();
 		
-		// load warp factors from the file
-		bool load();
+		// store to disk
+		void store(ostream &os, bool bTextFormat = false, LexiconManager *lexiconManager = NULL);	
 		
-
+		// return the lexical unit
+		LexUnit *getLexUnit() {
+			return m_lexUnit;
+		}
+		
+		// return the acoustic model likelihood
+		double getLikelihoodAM() {
+			return m_dLikelihoodAM;
+		}
+		
+		// return the language model likelihood
+		double getLikelihoodLM() {
+			return m_dLikelihoodLM;
+		}
+		
+		// return the insertion penalty applied
+		double getIP() {
+			return m_dIP;
+		}
+		
+		// return the posterior probability
+		double getPP() {
+			return m_dPP;
+		}
 };
 
 };	// end-of-namespace

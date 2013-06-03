@@ -16,11 +16,11 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-
-#include "DTAccumulator.h"
+#include <stdexcept>
 
 #include "BestPath.h"
 #include "ConfigurationFeatures.h"
+#include "DTAccumulator.h"
 #include "FeatureFile.h"
 #include "FileUtils.h"
 #include "HypothesisLattice.h"
@@ -183,18 +183,14 @@ void DTAccumulator::accumulate() {
 		strFileFeatures << m_strFolderFeatures << PATH_SEPARATOR << (*it)->strFilePattern;
 		FeatureFile featureFile(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,m_iFeatureDimensionality);
 		featureFile.load();
-		unsigned int iFeatureVectors = 0;
-		float *fFeatures = featureFile.getFeatureVectors(&iFeatureVectors);
-		
-		iFeatureVectorsTotal += iFeatureVectors;	
+		Matrix<float> *mFeatures = featureFile.getFeatureVectors();
 		
 		// process the utterance using Forward-Backward (get the occupation counts)
 		/*double dLikelihoodNum = -DBL_MAX;
 		Alignment *alignmentNum = m_forwardBackwardX->processUtterance((*it)->vLexUnit,m_bMultiplePronunciations,
 			m_vLexUnitOptional,fFeatures,fFeatures,iFeatureVectors,&dLikelihoodNum,iErrorCode);
 		if (iErrorCode != UTTERANCE_PROCESSED_SUCCESSFULLY) {
-			iFeatureVectorsTotal -= iFeatureVectors;
-			delete [] fFeatures;	
+			delete mFeatures;	
 			sprintf(strMessage,"unable to process utterance: \"%s\", reason: %s",strFileFeatures,
 			m_forwardBackwardX->getErrorMessage(iErrorCode));
 			m_log->logInformation(strMessage);
@@ -206,15 +202,14 @@ void DTAccumulator::accumulate() {
 		strFileAux << m_strFolderLattices << PATH_SEPARATOR << (*it)->strFilePattern;
 		char strFileLattice[1024+1];
 		FileUtils::replaceExtension(strFileLattice,strFileAux.str().c_str(),"bin");
-		printf("lattice: %s\n",strFileLattice);
+		cout << "lattice: " << strFileLattice << endl;
 		HypothesisLattice *lattice = new HypothesisLattice(m_phoneSet,m_lexiconManager);
 		try {
 			lattice->load(strFileLattice);
-		} catch (ExceptionBase &e) {
+		} catch (std::runtime_error &e) {
 			std::cerr << e.what() << std::endl;
 			BVC_WARNING << "unable to load the lattice: " << strFileLattice;
-			iFeatureVectorsTotal -= iFeatureVectors;
-			delete [] fFeatures;
+			delete mFeatures;
 			continue;
 		}
 		
@@ -235,8 +230,20 @@ void DTAccumulator::accumulate() {
 		
 		// mark best path
 		m_lexiconManager->removeNonStandardLexUnits((*it)->vLexUnit);
-		LatticeWER *latticeWER = lattice->computeWER((*it)->vLexUnit);
+		LatticeWER *latticeWER = lattice->computeWER((*it)->vLexUnit,NULL,NULL,true,0);
+		if ((!latticeWER) || (latticeWER->iErrors != 0)) {
+			BVC_WARNING << "lattice WER is not zero, lattice does not contain the hand-made transcription: " 
+				<< strFileLattice;
+			if (latticeWER) {
+				delete latticeWER;
+			}
+			delete lattice;
+			delete mFeatures;
+			continue;	
+		}	
+		
 		//HypothesisLattice::print(latticeWER);
+		delete latticeWER;
 		
 		// get the best-path from the lattice (transcription) and compute numerator stats from it
 		//BestPath *bestPath = lattice->getBestPath();
@@ -247,27 +254,25 @@ void DTAccumulator::accumulate() {
 		
 		// compute numerator statistics
 		double dLikelihoodNum = -DBL_MAX;
-		Alignment *alignmentNum = m_forwardBackward->processPhoneAlignment(fFeatures,iFeatureVectors,vLPhoneAlignment,dLikelihoodNum,&strErrorCode);
+		Alignment *alignmentNum = m_forwardBackward->processPhoneAlignment(*mFeatures,vLPhoneAlignment,dLikelihoodNum,&strErrorCode);
 		if (strcmp(strErrorCode,FB_RETURN_CODE_SUCCESS) != 0) {
 			BVC_WARNING << "unable to compute numerator occupation statistics: " << strErrorCode << ", " << strFileLattice;
-			iFeatureVectorsTotal -= iFeatureVectors;
 			delete vLPhoneAlignment;
 			delete lattice;
-			delete [] fFeatures;
+			delete mFeatures;
 			continue;	
 		}
 		
 		// get denominator statistics from the lattice
 		double dLikelihoodDen = -DBL_MAX;		
-		MOccupation *mOccupationDen = m_forwardBackward->processLattice(lattice,
-			fFeatures,iFeatureVectors,m_fScaleAM,m_fScaleLM,dLikelihoodDen,m_bMMI,m_fBoostingFactor,&strErrorCode);	
+		MOccupation *mOccupationDen = m_forwardBackward->processLattice(lattice,*mFeatures,m_fScaleAM,m_fScaleLM,
+			dLikelihoodDen,m_bMMI,m_fBoostingFactor,&strErrorCode);	
 		if (strcmp(strErrorCode,FB_RETURN_CODE_SUCCESS) != 0) {
 			BVC_WARNING << "unable to compute lattice occupation statistics (denominator): " << strErrorCode << ", " << strFileLattice;
-			iFeatureVectorsTotal -= iFeatureVectors;
 			delete alignmentNum;
 			delete vLPhoneAlignment;
 			delete lattice;
-			delete [] fFeatures;
+			delete mFeatures;
 			continue;	
 		}
 		
@@ -276,19 +281,19 @@ void DTAccumulator::accumulate() {
 			statisticsCancellation(alignmentNum,mOccupationDen);
 		}
 		
-		Alignment *alignmentDen = ForwardBackward::getAlignment(mOccupationDen,iFeatureVectors);
+		Alignment *alignmentDen = ForwardBackward::getAlignment(mOccupationDen,mFeatures->getRows());
 		
 		// accumulate statistics for both numerator and denominator
-		accumulate(alignmentNum,fFeatures,iFeatureVectors,true);
-		accumulate(alignmentDen,fFeatures,iFeatureVectors,false);	
+		accumulate(alignmentNum,*mFeatures,true);
+		accumulate(alignmentDen,*mFeatures,false);	
 		
 		// get the best path with updated am-scores, lm-prob and insertion penalties
 		BestPath *bestPath = lattice->getBestPath();
-		assert(bestPath != NULL);
+		assert(bestPath);
 		LBestPathElement *lBestPathElement = bestPath->getBestPathElements();
 		double dLMIP = 0.0;
 		for(LBestPathElement::iterator it = lBestPathElement->begin() ; it != lBestPathElement->end() ; ++it) {
-			dLMIP += (*it)->fScoreLanguageModel+m_fScaleAM*(*it)->fInsertionPenalty;
+			dLMIP += m_fScaleLM*(*it)->fScoreLanguageModel+m_fScaleAM*(*it)->fInsertionPenalty;
 		}
 		delete bestPath;
 		dLikelihoodTotalNumAcoustic += dLikelihoodNum;
@@ -301,22 +306,15 @@ void DTAccumulator::accumulate() {
 		
 		//printf("%12.4f %12.4f\n",dLikelihoodNum,dLikelihoodDen);
 		
+		iFeatureVectorsTotal += mFeatures->getRows();	
+		
 		// clean-up
-		delete latticeWER;
 		delete vLPhoneAlignment;
 		delete lattice;
 		delete alignmentNum;
 		delete alignmentDen;
 		delete mOccupationDen;
-		delete [] fFeatures;
-	
-		if (iFeatureVectorsTotal >= 100*60*30) {
-			//break;
-		}
-		
-		if (iUtterance == 5) {
-			//break;
-		}
+		delete mFeatures;	
 		
 		// update the progress bar if necessary
 		float fPercentage = (((float)iUtterance)*100)/((float)iUtterancesTotal);
@@ -384,12 +382,13 @@ void DTAccumulator::statisticsCancellation(Alignment *alignmentNum, MOccupation 
 }
 
 // accumulate statistics
-void DTAccumulator::accumulate(Alignment *alignment, float *fFeatures, int iFeatures, bool bNumerator) {
+void DTAccumulator::accumulate(Alignment *alignment, MatrixBase<float> &mFeatures, bool bNumerator) {
 
 	Accumulator *accumulator = NULL;
 	double dOccupationTotal = 0.0;
 	for(unsigned int t=0 ; t < alignment->getFrames() ; ++t) {
 		FrameAlignment *frameAlignment = alignment->getFrameAlignment(t);
+		VectorStatic<float> vFeatureVector = mFeatures.getRow(t);
 		for(FrameAlignment::iterator it = frameAlignment->begin() ; it != frameAlignment->end() ; ++it) {
 			double dOccupationNum = (*it)->dOccupation;
 			HMMState *hmmState = m_hmmManager->getHMMState((*it)->iHMMState);
@@ -401,7 +400,7 @@ void DTAccumulator::accumulate(Alignment *alignment, float *fFeatures, int iFeat
 			double *dLikelihoodGaussian = new double[iGaussianComponents];
 			for(int iGaussian = 0 ; iGaussian < iGaussianComponents ; ++iGaussian) {
 				dLikelihoodGaussian[iGaussian] = hmmState->computeEmissionProbabilityGaussian(iGaussian,
-					fFeatures+(t*m_iFeatureDimensionality),-1);
+					mFeatures.getRow(t).getData(),-1);
 				dLikelihoodGaussian[iGaussian] += log(hmmState->getMixture()(iGaussian)->weight());
 				dLikelihoodTotal = Numeric::logAddition(dLikelihoodTotal,dLikelihoodGaussian[iGaussian]);
 			}
@@ -417,7 +416,7 @@ void DTAccumulator::accumulate(Alignment *alignment, float *fFeatures, int iFeat
 				} else {
 					accumulator = m_mAccumulatorDen[iKey];	
 				}
-				accumulator->accumulateObservation(fFeatures+(t*m_iFeatureDimensionality),dOccupationGaussian);
+				accumulator->accumulateObservation(vFeatureVector,dOccupationGaussian);
 				dOccupationTotal += dOccupationGaussian;
 			}
 			delete [] dLikelihoodGaussian;

@@ -18,6 +18,7 @@
 
 
 #include "FileUtils.h"
+#include "LogMessage.h"
 
 namespace Bavieca {
 
@@ -110,18 +111,15 @@ void FileUtils::replaceFolder(char *strDest, const char *strPath, const char *st
 }
 
 // truncate a file (set it size to zero)
-bool FileUtils::truncateFile(const char *strFile) {
+void FileUtils::truncateFile(const char *strFile) {
 
 	// truncate the hypothesis file in case it exists
 	FILE *file = fopen(strFile,"wb");
-	if (file != NULL) {
+	if (file) {
 		if (fclose(file) == EOF) {
-			printf("Error: unable to truncate the file: %s\n",strFile);
-			return false;
+			BVC_ERROR << "Unable to truncate the file: " << strFile;
 		}
 	}
-
-	return true;
 }
 
 // return whether the file exists
@@ -139,7 +137,7 @@ bool FileUtils::isFile(const char *strFile) {
 	return false;
 }
 
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 
 // create the given folder
 int FileUtils::createFolder(const char *strFolder, mode_t mode) {

@@ -19,20 +19,24 @@
 
 #include "HMMManager.h"
 #include "LMManager.h"
+#include "LMARPA.h"
+#include "LMFSM.h"
 #include "PhoneSet.h"
 #include "TimeUtils.h"
 #include "WFSABuilder.h"
 
 namespace Bavieca {
 
-// contructor
-WFSABuilder::WFSABuilder(PhoneSet *phoneSet, HMMManager *hmmManager, LexiconManager *lexiconManager, LMManager *lmManager, unsigned char iNGram, float fLMScalingFactor) {
+// constructor
+WFSABuilder::WFSABuilder(PhoneSet *phoneSet, HMMManager *hmmManager, LexiconManager *lexiconManager, LMManager *lmManager, float fLMScalingFactor) {
 
 	m_phoneSet = phoneSet;
 	m_hmmManager = hmmManager;
 	m_lexiconManager = lexiconManager;
 	m_lmManager = lmManager;
-	m_iNGram = iNGram;
+	m_lmFSM = lmManager->getFSM();
+	m_lmARPA = lmManager->getARPA();
+	m_iNGram = m_lmARPA->getNGramOrder();
 	m_fLMScalingFactor = fLMScalingFactor;
 	
 	m_iLexUnitsTotal = m_lexiconManager->getLexiconSize();
@@ -42,8 +46,6 @@ WFSABuilder::WFSABuilder(PhoneSet *phoneSet, HMMManager *hmmManager, LexiconMana
 
 // destructor
 WFSABuilder::~WFSABuilder() {
-
-
 }
 
 // build the decoding network as a WFSAcceptor
@@ -60,443 +62,10 @@ WFSAcceptor *WFSABuilder::build() {
 	}
 }
 
-// build a word-internal context dependent decoding network or a context-independent one
-WFSAcceptor *WFSABuilder::buildWordInternal2() {
-
-	unsigned char iContextSize = m_hmmManager->getContextSizeHMM();
-	assert(iContextSize == 0);
-	
-	/*for(int i=0 ; i < 21000000 ; ++i) {
-		State *stateAux = new State;
-		stateAux->vTransition.push_back(new Transition);
-	}*/
-	/*for(int i=0 ; i < 21000000 ; ++i) {
-		State2 *stateAux = new State2;
-		stateAux->transitions = new Transition2[1];	
-	}*/
-	//exit(-1);
-	// (1) create the language model graph
-	unsigned int iStatesG = 0;
-	unsigned int iTransitionsG = 0;
-	//VState vStateFinalG;
-	State *stateRootG = NULL;
-	State *stateFinal = NULL;
-	State *states = NULL;
-	if (buildG(&states,&iStatesG,&iTransitionsG,&stateRootG,&stateFinal) == false) {
-		return NULL;
-	}
-	// create a list with the states in G sorted by topological order with respect to epsilon transitions
-
-	// (2) build the lexical tree (only one tree needs to be built)
-	map<LexUnit*,State*> mLexUnitState;
-	unsigned int iTreeDepth = 0;
-	State *stateRoot = buildWordInternalLexiconTree(mLexUnitState,&iTreeDepth);
-	if (stateRoot == NULL) {
-		return NULL;
-	}
-	//printStateTransitions(stateRoot);
-	
-	// (3) do the actual incremental composition
-	unsigned int iStateIdFinal = iStatesG;
-	LLeafToProcess lLeafToProcess;													// leaf queue
-	State **stateWaiting = new State*[iTreeDepth];								// waiting states
-	VTransition *transitionInsertion = new VTransition[iTreeDepth];		// transitions ready to be inserted
-	for(unsigned int i=0 ; i < iTreeDepth ; ++i) {
-		stateWaiting[i] = NULL;
-	}
-	
-	// create an array to mark the already processed states
-	bool *bStateProcessed = new bool[iStatesG];
-	for(unsigned int i=0 ; i < iStatesG ; ++i) {
-		bStateProcessed[i] = false;
-	}
-	
-	// traverse G and apply incremental composition to each state
-	MStateState mStateState;
-	unsigned int iTransitionsProcessed = 0;
-	unsigned int iStatesProcessed = 0;
-	unsigned int iTransitionsCreated = 0;
-	unsigned int iStatesCreated = 0;
-	unsigned int iTransitionsRemovedFromG = 0;
-	unsigned int iStatesReused = 0;
-	LState lState;
-	lState.push_back(stateRootG);
-	bStateProcessed[stateRootG->iId] = true;
-	while(lState.empty() == false) {
-		
-		// get the next state to process
-		State *stateGFrom = lState.front();
-		lState.pop_front();
-		
-		//printf("processing G state:\n");
-	
-		// process the state	in G by processing all the transitions that come from it
-		bool bLexUnitTransitions = false;		// whether actual lexical unit transitions (transitions that are actual words) are seen
-		
-		//printf("G state to be processed has: %d transitions\n",stateGFrom->vTransition.size());
-		
-		// (3.1) for each lexical-unit transition coming from the state, find the corresponding leaf in the lexical tree
-		VTransition vTransitionSurvive;
-		for(VTransition::iterator it = stateGFrom->vTransition.begin() ; it != stateGFrom->vTransition.end() ; ++it) {
-		
-			// insert G destination states into the queue (if not already processed)
-			if (bStateProcessed[(*it)->state->iId] == false) {
-				lState.push_back((*it)->state);
-				bStateProcessed[(*it)->state->iId] = true;
-			}
-			
-			// epsilon transition: keep it in the final tree 
-			if ((*it)->iSymbol == EPSILON_TRANSITION) {
-				vTransitionSurvive.push_back(*it);
-				//printf("epsilon processed\n");
-			} 
-			// beginning/end of sentence: keep it in the final tree
-			else if (((int)(*it)->iSymbol == (m_lexiconManager->m_lexUnitBegSentence->iLexUnit|LEX_UNIT_TRANSITION)) || 
-				(((int)(*it)->iSymbol == (m_lexiconManager->m_lexUnitEndSentence->iLexUnit|LEX_UNIT_TRANSITION)))) {
-				vTransitionSurvive.push_back(*it);
-				//printf("%s processed\n",m_lexiconManager->getStrLexUnit((*it)->iSymbol));	
-			}	
-			// non-epsilon transition: put leaves from each pronuciation of the lexical unit in the queue
-			else {
-				bLexUnitTransitions = true;
-				LexUnitX *lexUnitX = m_lexiconManager->getLexUnit((*it)->iSymbol & LEX_UNIT_TRANSITION_COMPLEMENT);
-				for(VLexUnit::iterator jt = lexUnitX->vLexUnitPronunciations.begin() ; jt != lexUnitX->vLexUnitPronunciations.end() ; ++jt) {
-					LeafToProcess *leaf = new LeafToProcess;
-					leaf->lexUnit = *jt;
-					leaf->iHMMStates = (*jt)->vPhones.size()*NUMBER_HMM_STATES;
-					leaf->stateLeaf = mLexUnitState[*jt]; 
-					leaf->iRightContextGroup = UCHAR_MAX;
-					leaf->stateGTo = (*it)->state;
-					leaf->fWeight = (*it)->fWeight;
-					lLeafToProcess.push_back(leaf);	
-					//m_lexiconManager->printLexUnit(*jt);
-				}
-				delete *it;
-			}	
-		}
-		iTransitionsRemovedFromG += stateGFrom->vTransition.size()-vTransitionSurvive.size();
-		// remove old G transitions
-		stateGFrom->vTransition.clear();
-		// add the G transitions that survive
-		for(VTransition::iterator it = vTransitionSurvive.begin() ; it != vTransitionSurvive.end() ; ++it) {
-			stateGFrom->vTransition.push_back(*it);
-		}
-		
-		// sort the queue by state number
-		lLeafToProcess.sort(WFSABuilder::compareStateNumber);
-		
-		// process leaves in the queue
-		while(lLeafToProcess.empty() == false) {
-		
-			LeafToProcess *leaf = lLeafToProcess.front();
-			lLeafToProcess.pop_front();
-			
-			// create the lexical unit transition and the state that goes to it
-			State *stateLexUnit = newState(iStateIdFinal++,NULL,NULL);
-			stateLexUnit->vTransition.push_back(newTransition(((unsigned int)leaf->lexUnit->iLexUnitPron)|LEX_UNIT_TRANSITION,
-				leaf->fWeight,leaf->stateGTo));
-			checkTransitionSymbolCorrectness(((unsigned int)leaf->lexUnit->iLexUnitPron)|LEX_UNIT_TRANSITION);
-			++iStatesCreated;
-			++iTransitionsCreated;
-			
-			// try to reuse a state
-			MStateState::iterator ft = mStateState.find(stateLexUnit);
-			if (ft != mStateState.end()) {
-				//assert(ft->second->vTransition.size() == 1);
-				//fWeightRest -= ft->second->front()->fWeight;
-				for(VTransition::iterator gt = stateLexUnit->vTransition.begin() ; gt != stateLexUnit->vTransition.end() ; ++gt) {
-					delete *gt;
-				}
-				delete stateLexUnit;
-				iStateIdFinal--;
-				--iStatesCreated;
-				--iTransitionsCreated;
-				++iStatesReused;
-				stateLexUnit = ft->second;
-				if (iStatesReused % 100 == 0) {
-					printf("(1) reused: %u total: %u\n",iStatesReused,iStatesCreated);
-				}	
-			} else {
-				//mStateState.insert(MStateState::value_type(stateLexUnit,stateLexUnit));	
-			}
-			
-			int iHMMStates = leaf->iHMMStates;
-			State *state = leaf->stateLeaf->stateParent;		// this state goes to the last HMM-transition
-			unsigned int iSymbol = leaf->stateLeaf->transitionBW->iSymbol;
-			
-			// process states from the leaf to the root
-			for(int i=iHMMStates-1 ; i >= 0 ; --i) {
-			
-				//printStateTransitions(state);
-			
-				// empty position: insert the state into the buffer
-				if (stateWaiting[i] == NULL) {
-					stateWaiting[i] = state;
-					transitionInsertion[i].push_back(newTransition(iSymbol,0.0,NULL));
-					assert(i%NUMBER_HMM_STATES == (int)iSymbol%NUMBER_HMM_STATES);
-					checkTransitionSymbolCorrectness(iSymbol);
-					++iTransitionsCreated;
-					// if the state goes to a G node we already know the destination state in the final graph
-					if (state == leaf->stateLeaf->stateParent) {
-						transitionInsertion[i].back()->state = stateLexUnit;
-					}
-				}
-				// different state: move the original state along with its transitions to the final tree
-				else if (stateWaiting[i] != state) {
-					// (1) the state in the buffer becomes final
-					State *stateFinal = newState(iStateIdFinal++,NULL,NULL);
-					++iStatesCreated;
-					assert(i > 0);		// the root state stays in the buffer until the end
-					assert(transitionInsertion[i].empty() == false);
-					for(VTransition::iterator jt = transitionInsertion[i].begin() ; jt != transitionInsertion[i].end() ; ++jt) {
-						stateFinal->vTransition.push_back(*jt);
-						// if no destination state: look for the final state that does have destination state
-						if ((*jt)->state == NULL) {
-							assert(i == iHMMStates-1);
-							bool bFound = false;
-							for(int j = iTreeDepth-2 ; j > i ; --j) {
-								if (stateWaiting[j] != NULL) {
-									while(i != j) {
-										State *stateFinal2 = newState(iStateIdFinal++,NULL,NULL);
-										++iStatesCreated;
-										for(VTransition::iterator kt = transitionInsertion[j].begin() ; kt != transitionInsertion[j].end() ; ++kt) {
-											stateFinal2->vTransition.push_back(*kt);
-											assert((*kt)->state != NULL);
-											// weight pushing
-											//applyWeightPushing(*kt);
-										}
-										stateWaiting[j] = NULL;
-										transitionInsertion[j].clear();
-										// try to reuse the state
-										MStateState::iterator ft = mStateState.find(stateFinal2);
-										if (ft != mStateState.end()) {
-											for(VTransition::iterator gt = stateFinal2->vTransition.begin() ; gt != stateFinal2->vTransition.end() ; ++gt) {
-												delete *gt;
-											}
-											delete stateFinal2;
-											iStateIdFinal--;
-											--iStatesCreated;
-											--iTransitionsCreated;
-											++iStatesReused;
-											stateFinal2 = ft->second;
-											if (iStatesReused % 100 == 0) {
-												printf("(2) reused: %u total: %u\n",iStatesReused,iStatesCreated);
-											}
-										} else {
-											//mStateState.insert(MStateState::value_type(stateFinal2,stateFinal2));
-										}
-										assert(transitionInsertion[j-1].back()->state == NULL);
-										transitionInsertion[j-1].back()->state = stateFinal2;
-										--j;
-									}
-									bFound = true;
-								}	
-							}
-							assert(bFound);
-						}
-						assert((*jt)->state != NULL);
-						// weight pushing
-						//applyWeightPushing(*jt);
-					}
-					transitionInsertion[i].clear();
-					// (2) insert the state in the map for later reuse
-					MStateState::iterator ft = mStateState.find(stateFinal);
-					if (ft != mStateState.end()) {
-						for(VTransition::iterator gt = stateFinal->vTransition.begin() ; gt != stateFinal->vTransition.end() ; ++gt) {
-							delete *gt;
-						}
-						delete stateFinal;
-						iStateIdFinal--;
-						--iStatesCreated;
-						--iTransitionsCreated;
-						++iStatesReused;
-						stateFinal = ft->second;	
-						if (iStatesReused % 100 == 0) {
-							printf("(3) reused: %u total: %u\n",iStatesReused,iStatesCreated);
-						}
-					} else {
-						//mStateState.insert(MStateState::value_type(stateFinal,stateFinal));	
-					}
-					assert(transitionInsertion[i-1].back()->state == NULL);
-					transitionInsertion[i-1].back()->state = stateFinal;
-					// (3) the new state is inserted into the buffer along with its transition
-					stateWaiting[i] = state;
-					transitionInsertion[i].push_back(newTransition(iSymbol,0.0,NULL));
-					assert(i%NUMBER_HMM_STATES == (int)iSymbol%NUMBER_HMM_STATES);
-					checkTransitionSymbolCorrectness(iSymbol);
-					++iTransitionsCreated;
-					// if the state goes to a G node we already know the destination state in the final graph
-					if (state == leaf->stateLeaf->stateParent) {
-						transitionInsertion[i].back()->state = stateLexUnit;						
-					} 
-				} 
-				// equal state: stop the right to left traversal
-				else {
-					// create a new transition
-					transitionInsertion[i].push_back(newTransition(iSymbol,0.0,NULL));
-					assert(i%NUMBER_HMM_STATES == (int)iSymbol%NUMBER_HMM_STATES);
-					checkTransitionSymbolCorrectness(iSymbol);
-					++iTransitionsCreated;
-					// if the state goes to a G node we already know the destination state in the final graph
-					if (state == leaf->stateLeaf->stateParent) {
-						transitionInsertion[i].back()->state = stateLexUnit;
-					}	
-					break;
-				}
-				
-				if (i == 0) {
-					assert(state->stateParent == NULL);
-					break;	
-				} 
-				
-				// move to the parent state
-				iSymbol = state->transitionBW->iSymbol;
-				state = state->stateParent;
-			}
-				
-			delete leaf;
-		}
-		
-		// insert all the waiting states in the final graph (if any)
-		if (bLexUnitTransitions) {
-			assert(stateWaiting[iTreeDepth-1] == NULL);
-			assert(stateWaiting[0] != NULL);							// the root always has to be in the buffer	
-			for(int i=iTreeDepth-2 ; i >= 0 ; --i) {
-				if (stateWaiting[i] != NULL) {	
-					while(i >= 0) {
-						State *stateFinal = NULL;
-						if (i > 0) {
-							stateFinal = newState(iStateIdFinal++,NULL,NULL);
-							++iStatesCreated;	
-						} else {
-							// (i == 0) connect the root to the final graph
-							stateFinal = stateGFrom;	
-						}
-						for(VTransition::iterator kt = transitionInsertion[i].begin() ; kt != transitionInsertion[i].end() ; ++kt) {
-							stateFinal->vTransition.push_back(*kt);
-							assert((*kt)->state != NULL);
-						}
-						// insert the state in the map for later reuse
-						MStateState::iterator ft = mStateState.find(stateFinal);
-						if (ft != mStateState.end()) {
-							for(VTransition::iterator gt = stateFinal->vTransition.begin() ; gt != stateFinal->vTransition.end() ; ++gt) {
-								delete *gt;
-							}
-							delete stateFinal;
-							iStateIdFinal--;
-							--iStatesCreated;
-							--iTransitionsCreated;
-							++iStatesReused;
-							stateFinal = ft->second;	
-							if (iStatesReused % 100 == 0) {
-								printf("(4) reused: %u total: %u\n",iStatesReused,iStatesCreated);
-							}
-						} else {
-							//mStateState.insert(MStateState::value_type(stateFinal,stateFinal));
-						}
-						if (i > 0) {
-							assert(transitionInsertion[i-1].back()->state == NULL);
-							transitionInsertion[i-1].back()->state = stateFinal;	
-						}
-						//printStateTransitions(stateFinal);
-						stateWaiting[i] = NULL;
-						transitionInsertion[i].clear();
-						--i;
-					}
-					break;
-				}
-			}
-			// sanity check
-			for(int i=0 ; i < (int)iTreeDepth-1 ; ++i) {
-				assert(stateWaiting[i] == NULL);
-				assert(transitionInsertion[i].empty());
-			}
-		}	
-		
-		iTransitionsProcessed += stateGFrom->vTransition.size();
-		iStatesProcessed++;
-			
-		//printStateTransitions(stateGFrom);
-		//printf("G node processed! (%u states processed, %u transitions processed)\n",iStatesProcessed,iTransitionsProcessed);
-		//printf("(%u states created, %u transitions created)\n",iStatesCreated,iTransitionsCreated);
-	}
-	// sanity check
-	for(unsigned int i=0 ; i < iStatesG ; ++i) {
-		assert(bStateProcessed[i]);
-	}
-	delete [] bStateProcessed;
-	delete [] stateWaiting;
-	delete [] transitionInsertion;
-	
-	// destroy the lexical tree
-	destroyTree(stateRoot);
-	
-	printf("# states reused: %u\n",iStatesReused);
-	printf("ending!!! (%u states created, %u transitions created)\n",iStatesCreated,iTransitionsCreated);
-	//exit(-1);
-	
-	// sanity checks: 
-	// (1) make sure there are not unconnected states
-	// (2) make sure transition symbols are correct
-	int iHMMStatesTotal = -1;
-	m_hmmManager->getHMMStates(&iHMMStatesTotal);
-	unsigned int iTransitionsSeen = 0;
-	iStatesProcessed = 0;
-	bStateProcessed = new bool[iStateIdFinal];
-	for(unsigned int i=0 ; i < iStateIdFinal ; ++i) {
-		bStateProcessed[i] = false;
-	}
-	assert(lState.empty());
-	lState.push_back(stateRootG);
-	bStateProcessed[stateRootG->iId] = true;
-	++iStatesProcessed;
-	while(lState.empty() == false) {
-		
-		// get the next state to process
-		State *stateGFrom = lState.front();
-		lState.pop_front();
-		
-		// (3.1) for each lexical-unit transition coming from the state, find the corresponding leaf in the lexical tree
-		for(VTransition::iterator it = stateGFrom->vTransition.begin() ; it != stateGFrom->vTransition.end() ; ++it) {
-		
-			checkTransitionSymbolCorrectness((*it)->iSymbol);
-		
-			++iTransitionsSeen;
-			if (bStateProcessed[(*it)->state->iId] == false) {
-				lState.push_back((*it)->state);
-				bStateProcessed[(*it)->state->iId] = true;
-				++iStatesProcessed;
-			}
-		}	
-	}
-	for(unsigned int i=0 ; i < iStateIdFinal ; ++i) {
-		assert(bStateProcessed[i]);
-	}
-	delete [] bStateProcessed;
-	printf("transitions: %u seen, %u created, %u removed\n",iTransitionsSeen,iTransitionsCreated,iTransitionsRemovedFromG);
-	assert(iTransitionsSeen == (iTransitionsCreated+iTransitionsG-iTransitionsRemovedFromG));
-	
-	unsigned int iStatesTotal = iStatesG+iStatesCreated;
-	unsigned int iTransitionsTotal = iTransitionsG+iTransitionsCreated-iTransitionsRemovedFromG;
-	float fNetworkSize = iStatesTotal*4+iTransitionsTotal*12;
-	printf("total states: %u, total transitions: %u\n",iStatesTotal,iTransitionsTotal);
-	printf("Expected network size: %f MB\n",fNetworkSize/(1024.0*1024.0));
-	
-	//exit(-1);
-	
-	// (4) equalize the acceptor input	
-	//equalizeInput(stateRootG,iStatesTotal,iTransitionsTotal);
-	
-	// (5) transform the resulting graph to an acceptor that can be used for decoding
-	WFSAcceptor *wfsAcceptor = optimize(stateRootG,iStatesTotal,iTransitionsTotal,stateFinal);
-
-	return wfsAcceptor;
-}
-
-
 // build the grammar (from an n-gram) as an acceptor, it returns the initial state
-bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *iTransitionsG, State **stateInitialG, State **stateFinalG) {
-
+bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *iTransitionsG,
+	State **stateInitialG, State **stateFinalG) {
+/*
 	double dTimeBegin = TimeUtils::getTimeMilliseconds();
 
 	unsigned int iStatesCreated = 0;
@@ -517,7 +86,7 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 		
 		// get the unigrams
 		int iUnigrams = -1;
-		m_lmManager->getUnigrams(iUnigrams);
+		m_lmARPA->getUnigrams(iUnigrams);
 		
 		// count the unigrams that are relevant in order to estimate the uniform probability
 		unsigned int iUnigramsRelevant = 0;
@@ -576,7 +145,7 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 		
 		// get the unigrams
 		int iUnigrams = -1;
-		Unigram *unigrams = m_lmManager->getUnigrams(iUnigrams);
+		Unigram *unigrams = m_lmARPA->getUnigrams(iUnigrams);
 		for(int i=0 ; i < iUnigrams ; ++i) {
 		
 			// skip unigrams for <UNK>, <s> and </s> lexical units
@@ -620,7 +189,7 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 		// get the unigrams
 		int iUnigrams = -1;
 		int iUnigramsDiscarded = 0;
-		Unigram *unigrams = m_lmManager->getUnigrams(iUnigrams);
+		Unigram *unigrams = m_lmARPA->getUnigrams(iUnigrams);
 		
 		// allocate memory to store the states (one state per unigram plus the bigram backoff)
 		*statesG = new State[iUnigrams+1];	
@@ -762,10 +331,10 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 	else if (m_iNGram == LM_NGRAM_TRIGRAM) {
 	
 		// make sure there is one and only one initial state: either (</s>,<s>) or (<s>,<s>)
-		Bigram *bigramAux1 = m_lmManager->getBigram(m_lexiconManager->getLexUnitId(LEX_UNIT_END_SENTENCE),
-			m_lexiconManager->getLexUnitId(LEX_UNIT_BEGINNING_SENTENCE));
-		Bigram *bigramAux2 = m_lmManager->getBigram(m_lexiconManager->getLexUnitId(LEX_UNIT_BEGINNING_SENTENCE),
-			m_lexiconManager->getLexUnitId(LEX_UNIT_BEGINNING_SENTENCE));
+		Bigram *bigramAux1 = m_lmARPA->getBigram(m_lexiconManager->getLexUnitId(LEX_UNIT_END_SENTENCE),
+			m_lexiconManager->getLexUnitId(LEX_UNIT_BEG_SENTENCE));
+		Bigram *bigramAux2 = m_lmARPA->getBigram(m_lexiconManager->getLexUnitId(LEX_UNIT_BEG_SENTENCE),
+			m_lexiconManager->getLexUnitId(LEX_UNIT_BEG_SENTENCE));
 		// report error
 		if (((bigramAux1 == NULL) && (bigramAux2 == NULL)) || ((bigramAux1 != NULL) && (bigramAux2 != NULL))) {
 			printf("unable to find the initial state of the WFST while building G, the initial state must be either (</s>,<s>) or (</s>,<s>)\n");	
@@ -775,7 +344,7 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 		// get the unigrams (important: the array of unigrams has iVocabularySize index 
 		// (so lexUnit Ids can be used to access it))
 		int iUnigrams = -1;
-		Unigram *unigrams = m_lmManager->getUnigrams(iUnigrams);
+		Unigram *unigrams = m_lmARPA->getUnigrams(iUnigrams);
 		// create a map from unigram index (lexical unit index) to state
 		State **stateMapUnigram = new State*[iUnigrams];
 		for(int i=0 ; i < iUnigrams ; ++i) {
@@ -784,7 +353,7 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 		
 		// get the bigrams
 		int iBigrams = -1;
-		Bigram *bigrams = m_lmManager->getBigrams(iBigrams);
+		Bigram *bigrams = m_lmARPA->getBigrams(iBigrams);
 		// create a map from bigram index (lexical unit index) to bigram state
 		State **stateMapBigram = new State*[iBigrams];
 		for(int i=0 ; i < iBigrams ; ++i) {
@@ -1025,7 +594,7 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 			Trigram *trigrams = bigrams[i].trigrams;
 			for(int j=0; j<iTrigrams ; ++j) {
 				// get the position of the bigram in the global array of bigrams
-				Bigram *bigramAux = m_lmManager->getBigram(bigrams[i].iLexUnit,trigrams[j].iLexUnit);
+				Bigram *bigramAux = m_lmARPA->getBigram(bigrams[i].iLexUnit,trigrams[j].iLexUnit);
 				int iIndex = (bigramAux-bigrams);
 				assert((iIndex >= 0) && (iIndex < iBigrams));
 				
@@ -1059,16 +628,16 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 			}
 		}
 		printf("states created: %d\n",iStatesCreated);
-		for(unsigned int i=0 ; i < iStatesCreated ; ++i) {
+		/*for(unsigned int i=0 ; i < iStatesCreated ; ++i) {
 			printStateTransitions(&((*statesG)[i]));
-		}
+		}*/
 		
 		// (1) get the initial state, which is the bigram state corresponding to (</s> <s>) or (<s> <s>)
 		// get the bigram (</s> <s>)
-		/*Bigram *bigramAux = m_lmManager->getBigram(m_lexiconManager->getLexUnitId(LEX_UNIT_END_SENTENCE),m_lexiconManager->getLexUnitId(LEX_UNIT_BEGINNING_SENTENCE));
+		/*Bigram *bigramAux = m_lmARPA->getBigram(m_lexiconManager->getLexUnitId(LEX_UNIT_END_SENTENCE),m_lexiconManager->getLexUnitId(LEX_UNIT_BEG_SENTENCE));
 		// alternatively get the bigram (<s> <s>)
 		if (bigramAux == NULL) {
-			bigramAux = m_lmManager->getBigram(m_lexiconManager->getLexUnitId(LEX_UNIT_BEGINNING_SENTENCE),m_lexiconManager->getLexUnitId(LEX_UNIT_BEGINNING_SENTENCE));
+			bigramAux = m_lmARPA->getBigram(m_lexiconManager->getLexUnitId(LEX_UNIT_BEG_SENTENCE),m_lexiconManager->getLexUnitId(LEX_UNIT_BEG_SENTENCE));
 		} 
 		// report error
 		if (bigramAux == NULL) {
@@ -1081,7 +650,7 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 		// create the initial state
 		State *stateInitial = stateMapBigram[iIndex];
 		assert(stateInitial != NULL);*/
-		
+		/*
 		// perform sanity checks to make sure that all the states created are connected (seen) and all the transitions too,
 		bool *bStateProcessed = new bool[iStatesCreated];
 		for(unsigned int i=0 ; i<iStatesCreated ; ++i) {
@@ -1139,7 +708,7 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	
 	printf("-- G graph -----------------------------\n");
-	printf(" n-gram: %s\n",m_lmManager->getStrNGram());
+	printf(" n-gram: %s\n",LMManager::getStrNGram(m_lmFSM->getNGramOrder()));
 	printf(" # states:      %12u\n",iStatesCreated);
 	printf(" # transitions: %12u\n",iTransitionsCreated);
 	printf(" building time: %.2f seconds\n",(dTimeEnd-dTimeBegin)/1000.0);
@@ -1148,7 +717,7 @@ bool WFSABuilder::buildG(State **statesG, unsigned int *iStatesG, unsigned int *
 	} else {
 		printf(" final state found\n");
 	}
-	printf("----------------------------------------\n");	
+	printf("----------------------------------------\n");	*/
 	
 	return true;
 }
@@ -1436,7 +1005,6 @@ State *WFSABuilder::buildWordInternalLexiconTree(map<LexUnit*,State*> &mLexUnitL
 
 
 // create the left-context-dependent map of trees
-//LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, unsigned char ***iRightContextGroups, unsigned int *iGroups) {
 LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, vector<unsigned char*> &vRightContextGroups) {
 
 	unsigned int iTreesTotal = 0;
@@ -1476,8 +1044,8 @@ LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, 
    } 
  
    // count different left and right contexts
-   unsigned char iLeftContexts = 0;
-   unsigned char iRightContexts = 0;
+   unsigned int iLeftContexts = 0;
+   unsigned int iRightContexts = 0;
    for(unsigned char i = 0 ; i< m_phoneSet->size() ; ++i) {
   		if (bPhoneRight[i]) {
   			iLeftContexts++;
@@ -1814,8 +1382,8 @@ LexiconTree **WFSABuilder::buildCrossWordLexiconTrees(unsigned int *iTreeDepth, 
 	cout << "# HMM-states:    " << iHMMStates << " (context modeling order: " 
 		<< strContextModelingOrder << ")" << endl;
 	cout << "# left contexts: " << iLeftContexts << ", # right contexts: " << iRightContexts << endl;
-	cout << "# states:        " << iStatesTotal << endl;
-   cout << "# transitions:   " << iTransitionsTotal << endl;
+	cout << "# states:        " << iStatesTotal << " (state size: " << sizeof(State) << ")" << endl;
+   cout << "# transitions:   " << iTransitionsTotal << " (trans size: " << sizeof(Transition) << ")" << endl;
 	cout << "max tree depth:  " << *iTreeDepth << endl;
 	cout << "# right context subsets: " << vRightContextGroups.size() << endl;
    
@@ -2740,7 +2308,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 		
 		//printf("processing G state (id= %u, transitions= %u): (%u states processed already)\n",stateGFrom->iId,iStatesProcessed,stateGFrom->vTransition.size());	
 		
-		// for each posible left context	
+		// for each possible left context	
 		for(unsigned char l=0 ; iLeftContext[stateGFrom->iId][l] != UCHAR_MAX ; ++l) {
 		
 			// get the left context
@@ -2769,30 +2337,28 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 						assert(transitionEpsilon == *it);
 					}
 					transitionEpsilon = *it;	
-					//printf("epsilon processed\n");
 				} 
-				// beginning/end of sentence: keep it in the final tree
+				// end of sentence (</s>): keep it in the final tree
 				else if ((int)(*it)->iSymbol == (m_lexiconManager->m_lexUnitEndSentence->iLexUnit|LEX_UNIT_TRANSITION)) {
-					//printf("end of sentence transition!\n");
-					//printf("error: unexpected %s was processed\n",m_lexiconManager->getStrLexUnit((*it)->iSymbol));
-					//exit(-1);
 					transitionFinal = *it;
 				}	
 				// non-epsilon transition: put leaves from each pronunciation of the lexical unit in the queue
 				else {	
 				
 					bLexUnitTransitions = true;
-					LexUnitX *lexUnitX = m_lexiconManager->getLexUnit((*it)->iSymbol & LEX_UNIT_TRANSITION_COMPLEMENT);
+					LexUnitX *lexUnitX = m_lexiconManager->getLexUnit((*it)->iSymbol & LEX_UNIT_TRANSITION_COMPLEMENT);				
+					if (!m_lexiconManager->isStandard(lexUnitX->iLexUnit) && !m_lexiconManager->isFiller(lexUnitX->iLexUnit)) {
+						int iSymbol = (*it)->iSymbol & LEX_UNIT_TRANSITION_COMPLEMENT;
+						cout << "symbol: " << iSymbol << endl;
+						printf("error: unexpected %s was processed\n",m_lexiconManager->getStrLexUnit(iSymbol));
+					}
 					assert(m_lexiconManager->isStandard(lexUnitX->iLexUnit) || m_lexiconManager->isFiller(lexUnitX->iLexUnit));
 					for(VLexUnit::iterator jt = lexUnitX->vLexUnitPronunciations.begin() ; jt != lexUnitX->vLexUnitPronunciations.end() ; ++jt) {
 					
 						// get the lex unit leaves in the left-context lexical tree
 						unsigned char iLeaves = lexiconTree[iLeftPhone]->iLeafRightContext[(*jt)->iLexUnitPron];
 						LeafRightContext *leafRightContext = lexiconTree[iLeftPhone]->leafRightContext[(*jt)->iLexUnitPron];
-						/*if (*jt == m_lexiconManager->getLexUnit("<UHM>",0)) {
-							bool bStop = 0;
-						}	*/
-						
+					
 						for(unsigned int iLeaf = 0 ; iLeaf < iLeaves ; ++iLeaf) {
 							LeafToProcess *leaf = new LeafToProcess;
 							leaf->lexUnit = *jt;
@@ -2803,44 +2369,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 							leaf->fWeight = (*it)->fWeight;
 							lLeafToProcess.push_back(leaf);	
 						}
-						/*++iLeavesQueued;
-						if (iLeavesQueued % 1000 == 0) {
-							printf("leaves queued: %d\n",iLeavesQueued);
-						}*/
-						
-						// sanity check
-						/*bool *bAux = new bool[m_phoneSet->size()];
-						for(int i=0 ; i < m_phoneSet->size() ; ++i) {
-							bAux[i] = false;
-						}
-						for(LLeafToProcess::iterator kt = lLeafToProcess.begin() ; kt != lLeafToProcess.end() ; ++kt) {
-							unsigned char *iRightContextGroup = iRightContextGroups[(*kt)->iRightContextGroup];
-							for(unsigned int i=0 ; iRightContextGroup[i] != UCHAR_MAX ; ++i) {
-								bAux[iRightContextGroup[i]] = true;
-							}
-						}*/
-						/*int iCounter = 0;
-						for(int i=0 ; i < m_phoneSet->size() ; ++i) {
-							if (bAux[i]) {
-								++iCounter;
-							}
-						}
-						if (iCounter != 43) {
-							m_lexiconManager->printLexUnit(*jt);						
-							printf("error: counter: %d expected: 43\n",iCounter);
-							printf("left phone: %s\n",m_phoneSet->getStrPhone(iLeftPhone));
-							for(LLeafToProcess::iterator kt = lLeafToProcess.begin() ; kt != lLeafToProcess.end() ; ++kt) {
-								printf("leaf group: %d\n",(*kt)->iRightContextGroup);
-							}
-						} else {
-							//m_lexiconManager->printLexUnit(*jt);
-						}*/
-						
-						
-						
-						//m_lexiconManager->printLexUnit(*jt);
 					}
-					//delete *it;
 				}	
 			}
 			
@@ -3165,7 +2694,7 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 			}	
 		}
 		// process the transition to the final state </s> if any
-		if (transitionFinal != NULL) {
+		if (transitionFinal) {
 		
 			// for each posible left context	
 			for(unsigned char l=0 ; iLeftContext[stateGFrom->iId][l] != UCHAR_MAX ; ++l) {
@@ -3780,7 +3309,6 @@ WFSAcceptor *WFSABuilder::buildCrossWord() {
 
 	return wfsAcceptor;
 }
-
 
 
 // perform global weight pushing, which is the first step of weighted minimization, the second step is the actual minimization

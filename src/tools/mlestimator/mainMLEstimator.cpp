@@ -16,7 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-
+#include <stdexcept>
 #include <iostream>
 #include <cstdlib>
 
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
 		hmmManager.initializeEstimation(ACCUMULATOR_TYPE_PHYSICAL,UCHAR_MAX,UCHAR_MAX);
 		
 		HMMManager *hmmManagerUpdate = &hmmManager;
-		if (mAccumulatorPhysical.begin()->second->getDimensionality() != hmmManager.getFeatureDimensionality()) {
+		if (mAccumulatorPhysical.begin()->second->getDimensionality() != (int)hmmManager.getFeatureDim()) {
 		
 			hmmManagerUpdate = new HMMManager(&phoneSet,HMM_PURPOSE_ESTIMATION);
 			hmmManagerUpdate->initializeModels(&hmmManager,
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
 		// create the output HMMs
 		hmmManagerUpdate->store(strFileModelsOutput);
 		
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

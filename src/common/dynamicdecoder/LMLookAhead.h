@@ -80,9 +80,6 @@ class LMLookAhead {
 		
 		// clean the hash-table used as a cache
 		void cacheGarbageCollection();
-		
-		// destroy
-		void destroy();	
 
 		// print cache stats (performance analysis)
 		void printCacheStats();

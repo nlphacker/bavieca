@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "CommandLineManager.h"
 #include "HMMManager.h"
@@ -74,7 +75,7 @@ int main(int argc, char *argv[]) {
 		// store the regression tree to disk
 		regressionTree.store(strFileRegressionTree);
 		
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

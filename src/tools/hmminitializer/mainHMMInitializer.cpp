@@ -16,7 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-
+#include <stdexcept>
 #include <iostream>
 #include <cstdlib>
 
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 			BVC_ERROR << "initialization method not supported yet";
 		}
 	
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

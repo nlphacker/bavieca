@@ -59,12 +59,12 @@ class MatrixBase {
 
 	protected:
 	
-		int m_iRows;				// number of rows in the matrix
-		int m_iCols;				// number of columns in the matrix
-		int m_iStride;				// number of elements per row (stride >= # columns)
-		Real *m_rData;				// matrix data
+		unsigned int m_iRows;		// number of rows in the matrix
+		unsigned int m_iCols;		// number of columns in the matrix
+		unsigned int m_iStride;		// number of elements per row (stride >= # columns)
+		Real *m_rData;					// matrix data
 	
-		MatrixBase(int iRows, int iCols) {
+		MatrixBase(unsigned int iRows, unsigned int iCols) {
 		
 			m_iRows = iRows;
 			m_iCols = iCols;
@@ -74,19 +74,19 @@ class MatrixBase {
 	public:
 
 		// return the number of rows
-		int getRows() {
+		unsigned int getRows() {
 		
 			return m_iRows;
 		}
 		
 		// return the number of columns
-		int getCols() {
+		unsigned int getCols() {
 		
 			return m_iCols;
 		}
 		
 		// return the stride
-		int getStride() {
+		unsigned int getStride() {
 		
 			return m_iStride;
 		}
@@ -98,34 +98,43 @@ class MatrixBase {
 		}
 		
 		// return a matrix element as a r-value
-		Real& operator()(int iRow, int iCol) {
+		Real& operator()(unsigned int iRow, unsigned int iCol) {
 			
 			return m_rData[iRow*m_iStride+iCol];
 		}
 		
 		// return a matrix element as a l-value
-		Real operator()(int iRow, int iCol) const {
+		Real operator()(unsigned int iRow, unsigned int iCol) const {
 			
 			return m_rData[iRow*m_iStride+iCol];
 		}
 		
 		// return the number of elements in the matrix
-		int getElements() {
+		unsigned int getElements() {
 		
 			return m_iCols*m_iRows;
 		}
 		
 		// return the matrix size in terms of data allocated
-		int getSize() {
+		unsigned int getSize() {
 		
 			return m_iStride*m_iRows;
 		}	
 		
 		// return a matrix row
-		VectorStatic<Real> getRow(int iRow);
+		const VectorStatic<Real> getRow(unsigned int iRow) const {
+		
+			return VectorStatic<Real>(m_rData+iRow*m_iStride,m_iCols);
+		}
 		
 		// return a matrix row
-		Real *getRowData(int iRow);
+		VectorStatic<Real> getRow(unsigned int iRow) {
+		
+			return VectorStatic<Real>(m_rData+iRow*m_iStride,m_iCols);
+		}
+		
+		// return a matrix row
+		Real *getRowData(unsigned int iRow);
 		
 		// copy data from another matrix
 		void copy(MatrixBase<Real> &m) {
@@ -135,10 +144,10 @@ class MatrixBase {
 		}
 		
 		// copy a vector to the given row
-		void copyRow(VectorBase<Real> &v, int iRow);
+		void copyRow(VectorBase<Real> &v, unsigned int iRow);
 		
 		// copy a vector to the given column
-		void copyCol(VectorBase<Real> &v, int iColumn);		
+		void copyCol(VectorBase<Real> &v, unsigned int iColumn);		
 		
 		// copy the given vector to each row
 		void copyRows(VectorBase<Real> &v);
@@ -147,12 +156,12 @@ class MatrixBase {
 		void copyCols(VectorBase<Real> &v);	
 		
 		// return a submatrix of the given matrix
-		MatrixStatic<Real> getSubMatrix(int iRowStart, int iRows, int iColStart, int iCols) const;
+		MatrixStatic<Real> getSubMatrix(unsigned int iRowStart, unsigned int iRows, unsigned int iColStart, unsigned int iCols) const;
 		
 		// set to zero
 		void zero();
 		
-		// check wether all elements are zero
+		// check whether all elements are zero
 		bool isZero(Real rEpsilon);
 		
 		// test two matrices for equality
@@ -161,7 +170,7 @@ class MatrixBase {
 		void setDiagonal(Real r) {
 		
 			assert(isSquare());
-			for(int i=0; i<m_iCols; ++i) {
+			for(unsigned int i=0; i<m_iCols; ++i) {
 				(*this)(i,i) = r;
 			}
 		}
@@ -180,7 +189,7 @@ class MatrixBase {
 			assert(isSquare());
 			assert(vDiagonal.getDim() == m_iRows);
 		
-			for(int i=0 ; i < vDiagonal.getDim() ; ++i) {
+			for(unsigned int i=0 ; i < vDiagonal.getDim() ; ++i) {
 				vDiagonal(i) = (*this)(i,i);
 			}
 		}
@@ -218,8 +227,8 @@ class MatrixBase {
 		// transpose the matrix 
 		void transpose() {
 		
-			for(int i=0;i<m_iRows;++i) {
-				for(int j=0;j<i;++j) {
+			for(unsigned int i=0;i<m_iRows;++i) {
+				for(unsigned int j=0;j<i;++j) {
 					Real r = (*this)(i,j);
 					(*this)(i,j) = (*this)(j,i);
 					(*this)(j,i) = r;
@@ -241,6 +250,9 @@ class MatrixBase {
 		
 		// singular value decomposition
 		void svd(VectorBase<Real> vEigenvalues, MatrixBase<Real> mU, MatrixBase<Real> mV);
+		
+		// compute derivative (iDelta = size of the regression window)
+		void delta(MatrixBase<Real> &mDelta, unsigned int iDelta);
 		
 		// print the matrix data
 		void print();	

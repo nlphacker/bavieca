@@ -29,7 +29,6 @@ namespace Bavieca {
 
 class Accumulator;
 class ConfigurationFeatures;
-class FileUtils;
 class TimeUtils;
 class PhoneSet;
 class MLFFile;
@@ -100,7 +99,7 @@ class DTAccumulator {
 		void statisticsCancellation(Alignment *alignmentNum, MOccupation *mOccupationDen);
 		
 		// accumulate statistics
-		void accumulate(Alignment *alignment, float *fFeatures, int iFeatures, bool bNumerator);
+		void accumulate(Alignment *alignment, MatrixBase<float> &mFeatures, bool bNumerator);
 
 	public:
 

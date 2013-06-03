@@ -68,7 +68,6 @@ void ConfigurationDynamicDecoder::defineParameters() {
 	defineParameter("languageModel.format","language model format",PARAMETER_TYPE_STRING,false);
 	defineParameter("languageModel.type","language model type",PARAMETER_TYPE_STRING,false);
 	defineParameter("languageModel.scalingFactor","language model scaling factor",PARAMETER_TYPE_FLOAT,false);
-	defineParameter("languageModel.ngram","language model n-gram",PARAMETER_TYPE_STRING,false);
 	defineParameter("languageModel.crossUtterance","language model",PARAMETER_TYPE_BOOLEAN,true,"yes|no","no");
 	
 	// lexicon

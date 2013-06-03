@@ -365,10 +365,23 @@ class HMMManager {
 		}
 		
 		// return the feature dimensionality
-		inline int getFeatureDimensionality() {
+		inline unsigned int getFeatureDim() {
 		
 			return m_iDim;
 		}
+		
+		// return the dimensionality of a feature container (considers memory alignment)
+		inline unsigned int getFeatureDimContainer() {
+		#if defined __AVX__ || defined __SSE__
+			// round up the dimensionality to the nearest multiple	
+			unsigned int iReminder = m_iDim%(ALIGN_BOUNDARY/sizeof(float));
+			unsigned int iDimContainer = (iReminder == 0) ? m_iDim : m_iDim + (ALIGN_BOUNDARY/sizeof(float))-iReminder;
+			assert(iDimContainer % ALIGN_BOUNDARY == 0);
+			return iDimContainer;
+		#else 
+			return m_iDim;
+		#endif	
+		}	
 		
 		// return the covariance modelling type
 		inline int getCovarianceModelling() {

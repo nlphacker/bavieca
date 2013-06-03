@@ -45,7 +45,7 @@ class SMatrix : public PackedMatrix<Real> {
 		}
 
 		// contructor
-		SMatrix(int iDim) : PackedMatrix<Real>(iDim) {
+		SMatrix(unsigned int iDim) : PackedMatrix<Real>(iDim) {
 		}
 
 		// copy contructor
@@ -66,7 +66,7 @@ class SMatrix : public PackedMatrix<Real> {
 		}		
 		
 		// return a matrix element (stored by rows as a lower triangular matrix)
-		Real& operator()(int iRow, int iCol) {
+		Real& operator()(unsigned int iRow, unsigned int iCol) {
 		
 			assert((iRow >= 0) && (iRow < this->m_iDim));
 			assert((iCol >= 0) && (iCol < this->m_iDim));
@@ -78,7 +78,7 @@ class SMatrix : public PackedMatrix<Real> {
 		}	
 		
 		// return a matrix element (stored by rows as a lower triangular matrix)
-		Real operator()(int iRow, int iCol) const {
+		Real operator()(unsigned int iRow, unsigned int iCol) const {
 		
 			assert((iRow >= 0) && (iRow < this->m_iDim));
 			assert((iCol >= 0) && (iCol < this->m_iDim));

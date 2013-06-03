@@ -35,7 +35,6 @@ class DynamicDecoderX;
 class DynamicNetworkX;
 class FeatureExtractor;
 class FeatureTransformList;
-class FileUtils;
 class FillerManager;
 class HMMManager;
 class LexiconManager;
@@ -67,9 +66,9 @@ class SpeechSegmentsI;
 	@author daniel <dani.bolanos@gmail.com>
 */
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 class extern "C" __declspec(dllexport) BaviecaAPI {
-#elif defined __linux__ || defined __APPLE__ || defined SWIG
+#elif defined __linux__ || defined __APPLE__ || __MINGW32__ || defined SWIG
 class BaviecaAPI {
 #endif
 

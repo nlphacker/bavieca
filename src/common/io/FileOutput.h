@@ -20,8 +20,6 @@
 #ifndef FILEOUTPUT_H
 #define FILEOUTPUT_H
 
-#include "ExceptionBase.h"
-
 using namespace std;
 
 #include <fstream>

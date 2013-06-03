@@ -36,7 +36,7 @@ class PackedMatrix {
 
 	protected:
 	
-		int m_iDim;			// dimensionality of the square matrix
+		unsigned int m_iDim;			// dimensionality of the square matrix
 		Real *m_rData;		// data			
 		
 		PackedMatrix() {}
@@ -76,8 +76,8 @@ class PackedMatrix {
 		// copy data from another matrix
 		void copy(const PackedMatrix<Real> &m) {
 			
-			int iElements = getElements();
-			for(int i=0; i < iElements ; ++i) {
+			unsigned int iElements = getElements();
+			for(unsigned int i=0; i < iElements ; ++i) {
 				m_rData[i] = m.m_rData[i];
 			}
 		}
@@ -86,20 +86,20 @@ class PackedMatrix {
 		template<typename Real2>
 		void copy(const PackedMatrix<Real2> &m) {
 			
-			int iElements = getElements();
-			for(int i=0; i < iElements ; ++i) {
+			unsigned int iElements = getElements();
+			for(unsigned int i=0; i < iElements ; ++i) {
 				m_rData[i] = (Real)(m.getData()[i]);
 			}
 		}
 		
 		// return the packed size
-		int getElements() {
+		unsigned int getElements() {
 		
 			return (m_iDim*(m_iDim+1))/2;
 		}
 		
 		// return the dimensionality
-		int getDim() const {
+		unsigned int getDim() const {
 		
 			return m_iDim;
 		}
@@ -126,7 +126,7 @@ class PackedMatrix {
 		}		
 		
 		// resize the matrix (also used to allocate space for the first time)
-		void resize(int iDim) {
+		void resize(unsigned int iDim) {
 		
 			if (iDim != m_iDim) {
 			
@@ -142,7 +142,7 @@ class PackedMatrix {
 		}
 		
 		// return a matrix element (stored by rows as a lower triangular matrix)
-		Real& operator()(int iRow, int iCol) {
+		Real& operator()(unsigned int iRow, unsigned int iCol) {
 		
 			assert((iRow >= 0) && (iRow < m_iDim));
 			assert((iCol >= 0) && (iCol < m_iDim));
@@ -152,7 +152,7 @@ class PackedMatrix {
 		}	
 		
 		// return a matrix element (stored by rows as a lower triangular matrix)
-		Real operator()(int iRow, int iCol) const {
+		Real operator()(unsigned int iRow, unsigned int iCol) const {
 		
 			assert((iRow >= 0) && (iRow < m_iDim));
 			assert((iCol >= 0) && (iCol < m_iDim));
@@ -164,8 +164,8 @@ class PackedMatrix {
 		// set to zero
 		void zero() {
 		
-			int iElements = getElements();
-			for(int i=0; i < iElements ; ++i) {
+			unsigned int iElements = getElements();
+			for(unsigned int i=0; i < iElements ; ++i) {
 				m_rData[i] = 0.0;
 			}
 		}
@@ -173,8 +173,8 @@ class PackedMatrix {
 		// check wether all elements are zero
 		bool isZero(Real rEpsilon = 0.00001) {
 		
-			int iElements = getElements();
-			for(int i=0; i < iElements ; ++i) {
+			unsigned int iElements = getElements();
+			for(unsigned int i=0; i < iElements ; ++i) {
 				if (fabs(m_rData[i]) > rEpsilon) {
 					return false;
 				}
@@ -188,7 +188,7 @@ class PackedMatrix {
 		
 			assert(vDiagonal.getDim() == m_iDim);
 		
-			for(int i=0 ; i < vDiagonal.getDim() ; ++i) {
+			for(unsigned int i=0 ; i < vDiagonal.getDim() ; ++i) {
 				vDiagonal(i) = (*this)(i,i);
 			}
 		}		
@@ -198,8 +198,8 @@ class PackedMatrix {
 		
 			assert(this->m_iDim == m.m_iDim);
 		
-			int iElements = getElements();
-			for(int i=0 ; i < iElements ; ++i) {
+			unsigned int iElements = getElements();
+			for(unsigned int i=0 ; i < iElements ; ++i) {
 				m_rData[i] += m.m_rData[i];
 			}
 		}
@@ -210,8 +210,8 @@ class PackedMatrix {
 		
 			assert(m_iDim == m.getDim());
 		
-			int iElements = getElements();
-			for(int i=0 ; i < iElements ; ++i) {
+			unsigned int iElements = getElements();
+			for(unsigned int i=0 ; i < iElements ; ++i) {
 				m_rData[i] += m.m_rData[i];
 			}
 		}
@@ -221,8 +221,8 @@ class PackedMatrix {
 		
 			assert(m_iDim == m.getDim());
 			
-			int iElements = getElements();
-			for(int i=0 ; i < iElements ; ++i) {
+			unsigned int iElements = getElements();
+			for(unsigned int i=0 ; i < iElements ; ++i) {
 				m_rData[i] += rAlpha*m.getData()[i];
 			}
 		}
@@ -233,8 +233,8 @@ class PackedMatrix {
 		
 			assert(m_iDim == m.getDim());
 			
-			int iElements = getElements();
-			for(int i=0 ; i < iElements ; ++i) {
+			unsigned int iElements = getElements();
+			for(unsigned int i=0 ; i < iElements ; ++i) {
 				m_rData[i] += (Real)(rAlpha*m.getData()[i]);		
 			}
 		}
@@ -242,8 +242,8 @@ class PackedMatrix {
 		// scale elements by the given factor
 		void scale(Real rAlpha) {
 		
-			int iElements = getElements();
-			for(int i=0 ; i < iElements ; ++i) {
+			unsigned int iElements = getElements();
+			for(unsigned int i=0 ; i < iElements ; ++i) {
 				m_rData[i] *= rAlpha;
 			}
 		}
@@ -254,8 +254,8 @@ class PackedMatrix {
 			assert(m_iDim == v.getDim());
 			
 			Real *r = m_rData;
-			for(int i=0 ; i<m_iDim ; ++i) {
-				for(int j=0 ; j<=i ; ++j, ++r) {
+			for(unsigned int i=0 ; i<m_iDim ; ++i) {
+				for(unsigned int j=0 ; j<=i ; ++j, ++r) {
 					*r += rAlpha*v(i)*v(j); 
 				}	
 			}
@@ -268,8 +268,8 @@ class PackedMatrix {
 			assert(m_iDim == v.getDim());
 			
 			Real *r = m_rData;
-			for(int i=0 ; i<m_iDim ; ++i) {
-				for(int j=0 ; j<=i ; ++j, ++r) {
+			for(unsigned int i=0 ; i<m_iDim ; ++i) {
+				for(unsigned int j=0 ; j<=i ; ++j, ++r) {
 					*r += rAlpha*v(i)*v(j); 
 				}	
 			}
@@ -278,7 +278,7 @@ class PackedMatrix {
 		// multipl by the given constant
 		void mul(Real r) {
 		
-			for(int i=0 ; i < getElements() ; ++i) {
+			for(unsigned int i=0 ; i < getElements() ; ++i) {
 				m_rData[i] *= r;
 			}
 		}	
@@ -288,8 +288,8 @@ class PackedMatrix {
 		
 			assert(m_iDim == m.getDim());
 			
-			int iElements = getElements();
-			for(int i=0 ; i < iElements ; ++i) {
+			unsigned int iElements = getElements();
+			for(unsigned int i=0 ; i < iElements ; ++i) {
 				m_rData[i] = rAlpha*m.m_rData[i];		
 			}
 		}
@@ -300,8 +300,8 @@ class PackedMatrix {
 		
 			assert(m_iDim == m.getDim());
 			
-			int iElements = getElements();
-			for(int i=0 ; i < iElements ; ++i) {
+			unsigned int iElements = getElements();
+			for(unsigned int i=0 ; i < iElements ; ++i) {
 				m_rData[i] = (Real)(rAlpha*m.getData()[i]);		
 			}
 		}

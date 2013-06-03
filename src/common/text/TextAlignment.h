@@ -68,13 +68,13 @@ class TextAlignment {
 		~TextAlignment();
 		
 		// adds a new element to the alignment
-		void addElement(int iAlignmentEvent, int iIndexReference, int iLexUnitReference, int iIndexHypothesis, 
-			int iLexUnitHypothesis);
+		void addElement(int iAlignmentEvent, int iIndexReference, int iLexUnitReference, 
+			int iIndexHypothesis, int iLexUnitHypothesis);
 			
 		// return the number of correct words
 		inline int getCorrect() {
 		
-			return m_iAlignmentEvents[TEXT_ALIGNMENT_EVENT_CORRECT];
+			return m_iAlignmentEvents[getIndex(TEXT_ALIGNMENT_EVENT_CORRECT)];
 		}
 		
 		// get the event index
@@ -99,10 +99,10 @@ class TextAlignment {
 		}
 		
 		// print the alignment
-		void print(bool bDetailed, FILE *file = stdout);
+		void print(bool bDetailed, ostream &os);
 		
 		// store the alignment into the given file
-		bool store(const char *strFile, bool bDetailed);	
+		void store(const char *strFile, bool bDetailed);	
 		
 		// return the alignment as a string
 		char *getStrAlignment();

@@ -29,7 +29,6 @@
 #include "HMMManager.h"
 #include "HMMInitializer.h"
 #include "MLEstimator.h"
-#include "ReferenceText.h"
 #include "CommandLineManager.h"
 #include "AudioFile.h"
 #include "LexUnitsFile.h"
@@ -38,6 +37,7 @@
 
 #include <iostream>
 #include <cstdlib>
+#include <stdexcept>
 
 using namespace std;
 
@@ -133,8 +133,7 @@ int main(int argc, char *argv[]) {
 			// load the features
 			FeatureFile featureFile(strFileFeatures.c_str(),MODE_READ);
 			featureFile.load();
-			unsigned int iFeatureVectors = 0;
-			float *fFeatureVectors = featureFile.getFeatureVectors(&iFeatureVectors);	
+			Matrix<float> *mFeatureVectors = featureFile.getFeatureVectors();	
 			
 			// load the lexical units
 			LexUnitsFile lexUnitsFile(&lexiconManager,strFileText.c_str());
@@ -142,7 +141,7 @@ int main(int argc, char *argv[]) {
 			VLexUnit *vLexUnitText = lexUnitsFile.getLexUnits();
 		
 			Alignment *alignment = viterbiX.processUtterance(*vLexUnitText,bMultiplePronunciations,
-				vLexUnitOptional,fFeatureVectors,iFeatureVectors,&dUtteranceLikelihood,iErrorCode);	
+				vLexUnitOptional,*mFeatureVectors,&dUtteranceLikelihood,iErrorCode);	
 			if (alignment == NULL) {
 				BVC_ERROR << "unable to perform the alignment";
 			}
@@ -162,7 +161,7 @@ int main(int argc, char *argv[]) {
 			
 			// clean-up
 			delete alignment;
-			delete [] fFeatureVectors;
+			delete mFeatureVectors;
 		} 
 		// case 2: batch mode
 		else if (commandLineManager.isParameterSet("-bat") == true) {
@@ -179,7 +178,7 @@ int main(int argc, char *argv[]) {
 			
 			// determine whether to stop if an error is found
 			bool bStopIfError = false;
-			if (strcmp(commandLineManager.getParameterValue("-stp"),"yes") == 0) {
+			if (strcmp(commandLineManager.getParameterValue("-hlt"),"yes") == 0) {
 				bStopIfError = true;
 			}
 			
@@ -194,7 +193,7 @@ int main(int argc, char *argv[]) {
 				FeatureFile featureFile(strFileFeatures,MODE_READ);
 				try {
 					featureFile.load();
-				} catch (ExceptionBase &e) {
+				} catch (std::runtime_error) {
 					if (bStopIfError) {
 						BVC_ERROR << "unable to load the feature file " << strFileFeatures;
 					} else {
@@ -202,14 +201,13 @@ int main(int argc, char *argv[]) {
 						continue;
 					}	
 				}			
-				unsigned int iFeatureVectors = 0;
-				float *fFeatureVectors = featureFile.getFeatureVectors(&iFeatureVectors);	
+				Matrix<float> *mFeatureVectors = featureFile.getFeatureVectors();	
 						
 				// load the lexical units
 				LexUnitsFile lexUnitsFile(&lexiconManager,strFileText);
 				try {
 					lexUnitsFile.load();
-				} catch (ExceptionBase &e) {
+				} catch (std::runtime_error &e) {
 					if (bStopIfError) {
 						BVC_ERROR << "unable to load the text file " << strFileText;
 					} else {
@@ -220,13 +218,13 @@ int main(int argc, char *argv[]) {
 				VLexUnit *vLexUnitText = lexUnitsFile.getLexUnits();
 				
 				Alignment *alignment = viterbiX.processUtterance(*vLexUnitText,bMultiplePronunciations,
-					vLexUnitOptional,fFeatureVectors,iFeatureVectors,&dUtteranceLikelihood,iErrorCode);				
+					vLexUnitOptional,*mFeatureVectors,&dUtteranceLikelihood,iErrorCode);				
 				if (!alignment) {
 					if (bStopIfError) {
 						BVC_ERROR << "aligning features file: " << strFileFeatures << " to the corresponding transcription";
 					} else {
 						BVC_WARNING << "aligning features file: " << strFileFeatures << " to the corresponding transcription";
-						delete [] fFeatureVectors;
+						delete mFeatureVectors;
 						continue;
 					}
 				}
@@ -244,19 +242,19 @@ int main(int argc, char *argv[]) {
 						alignmentFile.store(*vPhoneAlignment,strFileAlignment);
 						AlignmentFile::destroyPhoneAlignment(vPhoneAlignment);	
 					}	
-				} catch (ExceptionBase &e) {
+				} catch (std::runtime_error &e) {
 					if (bStopIfError) {
 						BVC_ERROR << "unable to create the alignment file: " << strFileAlignment;
 					} else {
 						BVC_WARNING << "unable to create the alignment file: " << strFileAlignment;
 						delete alignment;
-						delete [] fFeatureVectors;
+						delete mFeatureVectors;
 						continue;
 					}	
 				}
 				// clean-up
 				delete alignment;	
-				delete [] fFeatureVectors;	
+				delete mFeatureVectors;	
 			}
 		}
 		// case 3: master label file
@@ -280,7 +278,7 @@ int main(int argc, char *argv[]) {
 			
 			// determine whether to stop if an error is found
 			bool bStopIfError = false;
-			if (strcmp(commandLineManager.getParameterValue("-stp"),"yes") == 0) {
+			if (strcmp(commandLineManager.getParameterValue("-hlt"),"yes") == 0) {
 				bStopIfError = true;
 			}
 			
@@ -316,7 +314,7 @@ int main(int argc, char *argv[]) {
 				FeatureFile featureFile(strFileFeatures,MODE_READ);
 				try {
 					featureFile.load();
-				} catch (ExceptionBase &e) {
+				} catch (std::runtime_error &e) {
 					if (bStopIfError) {
 						BVC_ERROR << "unable to load the features file: " << strFileFeatures; 
 					} else {
@@ -324,11 +322,10 @@ int main(int argc, char *argv[]) {
 						continue;
 					}	
 				}
-				unsigned int iFeatureVectors = 0;
-				float *fFeatureVectors = featureFile.getFeatureVectors(&iFeatureVectors);	
+				Matrix<float> *mFeatureVectors = featureFile.getFeatureVectors();	
 				
 				Alignment *alignment = viterbiX.processUtterance((*it)->vLexUnit,bMultiplePronunciations,
-					vLexUnitOptional,fFeatureVectors,iFeatureVectors,&dUtteranceLikelihood,iErrorCode);				
+					vLexUnitOptional,*mFeatureVectors,&dUtteranceLikelihood,iErrorCode);				
 				if (!alignment) {
 					if (bStopIfError) {
 						BVC_ERROR << "aligning features file: " << strFileFeatures 
@@ -336,7 +333,7 @@ int main(int argc, char *argv[]) {
 					} else {
 						BVC_WARNING << "aligning features file: " << strFileFeatures 
 							<< " to the corresponding transcription in the MLF";
-						delete [] fFeatureVectors;
+						delete mFeatureVectors;
 						continue;
 					}
 				}
@@ -354,22 +351,22 @@ int main(int argc, char *argv[]) {
 						alignmentFile.store(*vPhoneAlignment,strFileAlignment);
 						AlignmentFile::destroyPhoneAlignment(vPhoneAlignment);	
 					}
-				} catch (ExceptionBase &e) {
+				} catch (std::runtime_error &e) {
 					if (bStopIfError) {
 						BVC_ERROR << "unable to create the alignment file: " << strFileAlignment;
 					} else {
 						BVC_WARNING << "unable to create the alignment file: " << strFileAlignment;
 						delete alignment;
-						delete [] fFeatureVectors;
+						delete mFeatureVectors;
 						continue;
 					}	
 				}
 				// clean-up
 				delete alignment;	
-				delete [] fFeatureVectors;	
+				delete mFeatureVectors;	
 			}
 		}
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

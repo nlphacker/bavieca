@@ -33,7 +33,7 @@ class MatrixStatic : public MatrixBase<Real> {
 	public:
 	
 		// constructor from another matrix
-		MatrixStatic(MatrixBase<Real> &m, int iRowStart, int iRows, int iColStart, int iCols) : MatrixBase<Real>(iRows,iCols){
+		MatrixStatic(MatrixBase<Real> &m, unsigned int iRowStart, unsigned int iRows, unsigned int iColStart, unsigned int iCols) : MatrixBase<Real>(iRows,iCols){
 		
 			assert((iRowStart >= 0) && (iRowStart+iRows <= m.getRows()));
 			assert((iColStart >= 0) && (iColStart+iCols <= m.getCols()));
@@ -43,11 +43,11 @@ class MatrixStatic : public MatrixBase<Real> {
 			this->m_iStride = m.getStride();
 		}
 
-		// constructor
-		MatrixStatic(Real *rData, int iRows, int iCols);
-
 		// constructor (square matrices)
-		MatrixStatic(Real *rData, int iDim);
+		MatrixStatic(Real *rData, unsigned int iDim);
+		
+		// constructor
+		MatrixStatic(Real *rData, unsigned int iRows, unsigned int iCols);
 
 		// destructor
 		~MatrixStatic() {}

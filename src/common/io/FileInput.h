@@ -20,8 +20,6 @@
 #ifndef FILEINPUT_H
 #define FILEINPUT_H
 
-#include "ExceptionBase.h"
-
 using namespace std;
 
 #include <fstream>

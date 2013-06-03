@@ -25,9 +25,8 @@
 #include "HMMManager.h"
 #include "LexiconManager.h"
 
-#if defined __linux__ || defined __APPLE__
-using namespace __gnu_cxx;
-#include <ext/hash_map>
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
+#include <tr1/unordered_map>
 #elif _WIN32
 #include <hash_map>
 #else 
@@ -88,10 +87,9 @@ typedef struct {
 
 
 // ad-hoc functions to use a phonetic context as the key in a hash_map data structure
-struct MContextHashFunctions
-{
+struct MContextHashFunctions {
 
-#if defined __linux__ || defined __APPLE__	
+#if defined __linux__ || defined __APPLE__ || defined __MINGW32__
 
 	// comparison function (used for matching, comparison for equality)
 	bool operator()(const unsigned char *contextUnit1, const unsigned char *contextUnit2) const {
@@ -108,7 +106,7 @@ struct MContextHashFunctions
 		return true;
 	}
 
-#elif _WIN32
+#elif _MSC_VER
 
 	static const size_t bucket_size = 4;
 	static const size_t min_buckets = 8;
@@ -152,14 +150,16 @@ struct MContextHashFunctions
 };
 
 // structure for easy management of different contexts (keeps existing contexts)
-#if defined __linux__ || defined __APPLE__
-typedef hash_map<unsigned char*,bool,MContextHashFunctions,MContextHashFunctions> MContextBool;
-typedef hash_map<unsigned char*,NodeTempX*,MContextHashFunctions,MContextHashFunctions> MContextNode;
-typedef hash_map<unsigned char*,vector< pair<unsigned char*,NodeTempX*> >,MContextHashFunctions,MContextHashFunctions> MContextV;
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
+typedef std::tr1::unordered_map<unsigned char*,bool,MContextHashFunctions,MContextHashFunctions> MContextBool;
+typedef std::tr1::unordered_map<unsigned char*,NodeTempX*,MContextHashFunctions,MContextHashFunctions> MContextNode;
+typedef std::tr1::unordered_map<unsigned char*,vector< pair<unsigned char*,NodeTempX*> >,MContextHashFunctions,MContextHashFunctions> MContextV;
+typedef std::tr1::unordered_map<int,NodeTempX*> MIntNodeTempX;
 #elif _WIN32
 typedef hash_map<unsigned char*,bool,MContextHashFunctions> MContextBool;
 typedef hash_map<unsigned char*,NodeTempX*,MContextHashFunctions> MContextNode;
 typedef hash_map<unsigned char*,vector< pair<unsigned char*,NodeTempX*> >,MContextHashFunctions> MContextV;
+typedef hash_map<int,NodeTempX*> MIntNodeTempX;
 #endif
 
 /**

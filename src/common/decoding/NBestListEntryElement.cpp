@@ -16,57 +16,50 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
-
-#ifndef REFERENCEALIGNER_H
-#define REFERENCEALIGNER_H
-
-#include "BestPath.h"
+#include "IOBase.h"
 #include "LexiconManager.h"
-#include "ReferenceAlignment.h"
-#include "ReferenceText.h"
+#include "NBestListEntryElement.h"
 
 namespace Bavieca {
 
-typedef struct _GridElement {
-   int flag;         // filled in during DP search through grid
-   int score;			// alignment score
-   int ref;				// reference word index
-   int tra;				// transcription word index
-   _GridElement *prev,*next;
-   int bookword;        /* filled with correct vals for final path */
-} GridElement; 
+// constructor
+NBestListEntryElement::NBestListEntryElement(int iBegin, int iEnd, LexUnit *lexUnit, 
+	double dAM, double dLM, double dIP, double dPP) {
+	m_iBegin = iBegin;
+	m_iEnd = iEnd;
+	m_lexUnit = lexUnit;
+	m_dLikelihoodAM = dAM;
+	m_dLikelihoodLM = dLM;
+	m_dIP = dIP;
+	m_dPP = dPP;
+}
 
-using namespace std;
+// destructor
+NBestListEntryElement::~NBestListEntryElement() {	
+}
 
-// penalties used for the alignment
-#define WA_INS_PEN 3    /* insertion penalty during alignment */
-#define WA_DEL_PEN 3    /* deletion penalty */
-#define WA_SUB_PEN 4    /* substitution penalty */
+// store to disk
+void NBestListEntryElement::store(ostream &os, bool bTextFormat, LexiconManager *lexiconManager) {
 
-enum {WA_INS=0x1, WA_DEL=0x2, WA_SUB=0x4, WA_COR=0x8};
-
-/**
-	@author daniel <dani.bolanos@gmail.com>
-*/
-class ReferenceAligner {
-
-	private:
-	
-		LexiconManager *m_lexiconManager;
-
-	public:
-
-		// constructor
-		ReferenceAligner(LexiconManager *lexiconManager);
-
-		// destructor
-		~ReferenceAligner();
-		
-		// align a recognition path against a sequence of lexical units
-		ReferenceAlignment *align(BestPath *bestPath, ReferenceText *referenceText);
-
-};
+	// text format
+	if (bTextFormat) {
+		assert(lexiconManager);
+		ostringstream oss;
+		string strPron;
+		lexiconManager->getStrLexUnitPronunciation(m_lexUnit,strPron);
+		oss << strPron;		
+		IOBase::writeString(os,oss);
+	}
+	// binary format
+	else {
+		IOBase::write(os,m_iBegin,true);	
+		IOBase::write(os,m_iEnd,true);
+		IOBase::write(os,m_lexUnit->iIndex,true);
+		IOBase::write(os,m_dLikelihoodAM,true);
+		IOBase::write(os,m_dLikelihoodLM,true);
+		IOBase::write(os,m_dIP,true);
+		IOBase::write(os,m_dPP,true);
+	}
+}
 
 };	// end-of-namespace
-
-#endif

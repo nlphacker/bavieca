@@ -31,7 +31,7 @@ void TMatrix<Real>::choleskyDecomposition(SMatrix<Real> &m) {
 	Real* rS = m.getData(); 
 	Real* rT = this->m_rData; 
 	Real* ti = this->m_rData;
-	for (int i=0; i<this->m_iDim; i++) {
+	for (int i=0; i< (int)this->m_iDim; i++) {
 		Real* tj = rT; 
 		Real sum; 
 		int k;
@@ -62,8 +62,8 @@ template<typename Real>
 void TMatrix<Real>::print() {
 
 	cout << "dim: " << this->m_iDim << endl;
-	for(int i=0 ; i < this->m_iDim ; ++i) {
-		for(int j=0 ; j < this->m_iDim ; ++j) {
+	for(unsigned int i=0 ; i < this->m_iDim ; ++i) {
+		for(unsigned int j=0 ; j < this->m_iDim ; ++j) {
 			if (i >= j) {
 				cout << (*this)(i,j) << " ";
 			} else {

@@ -27,7 +27,7 @@ namespace Bavieca {
 
 // copy from memory
 template<typename Real>
-void VectorBase<Real>::copy(Real *rData, int iDim) {
+void VectorBase<Real>::copy(Real *rData, unsigned int iDim) {
 
 	assert(m_iDim == iDim);
 	memcpy(m_rData,rData,m_iDim*sizeof(Real));
@@ -37,26 +37,16 @@ void VectorBase<Real>::copy(Real *rData, int iDim) {
 template<typename Real>
 void VectorBase<Real>::sqrt() {
 
-	for(int i=0 ; i < m_iDim ; ++i) {
+	for(unsigned int i=0 ; i < m_iDim ; ++i) {
 		m_rData[i] = ::sqrt(m_rData[i]);
-	}
-}
-
-// divide the vector by another vector
-template<typename Real>
-void VectorBase<Real>::divide(VectorBase<Real> &v) {
-	
-	assert(m_iDim == v.m_iDim);
-	for(int i=0 ; i < m_iDim ; ++i) {
-		m_rData[i] /= v.m_rData[i];
 	}
 }
 
 // shift the vector elements to the right
 template<typename Real>
-void VectorBase<Real>::shiftRight(int iOffset) {
+void VectorBase<Real>::shiftRight(unsigned int iOffset) {
 	
-	for(int i=m_iDim-1 ; i >= iOffset ; --i) {
+	for(unsigned int i=m_iDim-1 ; i >= iOffset ; --i) {
 		m_rData[i] = m_rData[i-iOffset];
 	}
 }
@@ -65,7 +55,7 @@ void VectorBase<Real>::shiftRight(int iOffset) {
 template<typename Real>
 void VectorBase<Real>::print() {
 	
-	for(int i=0 ; i < m_iDim ; ++i) {
+	for(unsigned int i=0 ; i < m_iDim ; ++i) {
 		cout << m_rData[i] << " ";
 	}
 	cout << endl;
@@ -93,11 +83,12 @@ void VectorBase<Real>::readData(istream &is) {
 	IOBase::readBytes(is,reinterpret_cast<char*>(m_rData),m_iDim*sizeof(Real));
 }
 
+template void VectorBase<float>::copy(float *rData, unsigned int iDim);
+template void VectorBase<double>::copy(double *rData, unsigned int iDim);
 template void VectorBase<float>::sqrt();
 template void VectorBase<double>::sqrt();
-template void VectorBase<float>::divide(VectorBase<float> &v);
-template void VectorBase<float>::shiftRight(int iOffset);
-template void VectorBase<double>::shiftRight(int iOffset);
+template void VectorBase<float>::shiftRight(unsigned int iOffset);
+template void VectorBase<double>::shiftRight(unsigned int iOffset);
 template void VectorBase<float>::print();
 template void VectorBase<double>::print();
 template void VectorBase<float>::write(ostream &os);

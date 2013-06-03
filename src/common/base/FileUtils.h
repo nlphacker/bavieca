@@ -27,9 +27,9 @@
 
 namespace Bavieca {
 
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 #define PATH_SEPARATOR		'/'
-#elif _WIN32
+#elif _MSC_VER
 #define PATH_SEPARATOR	'\\'
 #else
 	#error "unsupported platform"
@@ -66,12 +66,12 @@ class FileUtils {
 		static void replaceFolder(char *strDest, const char *strPath, const char *strFolder);
 		
 		// truncate a file (set it size to zero)
-		static bool truncateFile(const char *strFile);
+		static void truncateFile(const char *strFile);
 
 		// return whether the file exists
 		static bool isFile(const char *strFile);
 
-	#if defined __linux__ || defined __APPLE__
+	#if defined __linux__ || defined __APPLE__ || __MINGW32__
 		
 		// create the given folder
 		static int createFolder(const char *strFolder, mode_t mode = 0777);

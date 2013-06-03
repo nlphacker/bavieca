@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "LogMessage.h"
 #include "VectorBase.h"
 
 namespace Bavieca {
@@ -43,7 +44,7 @@ class Vector : public VectorBase<Real> {
 		Vector(int iDim) : VectorBase<Real>(iDim) {
 		
 			allocate();
-			this->zero();		
+			this->zero();
 		}
 		
 		// constructor
@@ -79,23 +80,33 @@ class Vector : public VectorBase<Real> {
 		void allocate() {
 		
 			assert(this->m_iDim > 0);
+		#if defined __AVX__ || defined __SSE__
+			if (posix_memalign((void**)&this->m_rData,ALIGN_BOUNDARY,this->m_iDim*sizeof(Real)) !=0) {
+				BVC_ERROR << "memory allocation error, unable to allocate aligned memory using posix_memalign";
+			}	
+		#else
 			this->m_rData = new Real[this->m_iDim];
+		#endif
 		}
 		
 		// deallocate memory
 		void deallocate() {
 		
-			assert(this->m_rData);
+			assert(this->m_rData);	
+		#if defined __AVX__ || defined __SSE__
+			free(this->m_rData);
+		#else
 			delete [] this->m_rData;
+		#endif
 			this->m_rData = NULL;
 		}
 		
 		// resize the vector (also used to allocate space for the first time)
-		void resize(int iDim, bool bCopy = false) {
+		void resize(unsigned int iDim, bool bCopy = false) {
 		
 			assert(iDim > 0);
 		
-			int iDimOrig = this->m_iDim;
+			unsigned int iDimOrig = this->m_iDim;
 			Real *rDataCopy = this->m_rData;
 			if (iDim != this->m_iDim) {
 				

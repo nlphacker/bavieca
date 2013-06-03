@@ -44,7 +44,7 @@ MLLRManager::MLLRManager(PhoneSet *phoneSet, HMMManager *hmmManager,
 	m_iMinimumGaussianComponentsObserved = iMinimumGaussianComponentsObserved;
 	m_bBestComponentOnly = bBestComponentOnly;
 	m_bMeanOnly = bMeanOnly;
-	m_iDim = m_hmmManager->getFeatureDimensionality();
+	m_iDim = m_hmmManager->getFeatureDim();
 	
 	m_regressionTree = NULL;
 	m_strFileRegressionTree = strFileRegressionTree;
@@ -112,9 +112,10 @@ void MLLRManager::applyTransforms() {
 }
 
 // feed adaptation data from an alignment
-void MLLRManager::feedAdaptationData(float *fFeatures, unsigned int iFeatures, Alignment *alignment, double *dLikelihood) {
+void MLLRManager::feedAdaptationData(MatrixBase<float> &mFeatures, Alignment *alignment, double *dLikelihood) {
 
 	// sanity check
+	unsigned int iFeatures = mFeatures.getRows();
 	assert(iFeatures == alignment->getFrames());
 
 	m_iAdaptationFrames += iFeatures;
@@ -122,14 +123,14 @@ void MLLRManager::feedAdaptationData(float *fFeatures, unsigned int iFeatures, A
 	*dLikelihood = 0.0;
 	for(unsigned int t=0 ; t<iFeatures ; ++t) {
 		FrameAlignment *frameAlignment = alignment->getFrameAlignment(t);
-		float *fFeatureVector = fFeatures+(t*m_iDim);
+		VectorStatic<float> vFeatureVector = mFeatures.getRow(t);
 		for(FrameAlignment::iterator it = frameAlignment->begin() ; it != frameAlignment->end() ; ++it) {
 			HMMStateDecoding *hmmStateDecoding = m_hmmManager->getHMMStateDecoding((*it)->iHMMState);
 			// compute the contribution of each Gaussian 
 			// (case 1) all the frame-level adaptation data goes to the best scoring Gaussian component (faster)
 			if (m_bBestComponentOnly) {
 				float fLikelihood = -FLT_MAX;
-				GaussianDecoding *gaussian = hmmStateDecoding->getBestScoringGaussian(fFeatureVector,&fLikelihood);
+				GaussianDecoding *gaussian = hmmStateDecoding->getBestScoringGaussian(vFeatureVector.getData(),&fLikelihood);
 				*dLikelihood += std::max<float>(fLikelihood,LOG_LIKELIHOOD_FLOOR);
 				GaussianStats *gaussianStats = NULL;
 				if (m_gaussianStats[gaussian->iId] == NULL) {
@@ -143,15 +144,15 @@ void MLLRManager::feedAdaptationData(float *fFeatures, unsigned int iFeatures, A
 					gaussianStats = m_gaussianStats[gaussian->iId];
 				}
 				gaussianStats->dOccupation += 1.0;
-				gaussianStats->vObservation->add(1.0,VectorStatic<float>(fFeatureVector,m_iDim));
-				m_regressionTree->accumulateStatistics(fFeatureVector,1.0,gaussianStats);	
+				gaussianStats->vObservation->add(1.0,vFeatureVector);
+				m_regressionTree->accumulateStatistics(vFeatureVector.getData(),1.0,gaussianStats);	
 			} 
 			// (case 2) adaptation data is shared across all components (slightly more accurate)
 			else {
 				double *dProbGaussian = new double[hmmStateDecoding->getGaussianComponents()];
 				double dProbTotal = 0.0;
 				for(int g=0 ; g < hmmStateDecoding->getGaussianComponents() ; ++g) {
-					dProbGaussian[g] = exp(hmmStateDecoding->computeGaussianProbability(g,fFeatureVector));
+					dProbGaussian[g] = exp(hmmStateDecoding->computeGaussianProbability(g,vFeatureVector.getData()));
 					dProbTotal += dProbGaussian[g];
 					assert((finite(dProbGaussian[g])) && (finite(dProbTotal)));
 				}
@@ -172,8 +173,8 @@ void MLLRManager::feedAdaptationData(float *fFeatures, unsigned int iFeatures, A
 						gaussianStats = m_gaussianStats[gaussian->iId];
 					}
 					gaussianStats->dOccupation += dOccupation;
-					gaussianStats->vObservation->add(dOccupation,VectorStatic<float>(fFeatureVector,m_iDim));
-					m_regressionTree->accumulateStatistics(fFeatureVector,dOccupation,gaussianStats);
+					gaussianStats->vObservation->add(dOccupation,vFeatureVector);
+					m_regressionTree->accumulateStatistics(vFeatureVector.getData(),dOccupation,gaussianStats);
 				}
 				delete [] dProbGaussian;
 			}	
@@ -211,17 +212,16 @@ void MLLRManager::feedAdaptationData(const char *strBatchFile, const char *strAl
 		// load the feature vectors
 		FeatureFile featureFile(batchFile.getField(i,"features"),MODE_READ);
 		featureFile.load();
-		unsigned int iFeatureVectors = 0;
-		float *fFeatures = featureFile.getFeatureVectors(&iFeatureVectors);
+		Matrix<float> *mFeatures = featureFile.getFeatureVectors();
 		
 		// check consistency	
-		if (iFeatureVectors != alignment->getFrames()) {
+		if ((unsigned int)mFeatures->getRows() != alignment->getFrames()) {
 			BVC_ERROR << "inconsistent number of feature vectors / alignment file";
 		}
 		
 		// accumulate adaptation data
 		double dLikelihoodAlignment = 0.0;
-		feedAdaptationData(fFeatures,iFeatureVectors,alignment,&dLikelihoodAlignment);
+		feedAdaptationData(*mFeatures,alignment,&dLikelihoodAlignment);
 		if (bVerbose) {
 			printf("loaded file: %s likelihood: %12.2f\n",batchFile.getField(i,"alignment"),dLikelihoodAlignment);
 		}
@@ -229,7 +229,7 @@ void MLLRManager::feedAdaptationData(const char *strBatchFile, const char *strAl
 		
 		// clean-up
 		delete alignment;
-		delete [] fFeatures;
+		delete mFeatures;
 	}
 	
 	if (bVerbose) {

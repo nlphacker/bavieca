@@ -177,7 +177,7 @@ class Gaussian {
 			assert(vMean.getDim() == vCovariance.getDim());
 			
 			// reallocate if different dimensionality?	
-			if (vMean.getDim() != m_iDim) {
+			if (vMean.getDim() != (unsigned int)m_iDim) {
 				m_iDim = vMean.getDim();
 				delete m_vMean;
 				m_vMean = new Vector<float>(vMean);

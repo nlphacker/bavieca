@@ -26,7 +26,7 @@ namespace Bavieca {
 MAPEstimator::MAPEstimator(HMMManager *hmmManager) {
 
 	m_hmmManager = hmmManager;
-	m_iFeatureDimensionality = hmmManager->getFeatureDimensionality();
+	m_iFeatureDimensionality = hmmManager->getFeatureDim();
 	m_iCovarianceModeling = hmmManager->getCovarianceModelling();
 	m_iCovarianceElements = HMMManager::getCovarianceElements(m_iFeatureDimensionality,m_iCovarianceModeling);
 	m_iHMMStates = -1;

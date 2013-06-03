@@ -20,6 +20,9 @@
 #ifndef VITERBI_H
 #define VITERBI_H
 
+#include <iostream>
+#include <iomanip>
+
 #include "AlignmentFile.h"
 #include "HMMManager.h"
 #include "LexiconManager.h"
@@ -78,13 +81,12 @@ class Viterbi {
 		// same segment of feature vectors, it reduces computation time considerably
 		
 		// return an HMM-composite from a sequence of lexical units
-		void getHMMStateDecodingComposite(VLexUnit &vLexUnit, VHMMStateDecoding &vHMMStateDecodingComposite, LexUnit *lexUnitLeft = NULL, LexUnit *lexUnitRight = NULL);
+		void getHMMStateDecodingComposite(VLexUnit &vLexUnit, VHMMStateDecoding &vHMMStateDecodingComposite, 
+			LexUnit *lexUnitLeft = NULL, LexUnit *lexUnitRight = NULL);
 		
 		// align a sequence of HMM-states to the audio
-		VPhoneAlignment *alignHMMStates(float *fFeatureVectors, int iFeatureVectors, VHMMStateDecoding &vHMMStateDecodingComposite, VLexUnit &vLexUnit, float *fLikelihood, int iOffset, unsigned char &iErrorCode);	
-		
-		// print a sequence of lexical units
-		void printLexUnitSequence(VLexUnit &vLexUnitText);
+		VPhoneAlignment *alignHMMStates(MatrixBase<float> &mFeatures, VHMMStateDecoding &vHMMStateDecodingComposite,
+			VLexUnit &vLexUnit, float *fLikelihood, int iOffset, unsigned char &iErrorCode);	
 		
 		// compute emission probability or retrieves it from the cache
 		float computeEmissionProbability(HMMStateDecoding *hmmStateDecoding, float *fFeatureVector, int iFeatureVector);
@@ -109,21 +111,22 @@ class Viterbi {
 		~Viterbi();
 		
 		// align a sequence of lexical units agains the features
-		VPhoneAlignment *align(VLexUnit &vLexUnit, float *fFeatures, int iFeatureVectors, float *fLikelihood);	
+		VPhoneAlignment *align(VLexUnit &vLexUnit, MatrixBase<float> &mFeatures, float *fLikelihood);	
 		
 		// return a state-level alignment given the BestPath
-		VPhoneAlignment *align(float *fFeatures, int iFeatures, BestPath *bestPath);
+		VPhoneAlignment *align(MatrixBase<float> &mFeatures, BestPath *bestPath);
 		
 		// align each of the lexical units in the lattice to the given set of feature vectors and store the
 		// time alignment information into the edges 
-		bool align(float *fFeatures, int iFeatures, HypothesisLattice *hypothesisLattice);	
+		bool align(MatrixBase<float> &mFeatures, HypothesisLattice *hypothesisLattice);	
 		
 		// print the HMM-state composite
 		void printHMMStateDecodingComposite(VHMMStateDecoding &vHMMStateDecodingComposite) {
 		
 			int i=0;
-			for(VHMMStateDecoding::iterator it = vHMMStateDecodingComposite.begin() ; it != vHMMStateDecodingComposite.end() ; ++it, ++i) {
-				printf("%4d: %6d\n",i,(*it)->getId());
+			for(VHMMStateDecoding::iterator it = vHMMStateDecodingComposite.begin() ; 
+				it != vHMMStateDecodingComposite.end() ; ++it, ++i) {
+				cout << std::setw(4) << i << ": " << std::setw(6) << (*it)->getId() << endl;
 			}
 		}
 		
@@ -134,7 +137,7 @@ class Viterbi {
 		}
 		
 		// allocate memory for the cache
-		void allocateCache(int iFeatures);		
+		void allocateCache(int iFeatures);
 };
 
 };	// end-of-namespace

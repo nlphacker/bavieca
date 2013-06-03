@@ -196,38 +196,34 @@ void MLAccumulator::accumulate() {
 		FeatureFile featureFileAlignment(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,
 			m_iFeatureDimensionalityAlignment);
 		featureFileAlignment.load();
-		unsigned int iFeatureVectorsAlignment = 0;
-		float *fFeaturesAlignment = featureFileAlignment.getFeatureVectors(&iFeatureVectorsAlignment);
+		Matrix<float> *mFeaturesAlignment = featureFileAlignment.getFeatureVectors();
 		
 		// load the features for the accumulation (if necessary)
-		unsigned int iFeatureVectorsAcc = -1;
-		float *fFeaturesAcc = NULL;
+		Matrix<float> *mFeaturesAcc = NULL;
 		if (m_bSingleFeatureStream == false) {
 			ostringstream strFileFeatures;
 			strFileFeatures << m_strFolderFeaturesAcc << PATH_SEPARATOR << (*it)->strFilePattern;
 			FeatureFile featureFileAcc(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,
 				m_iFeatureDimensionalityAcc);
 			featureFileAcc.load();
-			fFeaturesAcc = featureFileAcc.getFeatureVectors(&iFeatureVectorsAcc);
+			mFeaturesAcc = featureFileAcc.getFeatureVectors();
 		} 
 		// same feature stream for estimation and parameter update (default behaviour)
 		else {
-			iFeatureVectorsAcc = iFeatureVectorsAlignment;
-			fFeaturesAcc = fFeaturesAlignment;
+			mFeaturesAcc = mFeaturesAlignment;
 		}
 		
-		iFeatureVectorsTotal += iFeatureVectorsAlignment;	
+		iFeatureVectorsTotal += mFeaturesAlignment->getRows();	
 		
 		// process the utterance using Forward-Backward (get the occupation counts)
 		double dUtteranceLikelihood;
 		const char *strReturnCode = NULL;
 		Alignment *alignment = m_forwardBackwardX->processUtterance((*it)->vLexUnit,m_bMultiplePronunciations,
-			m_vLexUnitOptional,fFeaturesAlignment,fFeaturesAcc,iFeatureVectorsAlignment,
-			&dUtteranceLikelihood,&strReturnCode);
+			m_vLexUnitOptional,*mFeaturesAlignment,*mFeaturesAcc,&dUtteranceLikelihood,&strReturnCode);
 		if (strcmp(strReturnCode,FB_RETURN_CODE_SUCCESS) ==0) {
 			// count the audio actually used for training
 			dLikelihoodTotal += dUtteranceLikelihood;
-			iFeatureVectorsUsedTotal += iFeatureVectorsAlignment;
+			iFeatureVectorsUsedTotal += mFeaturesAlignment->getRows();
 			// accumulate the statistics to compute the global distribution of the data
 			//accumulateGlobalDistribution(fFeaturesAcc,iFeatureVectorsAcc);
 		}
@@ -238,10 +234,10 @@ void MLAccumulator::accumulate() {
 		delete alignment;
 		
 		// clean-up
-		if (fFeaturesAcc != fFeaturesAlignment) {
-			delete [] fFeaturesAcc;
+		if (mFeaturesAcc != mFeaturesAlignment) {
+			delete mFeaturesAcc;
 		}
-		delete [] fFeaturesAlignment;
+		delete mFeaturesAlignment;
 	
 		if (iFeatureVectorsTotal >= 100*60*30) {
 			//break;

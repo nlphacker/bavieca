@@ -58,8 +58,9 @@ class BestPath {
 		float m_fScore;										// global path score
 
 		// create a new best path element
-		inline BestPathElement *newBestPathElement(int iFrameStart, int iFrameEnd, float fScore, float fScoreAcousticModel, 
-			float fScoreLanguageModel,	float fScoreConfidence, LexUnit *lexUnit, float fInsertionPenalty, int iIndexReference = -1) {	
+		inline BestPathElement *newBestPathElement(int iFrameStart, int iFrameEnd, float fScore, 
+			float fScoreAcousticModel, float fScoreLanguageModel,	float fScoreConfidence, 
+			LexUnit *lexUnit, float fInsertionPenalty, int iIndexReference = -1) {
 			
 			BestPathElement *bestPathElement = new BestPathElement;
 			bestPathElement->iFrameStart = iFrameStart;
@@ -123,8 +124,7 @@ class BestPath {
 		inline LBestPathElement* getBestPathElements() {
 		
 			return &m_lBestPathElements;
-		}		
-		
+		}	
 		
 		// add a new element to the tail of the best path
 		inline BestPathElement *newElementBack(int iFrameStart, int iFrameEnd, float fScore, float fScoreAcousticModel, float fScoreLanguageModel,	float fScoreConfidence, LexUnit *lexUnit, float fInsertionPenalty, int iIndexReference = -1) {	

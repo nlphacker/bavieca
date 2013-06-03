@@ -20,6 +20,7 @@
 #include "DynamicDecoderX.h"
 
 #include "BestPath.h"
+#include "LMFSM.h"
 #include "HMMManager.h"
 #include "LMManager.h"
 #include "LMLookAhead.h"
@@ -31,7 +32,7 @@ namespace Bavieca {
 // constructor
 DynamicDecoderX::DynamicDecoderX(PhoneSet *phoneSet, HMMManager *hmmManager, 
 			LexiconManager *lexiconManager, LMManager *lmManager, float fLMScalingFactor, 
-			unsigned char iNGram, DynamicNetworkX *dynamicNetwork, int iMaxActiveNodes, 
+			DynamicNetworkX *dynamicNetwork, int iMaxActiveNodes, 
 			int iMaxActiveNodesWE, int iMaxActiveTokensNode, float fBeamWidthNodes, 
 			float fBeamWidthNodesWE, float fBeamWidthTokensNode, bool bWordGraphGeneration, 
 			int iMaxWordSequencesState)
@@ -40,22 +41,10 @@ DynamicDecoderX::DynamicDecoderX(PhoneSet *phoneSet, HMMManager *hmmManager,
 	m_hmmManager = hmmManager;
 	m_lexiconManager = lexiconManager;
 	m_lmManager = lmManager;
+	m_lmFSM = lmManager->getFSM();
 	m_fLMScalingFactor = fLMScalingFactor;
-	m_iNGram = iNGram;
+	m_iNGram = m_lmFSM->getNGramOrder();
 	m_dynamicNetwork = dynamicNetwork;
-	
-	// feature dimensionality
-	m_iDim = m_hmmManager->getFeatureDimensionality();
-	
-#ifdef SIMD
-	
-	// find the smaller multiple of 16 that is equal or above the feature vector dimensionality
-	int iAux = (m_iDim*sizeof(float))%16;
-	if (iAux > 0) {
-		m_iDim += (16-iAux)/sizeof(float);
-	}
-	
-#endif	
 	
 	// network properties
 	m_arcs = m_dynamicNetwork->getArcs(&m_iArcs);
@@ -273,20 +262,21 @@ void DynamicDecoderX::endUtterance() {
 }
 
 // process input feature vectors
-void DynamicDecoderX::process(float *fFeatures, int iFeatures) {
+void DynamicDecoderX::process(MatrixBase<float> &mFeatures) {
 
 	assert(m_bInitialized);
-	assert((fFeatures) && (iFeatures > 0));
+	assert(mFeatures.getRows() > 0);
 	
 	// Viterbi search
 	
 	double dTimeBegin = TimeUtils::getTimeMilliseconds();
 	
-	int t = 0;
+	unsigned int t = 0;
 	if (m_iFeatureVectorsUtterance == 0) {
 		m_iTimeCurrent = 0;
 		// root node expansion	
-		expandRoot(fFeatures);
+		VectorStatic<float> vFeatureVector = mFeatures.getRow(0);
+		expandRoot(vFeatureVector);
 		// output search status
 		BVC_VERB << "t= " << setw(5) << m_iTimeCurrent << " nodes= " << setw(6) << m_iNodesActiveCurrent << 
 			" bestScore= " << FLT(12,4) << m_fScoreBest << " we: " << FLT(12,4) << m_fScoreBestWE;
@@ -295,13 +285,14 @@ void DynamicDecoderX::process(float *fFeatures, int iFeatures) {
 	}
 	
 	// regular expansion
-	for( ; t < iFeatures ; ++t, ++m_iTimeCurrent) {	
+	for( ; t < mFeatures.getRows() ; ++t, ++m_iTimeCurrent) {	
 	
 		// prune active nodes/tokens
 		pruning();
 		
 		// next frame expansion
-		expand(fFeatures+(t*m_iDim),m_iTimeCurrent);	
+		VectorStatic<float> vFeatureVector = mFeatures.getRow(t);
+		expand(vFeatureVector,m_iTimeCurrent);	
 		
 		// output search status
 		if (m_iTimeCurrent % 100 == 0) {
@@ -312,22 +303,22 @@ void DynamicDecoderX::process(float *fFeatures, int iFeatures) {
 		}
 	}
 	
-	m_iFeatureVectorsUtterance += iFeatures;	
+	m_iFeatureVectorsUtterance += mFeatures.getRows();	
 	
 	double dTimeEnd = TimeUtils::getTimeMilliseconds();
 	double dTimeSeconds = (dTimeEnd-dTimeBegin)/1000.0;
 	
 	BVC_VERB << "decoding time: " << FLT(8,2) << dTimeSeconds << " seconds (RTF: " <<  
-		FLT(5,2) << dTimeSeconds/(((float)iFeatures)/100.0) << ")";	
+		FLT(5,2) << dTimeSeconds/(((float)mFeatures.getRows())/100.0) << ")";	
 }
 
 // root-node expansion
-void DynamicDecoderX::expandRoot(float *fFeatureVector) {
+void DynamicDecoderX::expandRoot(VectorBase<float> &vFeatureVector) {
 
 	DNode *nodeRoot = m_dynamicNetwork->getRootNode();
 	float fScore;
 	
-	int iLMStateInitial = m_lmManager->getInitialState();
+	int iLMStateInitial = m_lmFSM->getInitialState();
 	
 	// create the <s> history item
 	m_iHistoryItemBegSentence = newHistoryItem();
@@ -347,11 +338,7 @@ void DynamicDecoderX::expandRoot(float *fFeatureVector) {
 		DNode *nodeDest = m_nodes+arc->iNodeDest;
 			
 		// compute emission probability
-		#ifdef SIMD
-			fScore = arc->state->computeEmissionProbabilityNearestNeighborSIMD(fFeatureVector,0);	
-		#else
-			fScore = arc->state->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,0);	
-		#endif
+		fScore = arc->state->computeEmissionProbability(vFeatureVector.getData(),0);	
 		
 		// apply insertion-penalty
 		fScore += m_dynamicNetwork->getIP((m_nodes+arc->iNodeDest)->iIPIndex);	
@@ -399,7 +386,7 @@ void DynamicDecoderX::expandRoot(float *fFeatureVector) {
 }
 
 // regular expansion
-void DynamicDecoderX::expand(float *fFeatureVector, int t) {
+void DynamicDecoderX::expand(VectorBase<float> &vFeatureVector, int t) {
 
 	m_fScoreBest = -FLT_MAX;
 	m_fScoreBestWE = -FLT_MAX;
@@ -418,12 +405,8 @@ void DynamicDecoderX::expand(float *fFeatureVector, int t) {
 		
 		// (1) self loop (the hmm-state is in the token)
 		
-	// compute emission probability
-	#ifdef SIMD
-		fScore = state->computeEmissionProbabilityNearestNeighborSIMD(fFeatureVector,t);	
-	#else
-		fScore = state->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,t);	
-	#endif
+		// compute emission probability
+		fScore = state->computeEmissionProbability(vFeatureVector.getData(),t);	
 	
 		// regular-node
 		float *fScoreBest = &m_fScoreBest;
@@ -508,7 +491,7 @@ void DynamicDecoderX::expand(float *fFeatureVector, int t) {
 			
 			// hmm-arc
 			if (arcNext->iType == ARC_TYPE_HMM) {
-				expandToHMM(node,arcNext,fFeatureVector,t);	
+				expandToHMM(node,arcNext,vFeatureVector,t);	
 			} 
 			// word-arc
 			else if (arcNext->iType == ARC_TYPE_WORD) {	
@@ -525,7 +508,7 @@ void DynamicDecoderX::expand(float *fFeatureVector, int t) {
 				
 					// hmm-arc
 					if (arcNext2->iType == ARC_TYPE_HMM) {	
-						expandToHMMNewWord(node,arcNext2,arcNext->lexUnit,lmTransition,fFeatureVector,t);
+						expandToHMMNewWord(node,arcNext2,arcNext->lexUnit,lmTransition,vFeatureVector,t);
 					} 
 					// null-arc
 					else {
@@ -536,7 +519,7 @@ void DynamicDecoderX::expand(float *fFeatureVector, int t) {
 						for(DArc *arcNext3 = m_arcs+node3->iArcNext ; arcNext3 != arcEnd3 ; ++arcNext3) {
 							// hmm-arc
 							assert(arcNext3->iType == ARC_TYPE_HMM);
-							expandToHMMNewWord(node,arcNext3,arcNext->lexUnit,lmTransition,fFeatureVector,t);
+							expandToHMMNewWord(node,arcNext3,arcNext->lexUnit,lmTransition,vFeatureVector,t);
 						}	
 					}
 				}
@@ -565,7 +548,7 @@ void DynamicDecoderX::expand(float *fFeatureVector, int t) {
 			
 					// hmm-arc
 					if (arcNext2->iType == ARC_TYPE_HMM) {	
-						expandToHMM(node,arcNext2,fFeatureVector,t);
+						expandToHMM(node,arcNext2,vFeatureVector,t);
 					} 
 					// word-arc
 					else {
@@ -583,7 +566,7 @@ void DynamicDecoderX::expand(float *fFeatureVector, int t) {
 							
 							// hmm-arc
 							if (arcNext3->iType == ARC_TYPE_HMM) {
-								expandToHMMNewWord(node,arcNext3,arcNext2->lexUnit,lmTransition,fFeatureVector,t);	
+								expandToHMMNewWord(node,arcNext3,arcNext2->lexUnit,lmTransition,vFeatureVector,t);	
 							} 
 							// null-arc
 							else {
@@ -594,7 +577,7 @@ void DynamicDecoderX::expand(float *fFeatureVector, int t) {
 								for(DArc *arcNext4 = m_arcs+node4->iArcNext ; arcNext4 != arcEnd4 ; ++arcNext4) {
 									// hmm-arc
 									assert(arcNext3->iType == ARC_TYPE_HMM);
-									expandToHMMNewWord(node,arcNext4,arcNext2->lexUnit,lmTransition,fFeatureVector,t);	
+									expandToHMMNewWord(node,arcNext4,arcNext2->lexUnit,lmTransition,vFeatureVector,t);	
 								}
 							}	
 						}
@@ -623,7 +606,7 @@ void DynamicDecoderX::expand(float *fFeatureVector, int t) {
 }
 
 // expand a series of tokens to a hmm-state
-void DynamicDecoderX::expandToHMM(DNode *node, DArc *arcNext, float *fFeatureVector, int t) {
+void DynamicDecoderX::expandToHMM(DNode *node, DArc *arcNext, VectorBase<float> &vFeatureVector, int t) {
 
 	float fScore;
 	float fScoreToken;
@@ -631,12 +614,8 @@ void DynamicDecoderX::expandToHMM(DNode *node, DArc *arcNext, float *fFeatureVec
 	DNode *nodeNext = m_nodes+arcNext->iNodeDest;
 	ActiveToken *activeTokensNext = m_activeTokenNext+nodeNext->iActiveTokensNextBase;
 
-// compute emission probability
-#ifdef SIMD
-	fScore = arcNext->state->computeEmissionProbabilityNearestNeighborSIMD(fFeatureVector,t);	
-#else
-	fScore = arcNext->state->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,t);	
-#endif
+	// compute emission probability
+	fScore = arcNext->state->computeEmissionProbability(vFeatureVector.getData(),t);	
 
 	bool bWordEnd = (nodeNext->iIPIndex != -1);
 
@@ -828,7 +807,8 @@ void DynamicDecoderX::expandToHMM(DNode *node, DArc *arcNext, float *fFeatureVec
 }
 
 // expand a series of tokens to a hmm-state after obsering a new word
-void DynamicDecoderX::expandToHMMNewWord(DNode *node, DArc *arcNext, LexUnit *lexUnit, LMTransition *lmTransition, float *fFeatureVector, int t) {
+void DynamicDecoderX::expandToHMMNewWord(DNode *node, DArc *arcNext, LexUnit *lexUnit, LMTransition *lmTransition, 
+	VectorBase<float> &vFeatureVector, int t) {
 
 	float fScore;
 	float fScoreLM;
@@ -837,12 +817,8 @@ void DynamicDecoderX::expandToHMMNewWord(DNode *node, DArc *arcNext, LexUnit *le
 	DNode *nodeNext = m_nodes+arcNext->iNodeDest;
 	ActiveToken *activeTokensNext = m_activeTokenNext+nodeNext->iActiveTokensNextBase;
 	
-// compute emission probability
-#ifdef SIMD
-	fScore = arcNext->state->computeEmissionProbabilityNearestNeighborSIMD(fFeatureVector,t);	
-#else
-	fScore = arcNext->state->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,t);	
-#endif
+	// compute emission probability
+	fScore = arcNext->state->computeEmissionProbability(vFeatureVector.getData(),t);	
 
 	bool bWordEnd = (nodeNext->iIPIndex != -1);
 
@@ -870,7 +846,7 @@ void DynamicDecoderX::expandToHMMNewWord(DNode *node, DArc *arcNext, LexUnit *le
 		if (m_lexiconManager->isStandard(lexUnit)) {
 			// compute LM-score if needed
 			if (lmTransition[j].iLMState == -1) {
-				lmTransition[j].iLMState = m_lmManager->updateLMState(token->iLMState,
+				lmTransition[j].iLMState = m_lmFSM->updateLMState(token->iLMState,
 					lexUnit->iLexUnit,&lmTransition[j].fScoreLM);
 				lmTransition[j].fScoreLM *= m_fLMScalingFactor;
 			}
@@ -1019,7 +995,9 @@ void DynamicDecoderX::expandToHMMNewWord(DNode *node, DArc *arcNext, LexUnit *le
 					// word-graph generation?
 					if (m_bLatticeGeneration) {
 						// create a copy of the wgToken (token can be expanded to different word ends, e.g. homophonic, prefix words)
-						m_historyItems[m_iHistoryItemsAux[j]].iWGToken = newWGToken(token->iWGToken);
+						// IMP: this assignment to be done in two steps since newWGToken(...) can reallocate m_historyItems
+						int iWGTokenAux = newWGToken(token->iWGToken);
+						m_historyItems[m_iHistoryItemsAux[j]].iWGToken = iWGTokenAux;
 						attachLexUnit(m_historyItems[m_iHistoryItemsAux[j]].iWGToken,lexUnit);
 						m_iWordSequenceAux[j] = hashWordSequence(&m_historyItems[m_iHistoryItemsAux[j]]);
 					} else {
@@ -1542,12 +1520,12 @@ BestPath *DynamicDecoderX::getBestPath() {
 				fScoreLM1 = 0.0;
 				iLMState = -1;
 				if (m_lexiconManager->isStandard(*it)) {
-					iLMState = m_lmManager->updateLMState(token->iLMState,(*it)->iLexUnit,&fScoreLM1);
+					iLMState = m_lmFSM->updateLMState(token->iLMState,(*it)->iLexUnit,&fScoreLM1);
 					fScoreLM1 *= m_fLMScalingFactor;
 				} else {
 					iLMState = token->iLMState;
 				}
-				float fScoreLM2 = m_lmManager->toFinalState(iLMState)*m_fLMScalingFactor;
+				float fScoreLM2 = m_lmFSM->toFinalState(iLMState)*m_fLMScalingFactor;
 				fScoreToken = token->fScore + fScoreLM1 + fScoreLM2;
 				if (fScoreToken > fScoreBestWE) {
 					fScoreBestWE = fScoreToken;
@@ -1558,7 +1536,7 @@ BestPath *DynamicDecoderX::getBestPath() {
 		}
 		// (b) multi-phones 
 		else {
-			fScoreLM1 = m_lmManager->toFinalState(token->iLMState)*m_fLMScalingFactor;
+			fScoreLM1 = m_lmFSM->toFinalState(token->iLMState)*m_fLMScalingFactor;
 			fScoreToken = token->fScore + fScoreLM1;
 			if (fScoreToken > fScoreBestWE) {
 				fScoreBestWE = fScoreToken;
@@ -2083,12 +2061,12 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 				fScoreLM1 = 0.0;
 				iLMState = -1;
 				if (m_lexiconManager->isStandard(*it)) {
-					iLMState = m_lmManager->updateLMState(token->iLMState,(*it)->iLexUnit,&fScoreLM1);
+					iLMState = m_lmFSM->updateLMState(token->iLMState,(*it)->iLexUnit,&fScoreLM1);
 					fScoreLM1 *= m_fLMScalingFactor;
 				} else {
 					iLMState = token->iLMState;
 				}
-				float fScoreLM2 = m_lmManager->toFinalState(iLMState)*m_fLMScalingFactor;
+				float fScoreLM2 = m_lmFSM->toFinalState(iLMState)*m_fLMScalingFactor;
 				fScoreToken = token->fScore + fScoreLM1 + fScoreLM2;
 				// keep best final score or discard if necessary
 				if (fScoreToken > fScoreBest) {
@@ -2113,7 +2091,7 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 		}
 		// (b) multi-phones 
 		else {
-			fScoreLM1 = m_lmManager->toFinalState(token->iLMState)*m_fLMScalingFactor;
+			fScoreLM1 = m_lmFSM->toFinalState(token->iLMState)*m_fLMScalingFactor;
 			fScoreToken = token->fScore + fScoreLM1;
 			// keep best final score or discard if necessary
 			if (fScoreToken > fScoreBest) {
@@ -2425,9 +2403,9 @@ void DynamicDecoderX::printHashsStats() {
 	BVC_VERB << " # buckets:      " << setw(8) << m_iWSHashBuckets;
 	BVC_VERB << " # entries:      " << setw(8) << m_iWSHashEntries;
 	BVC_VERB << " # buckets used: " << setw(8) << iBucketsUsed << " (" << FLT(5,2) << 
-		100.0*((float)iBucketsUsed)/((float)m_iWSHashBuckets) << "%%)";
+		100.0*((float)iBucketsUsed)/((float)m_iWSHashBuckets) << "%)";
 	BVC_VERB << " # collisions:   " << setw(8) << iCollisions << " (" << FLT(5,2) <<
-		100.0*((float)iCollisions)/((float)(iBucketsUsed+iCollisions)) << "%%)";
+		100.0*((float)iCollisions)/((float)(iBucketsUsed+iCollisions)) << "%)";
 	BVC_VERB << " # elements:     " << setw(8) << iBucketsUsed+iCollisions;
 	BVC_VERB << " load factor:    " << FLT(8,4) << fLoadFactor;
 	BVC_VERB << "------------------------------------------";

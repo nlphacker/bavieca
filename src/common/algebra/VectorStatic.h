@@ -35,6 +35,10 @@ class VectorStatic : public VectorBase<Real> {
 		// constructor
 		VectorStatic(Real *rData, int iDim) : VectorBase<Real>(iDim) {
 			this->m_rData = rData;
+		#if defined __AVX__ || defined __SSE__
+			// check memory alignment
+			assert(is_aligned(rData,ALIGN_BOUNDARY));	
+		#endif
 		}
 
 		// destructor

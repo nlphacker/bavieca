@@ -21,9 +21,9 @@
 
 #include <string.h>
 
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 #include <sys/time.h>
-#elif _WIN32
+#elif _MSC_VER
 #define NOMINMAX
 #include <windows.h>
 #endif
@@ -33,7 +33,7 @@ namespace Bavieca {
 // return the current time measured in milliseconds
 double TimeUtils::getTimeMilliseconds() {
 
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 	struct timeval tv;
 	struct timezone tz;
 	struct tm *tm;
@@ -41,7 +41,7 @@ double TimeUtils::getTimeMilliseconds() {
 	tm=localtime(&tv.tv_sec);
 	//printf(" %d:%02d:%02d %d \n", tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec);
 	return (tv.tv_sec*1000 + tv.tv_usec/1000);
-#elif _WIN32
+#elif _MSC_VER
 	FILETIME ft;
 	unsigned __int64 tmpres = 0;
     GetSystemTimeAsFileTime(&ft);
@@ -60,7 +60,7 @@ double TimeUtils::getTimeMilliseconds() {
 // return the date and time in a string
 void TimeUtils::getDateTime(string &strDateTime) {
 
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 	char strAux[100];
 
 	time_t timeAux;
@@ -77,7 +77,7 @@ void TimeUtils::getDateTime(string &strDateTime) {
 	}
 	
 	strDateTime = strAux;
-#elif _WIN32
+#elif _MSC_VER
 	char strAux[100];
 	SYSTEMTIME t;
 	//GetSystemTime(&t);    //(this is UTC time)

@@ -27,12 +27,12 @@ namespace Bavieca {
 
 // grid element for the text alignment
 typedef struct _TAGridElement {
-   int iFlag;							// alignment event
-   int iScore;							// alignment score
-   int iRef;							// reference index
-   int iTra;							// transcripton index
-   _TAGridElement *prev,*next;
-   int iBookWord;
+	int iEvent;							// alignment event
+	int iScore;							// alignment score
+	int iRef;							// reference index
+	int iTra;							// transcripton index
+	_TAGridElement *prev,*next;
+	int iBookWord;
 } TAGridElement; 
 
 // penalty for each alignment error
@@ -58,7 +58,8 @@ class TextAligner {
 		~TextAligner();
 		
 		// align two sequences of lexical units
-		TextAlignment *align(VLexUnit &vLexUnitHyp, VLexUnit &vLexUnitRef, bool bPenalizeTrailingDeletions = true);
+		TextAlignment *align(VLexUnit &vLexUnitHyp, VLexUnit &vLexUnitRef, 
+			bool bPenalizeTrailingDeletions = true);
 
 };
 

@@ -190,7 +190,7 @@ VPhoneAlignment *AlignmentFile::load(const char *strFile) {
 void AlignmentFile::print(VPhoneAlignment &vPhoneAlignment) {
 
 	if (vPhoneAlignment.empty()) {
-		printf("<empty alignment>\n");
+		cout << "<empty alignment>" << endl;
 		return;
 	}
 
@@ -216,13 +216,14 @@ void AlignmentFile::print(VPhoneAlignment &vPhoneAlignment) {
 		for(int iState = 0 ; iState < NUMBER_HMM_STATES ; ++iState) {
 			printf("%*d %*d ",iDigits,(*it)->iStateBegin[iState],iDigits,(*it)->iStateEnd[iState]);
 		}
-		char strLexUnitPronunciation[MAX_LEXUNIT_LENGTH+1];
-		if (m_lexiconManager != NULL) {
+		string strLexUnitPronunciation;
+		if (m_lexiconManager) {
 			m_lexiconManager->getStrLexUnitPronunciation((*it)->lexUnit,strLexUnitPronunciation);
 		} else {
-			strcpy(strLexUnitPronunciation,"<unavailable>");
+			strLexUnitPronunciation = "<unavailable>";
 		}	
-		printf("%*s %12.4f (%d) %s %d\n",iPhoneCharactersMax,m_phoneSet->getStrPhone((*it)->iPhone),(*it)->fLikelihood,(*it)->iPosition,strLexUnitPronunciation,(*it)->lexUnit->iLexUnit);
+		printf("%*s %12.4f (%d) %s %d\n",iPhoneCharactersMax,m_phoneSet->getStrPhone((*it)->iPhone),
+			(*it)->fLikelihood,(*it)->iPosition,strLexUnitPronunciation.c_str(),(*it)->lexUnit->iLexUnit);
 	}
 }
 

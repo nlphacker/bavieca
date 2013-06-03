@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "CommandLineManager.h"
 #include "ConfigurationFeatures.h"
@@ -48,7 +49,7 @@ int main(int argc, char *argv[]) {
 		commandLineManager.defineParameter("-met","cepstral normalization method",PARAMETER_TYPE_STRING,true,"none|CMN|CMVN","CMN");	
 		commandLineManager.defineParameter("-hlt","whether to halt the batch processing if an error is found",
 			PARAMETER_TYPE_BOOLEAN,true,"yes|no","no");	
-		
+			
 		// parse the parameters
 		if (commandLineManager.parseParameters(argc,argv) == false) {
 			return -1;
@@ -85,7 +86,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "CommandLineManager.h"
 #include "ConfigurationFeatures.h"
@@ -117,7 +118,7 @@ int main(int argc, char *argv[]) {
 		vtlnManager.estimateWarpFactor(commandLineManager.getParameterValue("-bat"),
 			iAlignmentFormat,strOutputFile,fLikelihoodGain,fWarpFactor);
 		
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

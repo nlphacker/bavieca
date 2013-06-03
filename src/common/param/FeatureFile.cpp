@@ -31,17 +31,7 @@ FeatureFile::FeatureFile(const char *strFile, const char iMode, const char iForm
 	m_strFile = strFile;
 	m_iFormat = iFormat;
 	m_iDim = iDim;
-	
-#ifdef SIMD
-	
-	// find the smaller multiple of 16 that is equal or above the feature vector dimensionality
-	m_iDimAligned16 = m_iDim;
-	int iAux = (iFeatureDimensionality*sizeof(float))%16;
-	if (iAux > 0) {
-		m_iDimAligned16 += (16-iAux)/sizeof(float);
-	}
-	
-#endif
+	m_mFeatures = NULL;
 }
 
 // destructor
@@ -59,47 +49,28 @@ void FeatureFile::load() {
 	file.open();
 	
 	// get the number of feature vectors
+	int iFeatureVectors = -1;
 	int iFeatureVectorSize = m_iDim*sizeof(float);
 	int iBytes = file.size();
 	if (m_iFormat == FORMAT_FEATURES_FILE_DEFAULT) {		
 		assert(iBytes % iFeatureVectorSize == 0);	
-		m_iFeatureVectors = iBytes/iFeatureVectorSize;
+		iFeatureVectors = iBytes/iFeatureVectorSize;
 	} else {
 		assert(m_iFormat == FORMAT_FEATURES_FILE_HTK);
 		assert((iBytes-12) % iFeatureVectorSize == 0);	
-		m_iFeatureVectors = (iBytes-12) / iFeatureVectorSize;
+		iFeatureVectors = (iBytes-12) / iFeatureVectorSize;
 		file.getStream().seekg(12);	
-	}	
-	
-	// allocate memory for the feature vectors and read them
-#ifdef SIMD	
-
-	// we need the data aligned to addresses multiple of 16 bytes so they can be loaded in the sse registers more efficiently
-	int iReturnValue = posix_memalign((void**)&m_fFeatureVectors,sizeof(__m128i),
-		m_iFeatureVectors*m_iDimAligned16*sizeof(float));
-	assert(iReturnValue == 0);
-	
- 	// we need to read them one by one to preserve the memory alignment
-	for(int i=0 ; i<m_iFeatureVectors ; ++i) {
-		int iOffset = i*m_iDimAligned16;
-		IOBase::readBytes(file.getStream(),reinterpret_cast<char*>(m_fFeatureVectors+iOffset),
-			m_iDim*sizeof(float));	
 	}
 	
-#else
-
-	// read all the feature vectors at once
-	m_fFeatureVectors = new float[m_iFeatureVectors*m_iDim];
-	IOBase::readBytes(file.getStream(),reinterpret_cast<char*>(m_fFeatureVectors),
-		m_iFeatureVectors*m_iDim*sizeof(float));
-	
-#endif
+	// read the feature vectors
+	m_mFeatures = new Matrix<float>(iFeatureVectors,m_iDim);
+	m_mFeatures->readData(file.getStream());
 
 	file.close();
 }
 
 // store the features 
-void FeatureFile::store(float *fFeatureVectors, unsigned int iFeatureVectors) {
+void FeatureFile::store(MatrixBase<float> &mFeatures) {
 
 	// check that the object is in the right mode
 	assert(m_iMode == MODE_WRITE);
@@ -107,43 +78,27 @@ void FeatureFile::store(float *fFeatureVectors, unsigned int iFeatureVectors) {
 	FileOutput file(m_strFile.c_str(),true);
 	file.open();
 	
-#ifdef SIMD
-
- 	// we need to write them one by one because of the memory alignment
-	for(int i=0 ; i<m_iFeatureVectors ; ++i) {
-		int iOffset = i*m_iDimAligned16;
-		IOBase::writeBytes(file.getStream(),reinterpret_cast<char*>(m_fFeatureVectors+iOffset),
-			m_iDim*sizeof(float));	
-	}
-	
-#else
-
-	IOBase::writeBytes(file.getStream(),reinterpret_cast<char*>(fFeatureVectors),
-		iFeatureVectors*m_iDim*sizeof(float));
-
-#endif
+	mFeatures.writeData(file.getStream());	
 	
 	file.close();
 }
 
 // return a reference to the features
-float *FeatureFile::getFeatureVectors(unsigned int *iFeatureVectors) {
-
-	*iFeatureVectors = m_iFeatureVectors;
+Matrix<float> *FeatureFile::getFeatureVectors() {
 	
-	return m_fFeatureVectors;
+	return m_mFeatures;
 }
 
 // print the features (debugging)
-void FeatureFile::print(float *fFeatures, unsigned int iFeatures, unsigned int iDim, unsigned int iDelta) {
-
-	assert((iDim%iDelta) == 0);
+void FeatureFile::print(MatrixBase<float> &mFeatures, unsigned int iDelta) {
+	
+	assert((mFeatures.getCols()%iDelta) == 0);
 
 	cout << endl;
-	for(unsigned int i=0 ; i < iFeatures ; ++i) {
+	for(unsigned int i=0 ; i < mFeatures.getRows() ; ++i) {
 		for(unsigned int j=0 ; j < iDelta ; ++j) {
-			for(unsigned int h=0 ; h < iDim/iDelta ; ++h) {
-				cout << " " << FLT(9,6) << fFeatures[i*iDim+j*(iDim/iDelta)+h];
+			for(unsigned int h=0 ; h < mFeatures.getCols()/iDelta ; ++h) {
+				cout << " " << FLT(9,6) << mFeatures(i,h+j*(mFeatures.getCols()/iDelta));
 			}
 			cout << endl;
 		}

@@ -21,6 +21,7 @@
 #include <config.h>
 #endif
 
+#include <stdexcept>
 #include <iostream>
 #include <cstdlib>
 
@@ -105,7 +106,7 @@ int main(int argc, char *argv[])
 			// store the output acoustic models to disk
 			hmmManager.store(strFileModelsOutput);
 		}		
-	} catch (ExceptionBase &e) {
+	} catch (std::runtime_error &e) {
 	
 		std::cerr << e.what() << std::endl;
 		return -1;

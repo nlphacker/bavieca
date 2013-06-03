@@ -384,11 +384,7 @@ void ActiveStateTable::processEpsilonTransitions(float *fFeatureVector, float *f
 					
 						// compute emission probability
 						hmmStateDecoding = &m_hmmStatesDecoding[transitionAux->iSymbol];
-					#ifdef SIMD	
-						fScore = hmmStateDecoding->computeEmissionProbabilityNearestNeighborSIMD(fFeatureVector,m_iTimeCurrent);	
-					#else
-						fScore = hmmStateDecoding->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,m_iTimeCurrent);	
-					#endif
+						fScore = hmmStateDecoding->computeEmissionProbability(fFeatureVector,m_iTimeCurrent);	
 						
 						// preventive pruning
 						if (m_activeStateEpsilonHead->fScore+transition->fWeight+transitionAux->fWeight+fScore < (*fScoreBest-m_fPruningLikelihood)) {
@@ -412,11 +408,7 @@ void ActiveStateTable::processEpsilonTransitions(float *fFeatureVector, float *f
 			
 				// compute emission probability
 				hmmStateDecoding = &m_hmmStatesDecoding[transition->iSymbol];
-			#ifdef SIMD
-				float fScore = hmmStateDecoding->computeEmissionProbabilityNearestNeighborSIMD(fFeatureVector,0);
-			#else
-				float fScore = hmmStateDecoding->computeEmissionProbabilityNearestNeighborPDE(fFeatureVector,0);
-			#endif
+				float fScore = hmmStateDecoding->computeEmissionProbability(fFeatureVector,0);
 			
 				// preventive pruning goes here
 				

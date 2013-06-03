@@ -21,6 +21,7 @@
 #include "DynamicNetworkX.h"
 #include "LMLookAhead.h"
 #include "LexiconManager.h"
+#include "LMFSM.h"
 #include "LMManager.h"
 
 namespace Bavieca {
@@ -42,7 +43,17 @@ LMLookAhead::LMLookAhead(LexiconManager *lexiconManager, LMManager *lmManager,
 // destructor
 LMLookAhead::~LMLookAhead()
 {
-	destroy();
+	assert(m_bInitialized);
+	
+	//destroy the cache
+	for(unsigned int i=0 ; i < m_iHashEntries ; ++i) {
+		if (m_hashEntries[i].fLAScores) {
+			delete [] m_hashEntries[i].fLAScores;
+		}
+	}
+	delete [] m_hashEntries;
+	
+	m_bInitialized = false;
 }
 
 // initialize
@@ -71,21 +82,6 @@ void LMLookAhead::initialize() {
 	m_bInitialized = true;
 }
 
-// destroy
-void LMLookAhead::destroy() {
-
-	assert(m_bInitialized);
-	
-	//destroy the cache
-	for(unsigned int i=0 ; i < m_iHashEntries ; ++i) {
-		if (m_hashEntries[i].fLAScores) {
-			delete [] m_hashEntries[i].fLAScores;
-		}
-	}
-	delete [] m_hashEntries;
-	
-	m_bInitialized = false;
-}
 
 // create a tree of look-ahead scores for the given lm-state (word-history)
 float *LMLookAhead::computeLAScores(int iLMState) {
@@ -95,7 +91,7 @@ float *LMLookAhead::computeLAScores(int iLMState) {
 	float *fLAScores = new float[m_iVocabularySize+m_iLANodes];
 	
 	// get the LM-scores for the word history
-	m_lmManager->getLMScores(iLMState,fLAScores,m_iVocabularySize);
+	m_lmManager->getFSM()->getLMScores(iLMState,fLAScores,m_iVocabularySize);
 	
 	// compute the look-ahead scores (loop over the array, which contains a topological order of the tree)
 	// - each position in the array keeps the index of the predecessor in the look-ahead tree

@@ -57,7 +57,7 @@ typedef struct {
 // ad-hoc functions to use Duple as the key in a hash_map data structure
 struct MTimeStateFunctions {
 
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 	
 	// comparison function (used for matching, comparison for equality)
 	bool operator()(const pair<int,int> timeState1, const pair<int,int> timeState2) const {
@@ -65,7 +65,7 @@ struct MTimeStateFunctions {
 		return ((timeState1.first == timeState2.first) && (timeState1.second == timeState2.second));
 	}
 	
-#elif _WIN32
+#elif _MSC_VER
 		
 	static const size_t bucket_size = 4;
 	static const size_t min_buckets = 8;
@@ -93,16 +93,16 @@ struct MTimeStateFunctions {
 	}
 };
 
-#if defined __linux__ || defined __APPLE__
+#if defined __linux__ || defined __APPLE__ || __MINGW32__
 // maps (timeFrame+hmmId) to occupation probability (posterior prob)
-typedef hash_map<pair<int,int> , double,MTimeStateFunctions,MTimeStateFunctions> MOccupation;
+typedef std::tr1::unordered_map<pair<int,int>,double,MTimeStateFunctions,MTimeStateFunctions> MOccupation;
 // maps (timeFrame+hmmId) to likelihood values
-typedef hash_map<pair<int,int> , float,MTimeStateFunctions,MTimeStateFunctions> MLikelihood;
-#elif _WIN32
+typedef std::tr1::unordered_map<pair<int,int>,float,MTimeStateFunctions,MTimeStateFunctions> MLikelihood;
+#elif _MSC_VER
 // maps (timeFrame+hmmId) to occupation probability (posterior prob)
-typedef hash_map<pair<int,int> , double,MTimeStateFunctions> MOccupation;
+typedef hash_map<pair<int,int>,double,MTimeStateFunctions> MOccupation;
 // maps (timeFrame+hmmId) to likelihood values
-typedef hash_map<pair<int,int> , float,MTimeStateFunctions> MLikelihood;
+typedef hash_map<pair<int,int>,float,MTimeStateFunctions> MLikelihood;
 #endif
 
 /**
@@ -112,8 +112,6 @@ class ForwardBackward {
 
 	private:
 	
-		int m_iFeatureDimensionality;
-		int m_iFeatureDimensionalityUpdate;
 		PhoneSet *m_phoneSet;
 		HMMManager *m_hmmManagerEstimation;				// models used to estimate occupation at the Gaussian level
 		HMMManager *m_hmmManagerUpdate;					// models that are updated after the FB estimation (can be the same)
@@ -141,14 +139,14 @@ class ForwardBackward {
 		void deleteTrellis(NodeTrellis *nodeTrellis);
 		
 		// given a trellis estimates forward-backward scores
-		void computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMMStateComposite, int iHMMStates, 
-			float *fFeatureVectors, int iFeatureVectors, float fBackwardThreshold, int iOffset = 0);
+		void computeFBTrellis(NodeTrellis *nodeTrellis, VHMMState &vHMMStateComposite, unsigned int iHMMStates, 
+			MatrixBase<float> &mFeatureVectors, float fBackwardThreshold, int iOffset = 0);
 		
 		// print the given trellis (debugging purposes)
 		void printTrellis(NodeTrellis *node, int iRows, int iColumns);	
 		
 		// compute observation prob
-		float computeLikelihood(HMMState *hmmState, float *fFeatures, int iT);
+		float computeLikelihood(HMMState *hmmState, VectorBase<float> &vFeatureVector, int iT);
 		
 	public:
 
@@ -159,17 +157,18 @@ class ForwardBackward {
 		~ForwardBackward();
 		
 		// perform the forward-backward algorithm over an utterance
-		Alignment *processUtterance(VLexUnit &vLexUnitTranscription, float *fFeaturesAlignment, 
-			float *fFeaturesAccumulation, int iFeatures, double *dUtteranceLikelihood, const char **strReturnCode);
+		Alignment *processUtterance(VLexUnit &vLexUnitTranscription, MatrixBase<float> &mFeaturesAlignment, 
+			MatrixBase<float> &mFeaturesAccumulation, double *dUtteranceLikelihood, const char **strReturnCode);
 		
 		// forward-backward alignment preserving phone-boundaries
-		Alignment *processPhoneAlignment(float *fFeatures, int iFeatures, 
-			VLPhoneAlignment *vLPhoneAlignment, double &dLikelihood, const char **strReturnCode);
+		Alignment *processPhoneAlignment(MatrixBase<float> &mFeatures, VLPhoneAlignment *vLPhoneAlignment, 
+			double &dLikelihood, const char **strReturnCode);
 		
 		// aligns a lattice against the given feature vectors using Posterior Probabilities as the edge occupation
 		// probability (discriminative training)
-		MOccupation *processLattice(HypothesisLattice *lattice, float *fFeatures, int iFeatures, 
-			float fScaleAM, float fScaleLM, double &dLikelihood, bool bMMI, float fBoostingFactor, const char **strReturnCode);
+		MOccupation *processLattice(HypothesisLattice *lattice, MatrixBase<float> &mFeatures, 
+			float fScaleAM, float fScaleLM, double &dLikelihood, bool bMMI, float fBoostingFactor, 
+			const char **strReturnCode);
 		
 		// data conversion
 		static Alignment *getAlignment(MOccupation *mOccupation, int iFrames);		
