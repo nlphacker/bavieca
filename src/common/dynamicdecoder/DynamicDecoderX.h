@@ -588,7 +588,7 @@ class DynamicDecoderX {
 		void printHashContents();	
 		
 		// keeps the best history item for each unique word-sequence (auxiliar method)
-		void keepBestHistoryItem(map<int,pair<float,HistoryItem*> > &mWSHistoryItem, HistoryItem *historyItem);	
+		void keepBestHistoryItem(map<int,pair<float,int> > &mWSHistoryItem, int iHistoryItem);	
 		
 
 	public:

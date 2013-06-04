@@ -920,10 +920,12 @@ void DynamicDecoderX::expandToHMMNewWord(DNode *node, DArc *arcNext, LexUnit *le
 						// (b) end-of-word
 						else {
 							if (m_iHistoryItemsAux[j] == -1) {
-								// note: both newHistoryItem and newWGToken can activate garbage collection and invalidate pointers (but not indices)
+								// (IMP: both newHistoryItem and newWGToken can activate garbage collection and invalidate pointers, but not
+								// indices)
+								// (IMP: newWGToken must be called before newHistoryItem, since otherwise it could invalidate the historyItem)	
+								int iWGTokenAux = newWGToken(token->iWGToken);
 								m_iHistoryItemsAux[j] = newHistoryItem();
 								// create a copy of the wgToken (token can be expanded to different word ends, e.g. homophonic, prefix words)
-								int iWGTokenAux = newWGToken(token->iWGToken);
 								HistoryItem &historyItem = m_historyItems[m_iHistoryItemsAux[j]];
 								historyItem.iLexUnitPron = lexUnit->iLexUnitPron;
 								historyItem.iEndFrame = t-1;
@@ -2031,13 +2033,13 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 	assert(m_bInitialized);
 	double dTimeBegin = TimeUtils::getTimeMilliseconds();
 		
-	map<int,pair<float,HistoryItem*> > mWSHistoryItem;	// maps unique word-sequences to history items
+	map<int,pair<float,int> > mWSHistoryItem;	// maps unique word-sequences to history items
 	
 	float fScoreBest = -FLT_MAX;
 	float fScoreToken;
 	float fScoreLM1;
 	int iLMState;
-	LHistoryItem lHistoryItem;
+	list<int> lHistoryItem;
 	
 	// (1) get all the history items at terminal arcs while keeping the best history item
 	// for each unique word-sequence
@@ -2075,18 +2077,20 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 					continue;
 				}					
 				// create a history item for the token
+				// (IMP: newWGToken must be called before newHistoryItem, since otherwise it could invalidate the historyItem)	
+				int iWGTokenAux = newWGToken(token->iWGToken,fScoreLM1+fScoreLM2);	// add the lm-score
 				HistoryItem *historyItem = m_historyItems+newHistoryItem();
 				historyItem->iLexUnitPron = (*it)->iLexUnitPron;
 				historyItem->iEndFrame = m_iFeatureVectorsUtterance-1;
 				historyItem->fScore = fScoreToken;
 				historyItem->iPrev = token->iHistoryItem;
 				historyItem->iActive = m_iTimeCurrent;
-				historyItem->iWGToken = newWGToken(token->iWGToken,fScoreLM1+fScoreLM2);	// add the lm-score
-				lHistoryItem.push_back(historyItem);
+				historyItem->iWGToken = iWGTokenAux;
+				lHistoryItem.push_back(historyItem-m_historyItems);
 				//printHistoryItem(historyItem);
 				//printWGToken(m_wgTokens+historyItem->iWGToken);
 				// keep the best history-item for each word-sequence
-				keepBestHistoryItem(mWSHistoryItem,historyItem);
+				keepBestHistoryItem(mWSHistoryItem,historyItem-m_historyItems);
 			}
 		}
 		// (b) multi-phones 
@@ -2100,18 +2104,20 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 				continue;
 			}	
 			// create a history item for the token
+			// (IMP: newWGToken must be called before newHistoryItem, since otherwise it could invalidate the historyItem)	
+			int iWGTokenAux = newWGToken(token->iWGToken,fScoreLM1);		// add the lm-score
 			HistoryItem *historyItem = m_historyItems+newHistoryItem();
 			historyItem->iLexUnitPron = token->iLexUnitPron;
 			historyItem->iEndFrame = m_iFeatureVectorsUtterance-1;
 			historyItem->fScore = fScoreToken;
 			historyItem->iPrev = token->iHistoryItem;
 			historyItem->iActive = m_iTimeCurrent;
-			historyItem->iWGToken = newWGToken(token->iWGToken,fScoreLM1);		// add the lm-score
-			lHistoryItem.push_back(historyItem);
+			historyItem->iWGToken = iWGTokenAux;
+			lHistoryItem.push_back(historyItem-m_historyItems);
 			//printHistoryItem(historyItem);
 			//printWGToken(m_wgTokens+historyItem->iWGToken);
 			// keep the best history-item for each word-sequence
-			keepBestHistoryItem(mWSHistoryItem,historyItem);
+			keepBestHistoryItem(mWSHistoryItem,historyItem-m_historyItems);
 		}
 	}
 	
@@ -2132,9 +2138,10 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 	int iEdges = 0;
 	
 	// disable wg-token entries that do not keep the best score for their word sequence
-	for(LHistoryItem::iterator it = lHistoryItem.begin() ; it != lHistoryItem.end() ; ) {
+	for(list<int>::iterator it = lHistoryItem.begin() ; it != lHistoryItem.end() ; ) {
 		
-		HistoryItem *historyItem = *it;	
+		int iHistoryItem = *it;	
+		HistoryItem *historyItem = (*it)+m_historyItems;
 		bool bSurvive = false;
 		
 		// above threshold: invalidate redundant word-sequences with lower likelihood
@@ -2149,10 +2156,10 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 				// get the word-sequence by moving the pointer
 				historyItem->iPrev = wgToken[i].iHistoryItem;
 				int iWordSequence = hashWordSequence(historyItem);
-				map<int,pair<float,HistoryItem*> >::iterator it = mWSHistoryItem.find(iWordSequence);
+				map<int,pair<float,int> >::iterator it = mWSHistoryItem.find(iWordSequence);
 				assert(it != mWSHistoryItem.end());
 				// invalidate it if necessary
-				if (it->second.second != historyItem) {
+				if (it->second.second != iHistoryItem) {
 					wgToken[i].iWordSequence = INT_MIN; 
 				} else {
 					bSurvive = true;
@@ -2176,7 +2183,7 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 	// process all the history items
 	while(lHistoryItem.empty() == false) {
 		
-		HistoryItem *historyItemAux = lHistoryItem.back();
+		HistoryItem *historyItemAux = lHistoryItem.back()+m_historyItems;
 		lHistoryItem.pop_back();
 		
 		// get the graph node for this history item
@@ -2220,7 +2227,7 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 				lnodePrev = HypothesisLattice::newNode(historyItemPrev->iEndFrame);
 				ledgePrev = HypothesisLattice::newEdge(historyItemPrev->iEndFrame+1,historyItemAux->iEndFrame,lexUnit,0.0,0.0,0.0);
 				mHistoryItemLNode.insert(MHistoryItemLNode::value_type(historyItemPrev,lnodePrev));
-				lHistoryItem.push_back(historyItemPrev);
+				lHistoryItem.push_back(historyItemPrev-m_historyItems);
 				++iNodes;
 			}
 			// the history item is in the graph: create a link
@@ -2249,28 +2256,28 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 }
 
 // keeps the best history item for each unique word-sequence (auxiliar method)
-void DynamicDecoderX::keepBestHistoryItem(map<int,pair<float,HistoryItem*> > &mWSHistoryItem, HistoryItem *historyItem) {
+void DynamicDecoderX::keepBestHistoryItem(map<int,pair<float,int> > &mWSHistoryItem, int iHistoryItem) {
 		
 	// multiple tokens at the last time frame may hold the same lexical unit and share the same history-items
 	// in their wg-token, thus it is necessary to disable those with lower scores
-	WGToken *wgToken = m_wgTokens+historyItem->iWGToken;
+	WGToken *wgToken = m_wgTokens+(m_historyItems+iHistoryItem)->iWGToken;
 	// keep original backpointer for the history-item
-	int iHistoryItemBackpointer = historyItem->iPrev;
+	int iHistoryItemBackpointer = (m_historyItems+iHistoryItem)->iPrev;
 	for(int i=0 ; (i < m_iMaxWordSequencesState) && (wgToken[i].iWordSequence != -1) ; ++i) {
 		// get the word-sequence by moving the pointer
-		historyItem->iPrev = wgToken[i].iHistoryItem;
-		int iWordSequence = hashWordSequence(historyItem);
-		map<int,pair<float,HistoryItem*> >::iterator it = mWSHistoryItem.find(iWordSequence);
+		(m_historyItems+iHistoryItem)->iPrev = wgToken[i].iHistoryItem;
+		int iWordSequence = hashWordSequence(m_historyItems+iHistoryItem);
+		map<int,pair<float,int> >::iterator it = mWSHistoryItem.find(iWordSequence);
 		if (it == mWSHistoryItem.end()) {
-			mWSHistoryItem.insert(map<int,pair<float,HistoryItem*> >::value_type(iWordSequence,
-				pair<float,HistoryItem*>(wgToken[i].fScore,historyItem)));	
+			mWSHistoryItem.insert(map<int,pair<float,int> >::value_type(iWordSequence,
+				pair<float,int>(wgToken[i].fScore,iHistoryItem)));	
 		} else if (it->second.first < wgToken[i].fScore) {
 			it->second.first = wgToken[i].fScore;
-			it->second.second = historyItem;
+			it->second.second = iHistoryItem;
 		}
 	}	
 	// recover original backpointer
-	historyItem->iPrev = iHistoryItemBackpointer;
+	(m_historyItems+iHistoryItem)->iPrev = iHistoryItemBackpointer;
 }
 
 // merge two sets of word sequences by keeping the N best unique word sequences in wgToken1 (not commutative)
