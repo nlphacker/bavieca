@@ -116,14 +116,12 @@ void DynamicDecoderX::initialize() {
 	
 	// pre-allocate memory for the active tokens 
 	m_iActiveTokenMax = m_iNodesActiveCurrentMax*m_iTokensNodeMax;
-	//m_iActiveTokenMax = m_iMaxActiveNodes*10*m_iTokensNodeMax;
 	m_activeTokenCurrent = new ActiveToken[m_iActiveTokenMax];
 	m_activeTokenNext = new ActiveToken[m_iActiveTokenMax];
 	m_iActiveTokenTables = 0;
 	
-	// history item management (there exists garbage collection)
+	// history item management (there exists garbage collection for history items)
 	m_iHistoryItems = 10000;
-	//m_iHistoryItems = 10000000;
 	m_historyItems = new HistoryItem[m_iHistoryItems];
 	m_iHistoryItemsAuxBuffer = new int[m_iTokensNodeMax];
 	m_iHistoryItemsAux = NULL;
@@ -139,15 +137,14 @@ void DynamicDecoderX::initialize() {
 		m_iWSHashBuckets = 100000;
 		m_iWSHashEntries = 2*m_iWSHashBuckets;
 		m_wshashEntries = new WSHashEntry[m_iWSHashEntries];
-		// set all the entries as "old"
+		// set all the entries to "old"
 		for(unsigned int i=0 ; i < m_iWSHashEntries ; ++i) {
 			m_wshashEntries[i].iTime = -1;	
 		}	
 		m_iWSHashEntryCollisionAvailable = m_iWSHashBuckets;
 		
-		// word-graph token management
+		// word-graph token management (there exists garbage collection for wg-tokens)
 		m_iWGTokens = 5000*m_iMaxWordSequencesState;
-		//m_iWGTokens = 5000000*m_iMaxWordSequencesState;
 		m_wgTokens = new WGToken[m_iWGTokens];
 		for(unsigned int i=0 ; i < m_iWGTokens-1 ; i += m_iMaxWordSequencesState) {
 			m_wgTokens[i].iActive = -1;
@@ -157,7 +154,6 @@ void DynamicDecoderX::initialize() {
 		m_wgTokens[m_iWGTokens-m_iMaxWordSequencesState].iPrev = -1;
 		m_iWGTokenAvailable = 0;
 		m_iWordSequenceAux = new int[m_iTokensNodeMax];
-		//m_iWordSequenceAux2 = new int[m_iTokensNodeMax];
 	}
 	
 	m_bInitialized = true;	
@@ -1274,13 +1270,14 @@ void DynamicDecoderX::pruningOriginal() {
 		ActiveToken *activeTokensNext = m_activeTokenNext+node->iActiveTokensNextBase;
 		for(int j=0 ; j < node->iActiveTokensNext ; ++j) {
 			Token *token = m_tokensNext+activeTokensNext[j].iToken;
-			if (token->fScore < fThresholdArc) {
+			if (token->fScore < fThresholdArc) {	
 				if (iAvailable == -1) {
 					iAvailable = j;	
 				}
 				++iPruned;
 			} else if (iAvailable != -1) {
 				activeTokensNext[iAvailable] = activeTokensNext[j];
+				++iAvailable;
 			}
 		}
 		iPrunedTotal += iPruned;
@@ -1461,6 +1458,7 @@ void DynamicDecoderX::pruning() {
 				++iPruned;
 			} else if (iAvailable != -1) {
 				activeTokensNext[iAvailable] = activeTokensNext[j];
+				++iAvailable;
 			}
 		}
 		iPrunedTotal += iPruned;
@@ -1506,6 +1504,10 @@ BestPath *DynamicDecoderX::getBestPath() {
 	// for each active token
 	for(int i=0 ; i < m_iTokensNext ; ++i) {
 		Token *token = &m_tokensNext[i];
+		// check if pruned by "pruneExtraTokens"
+		if (token->iNode == -1) {	
+			continue;
+		}
 		DNode *node = m_nodes+token->iNode;
 		// only tokens in word-end nodes
 		if (node->bWordEnd == false) {
@@ -1691,16 +1693,6 @@ void DynamicDecoderX::historyItemGarbageCollection() {
 			}
 		}	
 	}
-	/*if (m_iHistoryItemsAux2 != NULL) {
-		for(int i=0 ; i < m_iHistoryItemsAux2Size ; ++i) {
-			if (m_iHistoryItemsAux2[i] != -1) {
-				if ((m_historyItems+m_iHistoryItemsAux2[i])->iActive != m_iTimeCurrent) {	
-					(m_historyItems+m_iHistoryItemsAux2[i])->iActive = m_iTimeCurrent;
-					++iItemsActive;
-				}
-			}
-		}	
-	}*/
 	
 	// (3) if a certain percentage* of the items are active then we need to allocate 
 	// a bigger data structure to keep the new history items
@@ -1765,10 +1757,11 @@ void DynamicDecoderX::historyItemGarbageCollection() {
 }
 		
 // marks unused history items as available (lattice generation)
-void DynamicDecoderX::historyItemGarbageCollectionLattice() {
+void DynamicDecoderX::historyItemGarbageCollectionLattice(bool bRecycleHistoryItems, bool bRecycleWGTokens) {
 
 	unsigned int iItemsActive = 0;
 	unsigned int iTokensActive = 0;
+	assert(bRecycleHistoryItems != bRecycleWGTokens);
 	
 	//printf("doing garbage collection\n");
 	
@@ -1876,6 +1869,29 @@ void DynamicDecoderX::historyItemGarbageCollectionLattice() {
 				}
 			}
 		}	
+	}	
+	
+	// check the list used to generate the lattice, it may have items in use in the rare case that the lattice
+	// is being generated
+	for(list<int>::iterator it = m_lHistoryItem.begin() ; it != m_lHistoryItem.end() ; ++it) {
+		HistoryItem *historyItem = (*it)+m_historyItems;
+		historyItem->iActive = m_iTimeCurrent;
+		iHistoryItemActive[iHistoryItemActiveSize++] = *it;	
+		++iItemsActive;	
+		// corresponding wg-token
+		int iWGToken = historyItem->iWGToken;
+		assert(iWGToken != -1);
+		(iWGToken+m_wgTokens)->iActive = m_iTimeCurrent;
+		assert(bTokensActive[iWGToken] == false);
+		bTokensActive[iWGToken] = true;
+		++iTokensActive;
+		/////////////
+		for(int i=0 ; (i < m_iMaxWordSequencesState) && ((historyItem->iWGToken+m_wgTokens)[i].iWordSequence != -1) ; ++i) {
+			HistoryItem *historyItem2 = m_historyItems+(historyItem->iWGToken+m_wgTokens)[i].iHistoryItem;
+			historyItem2->iActive = m_iTimeCurrent;
+			iHistoryItemActive[iHistoryItemActiveSize++] = (historyItem->iWGToken+m_wgTokens)[i].iHistoryItem;	
+			++iItemsActive;	
+		}	
 	}
 		
 	while(iHistoryItemActiveSize > 0) {
@@ -1903,124 +1919,126 @@ void DynamicDecoderX::historyItemGarbageCollectionLattice() {
 				}
 			}
 		}	
-	}
-	
+	}	
 	delete [] iHistoryItemActive;
+	delete [] bTokensActive;		
 	
 	//printf("# active wg-tokens: %d  %d #items: %d\n",iTokensActive,m_iTokensNext,iItemsActive);
 	
-	// (2) if a certain percentage* of the items are active then we need to allocate 
-	// a bigger data structure to keep the new history items
-	// (* otherwise if we wait until all the items are active there will be many calls to the garbage collector
-	// when the array reaches a high occupation, that would introduce substantial overhead)
-	assert(iItemsActive <= m_iHistoryItems);
-	if (iItemsActive >= (0.20*m_iHistoryItems)) {
-
-		//printf("history item garbage collection...\n");	
-		//printf("allocating space for new items (item sused: %d existing: %d)\n",iItemsActive,m_iHistoryItems);	
-		
-		// allocate a new data structure with double capacity	
-		HistoryItem *historyItems = NULL;
-		try {
-			historyItems = new HistoryItem[m_iHistoryItems*2];
-		} 
-		catch (const std::bad_alloc&) {
-			int iBytes = m_iHistoryItems*2*sizeof(WGToken);
-			BVC_ERROR << "unable to allocate memory for history items, " << iBytes << " Bytes needed";
-		}		
-		
-		// copy the active items from the old data structure
-		for(unsigned int i=0 ; i < m_iHistoryItems ; ++i) {
-			historyItems[i].iLexUnitPron = m_historyItems[i].iLexUnitPron;
-			historyItems[i].iEndFrame = m_historyItems[i].iEndFrame;
-			historyItems[i].fScore = m_historyItems[i].fScore;
-			historyItems[i].iActive = m_iTimeCurrent;
-			historyItems[i].iWGToken = m_historyItems[i].iWGToken;
-			historyItems[i].iPrev = m_historyItems[i].iPrev;
-		}
-		
-		// create the linked list of available items
-		int iLastIndex = (2*m_iHistoryItems)-1;
-		for(int i=m_iHistoryItems ; i < iLastIndex ; ++i) {
-			historyItems[i].iPrev = i+1;
-			historyItems[i].iActive = -1;	
-		}
-		historyItems[iLastIndex].iPrev = -1;
-		historyItems[iLastIndex].iActive = -1;
-		
-		delete [] m_historyItems;
-		m_historyItems = historyItems;
-		m_iHistoryItemAvailable = m_iHistoryItems;
-		m_iHistoryItems *= 2;
-	}
-	// (2') there are inactive items: create a linked list with them
-	else {
-		int *iHistoryItemAux = &m_iHistoryItemAvailable;
-		for(unsigned int i = 0 ; i < m_iHistoryItems ; ++i) {
-			if (m_historyItems[i].iActive != m_iTimeCurrent) {
-				m_historyItems[i].iActive = -1;
-				m_historyItems[i].iEndFrame = -1;
-				*iHistoryItemAux = i;
-				iHistoryItemAux = &m_historyItems[i].iPrev;	
+	if (bRecycleHistoryItems) {
+		// (2) if a certain percentage* of the items are active then we need to allocate 
+		// a bigger data structure to keep the new history items
+		// (* otherwise if we wait until all the items are active there will be many calls to the garbage collector
+		// when the array reaches a high occupation, that would introduce substantial overhead)
+		assert(iItemsActive <= m_iHistoryItems);
+		if (iItemsActive >= (0.20*m_iHistoryItems)) {
+	
+			//printf("history item garbage collection...\n");	
+			//printf("allocating space for new items (item sused: %d existing: %d)\n",iItemsActive,m_iHistoryItems);	
+			
+			// allocate a new data structure with double capacity	
+			HistoryItem *historyItems = NULL;
+			try {
+				historyItems = new HistoryItem[m_iHistoryItems*2];
+			} 
+			catch (const std::bad_alloc&) {
+				int iBytes = m_iHistoryItems*2*sizeof(WGToken);
+				BVC_ERROR << "unable to allocate memory for history items, " << iBytes << " Bytes needed";
+			}		
+			
+			// copy the active items from the old data structure
+			for(unsigned int i=0 ; i < m_iHistoryItems ; ++i) {
+				historyItems[i].iLexUnitPron = m_historyItems[i].iLexUnitPron;
+				historyItems[i].iEndFrame = m_historyItems[i].iEndFrame;
+				historyItems[i].fScore = m_historyItems[i].fScore;
+				historyItems[i].iActive = m_iTimeCurrent;
+				historyItems[i].iWGToken = m_historyItems[i].iWGToken;
+				historyItems[i].iPrev = m_historyItems[i].iPrev;
 			}
+			
+			// create the linked list of available items
+			int iLastIndex = (2*m_iHistoryItems)-1;
+			for(int i=m_iHistoryItems ; i < iLastIndex ; ++i) {
+				historyItems[i].iPrev = i+1;
+				historyItems[i].iActive = -1;	
+			}
+			historyItems[iLastIndex].iPrev = -1;
+			historyItems[iLastIndex].iActive = -1;
+			
+			delete [] m_historyItems;
+			m_historyItems = historyItems;
+			m_iHistoryItemAvailable = m_iHistoryItems;
+			m_iHistoryItems *= 2;
 		}
-		*iHistoryItemAux = -1;
+		// (2') there are inactive items: create a linked list with them
+		else {
+			int *iHistoryItemAux = &m_iHistoryItemAvailable;
+			for(unsigned int i = 0 ; i < m_iHistoryItems ; ++i) {
+				if (m_historyItems[i].iActive != m_iTimeCurrent) {
+					m_historyItems[i].iActive = -1;
+					m_historyItems[i].iEndFrame = -1;
+					*iHistoryItemAux = i;
+					iHistoryItemAux = &m_historyItems[i].iPrev;	
+				}
+			}
+			*iHistoryItemAux = -1;
+		}
 	}
 	
 	// word-graph token garbage collection
-	assert(iTokensActive <= (m_iWGTokens/m_iMaxWordSequencesState));
-	if (iTokensActive >= 0.20*(m_iWGTokens/m_iMaxWordSequencesState)) {
-		
-		// allocate a new data structure with double capacity	
-		WGToken *wgTokens = NULL;
-		try {
-			wgTokens = new WGToken[m_iWGTokens*2];
+	if (bRecycleWGTokens) {
+		assert(iTokensActive <= (m_iWGTokens/m_iMaxWordSequencesState));
+		if (iTokensActive >= 0.20*(m_iWGTokens/m_iMaxWordSequencesState)) {
+			
+			// allocate a new data structure with double capacity	
+			WGToken *wgTokens = NULL;
+			try {
+				wgTokens = new WGToken[m_iWGTokens*2];
+			}
+			catch (const std::bad_alloc&) {
+				int iBytes = m_iWGTokens*2*sizeof(WGToken);
+				BVC_ERROR << "unable to allocate memory for the lattice tokens (" << iBytes << " Bytes needed)";
+			}		
+			//printf("WGTokens: from %d to %d\n",m_iWGTokens*sizeof(WGToken),m_iWGTokens*2*sizeof(WGToken));
+			
+			// copy the active items from the old data structure
+			for(unsigned int i=0 ; i < m_iWGTokens ; ++i) {
+				wgTokens[i].iWordSequence = m_wgTokens[i].iWordSequence;
+				wgTokens[i].iLexUnitPron = m_wgTokens[i].iLexUnitPron;
+				wgTokens[i].fScore = m_wgTokens[i].fScore;
+				wgTokens[i].iHistoryItem = m_wgTokens[i].iHistoryItem;
+				wgTokens[i].iPrev = -1;
+				wgTokens[i].iActive = m_iTimeCurrent;
+			}
+			// create the linked list of available items
+			int iLastIndex = ((2*m_iWGTokens)-m_iMaxWordSequencesState);
+			for(int i=m_iWGTokens ; i < iLastIndex ; i += m_iMaxWordSequencesState) {
+				wgTokens[i].iPrev = i+m_iMaxWordSequencesState;
+				wgTokens[i].iActive = -1;	
+			}
+			wgTokens[iLastIndex].iPrev = -1;
+			wgTokens[iLastIndex].iActive = -1;
+			
+			// swap structures and delete the old one
+			delete [] m_wgTokens;
+			m_wgTokens = wgTokens;
+			m_iWGTokenAvailable = m_iWGTokens;
+			m_iWGTokens *= 2;
 		}
-		catch (const std::bad_alloc&) {
-			int iBytes = m_iWGTokens*2*sizeof(WGToken);
-			BVC_ERROR << "unable to allocate memory for the lattice tokens (" << iBytes << " Bytes needed)";
-		}		
-		//printf("WGTokens: from %d to %d\n",m_iWGTokens*sizeof(WGToken),m_iWGTokens*2*sizeof(WGToken));
-		
-		// copy the active items from the old data structure
-		for(unsigned int i=0 ; i < m_iWGTokens ; ++i) {
-			wgTokens[i].iWordSequence = m_wgTokens[i].iWordSequence;
-			wgTokens[i].iLexUnitPron = m_wgTokens[i].iLexUnitPron;
-			wgTokens[i].fScore = m_wgTokens[i].fScore;
-			wgTokens[i].iHistoryItem = m_wgTokens[i].iHistoryItem;
-			wgTokens[i].iPrev = -1;
-			wgTokens[i].iActive = m_iTimeCurrent;
+		// there are inactive tokens: create a linked list with them
+		else {
+			//printf("WGTokens: relinking\n");
+			// the linked list goes from lower to higher memory addresses
+			int *iAux = &m_iWGTokenAvailable;
+			for(unsigned int i = 0 ; i < m_iWGTokens ; i += m_iMaxWordSequencesState) {
+				if (m_wgTokens[i].iActive != m_iTimeCurrent) {	
+					*iAux = i;
+					iAux = &m_wgTokens[i].iPrev;	
+				}	
+			}
+			*iAux = -1;
 		}
-		// create the linked list of available items
-		int iLastIndex = ((2*m_iWGTokens)-m_iMaxWordSequencesState);
-		for(int i=m_iWGTokens ; i < iLastIndex ; i += m_iMaxWordSequencesState) {
-			wgTokens[i].iPrev = i+m_iMaxWordSequencesState;
-			wgTokens[i].iActive = -1;	
-		}
-		wgTokens[iLastIndex].iPrev = -1;
-		wgTokens[iLastIndex].iActive = -1;
-		
-		// swap structures and delete the old one
-		delete [] m_wgTokens;
-		m_wgTokens = wgTokens;
-		m_iWGTokenAvailable = m_iWGTokens;
-		m_iWGTokens *= 2;
-	}
-	// there are inactive tokens: create a linked list with them
-	else {
-		//printf("WGTokens: relinking\n");
-		// the linked list goes from lower to higher memory addresses
-		int *iAux = &m_iWGTokenAvailable;
-		for(unsigned int i = 0 ; i < m_iWGTokens ; i += m_iMaxWordSequencesState) {
-			if (m_wgTokens[i].iActive != m_iTimeCurrent) {	
-				*iAux = i;
-				iAux = &m_wgTokens[i].iPrev;	
-			}	
-		}
-		*iAux = -1;
-	}
-	
-	delete [] bTokensActive;	
+	}	
 	
 	m_iTimeGarbageCollectionLast = m_iTimeCurrent;
 	
@@ -2033,22 +2051,24 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 	assert(m_bInitialized);
 	double dTimeBegin = TimeUtils::getTimeMilliseconds();
 		
-	map<int,pair<float,int> > mWSHistoryItem;	// maps unique word-sequences to history items
-	
 	float fScoreBest = -FLT_MAX;
 	float fScoreToken;
 	float fScoreLM1;
 	int iLMState;
-	list<int> lHistoryItem;
+	assert(m_lHistoryItem.empty());
 	
 	// (1) get all the history items at terminal arcs while keeping the best history item
-	// for each unique word-sequence
+	// for each unique word-sequence	
 	
 	// for each active token
 	for(int i=0 ; i < m_iTokensNext ; ++i) {
 		Token *token = &m_tokensNext[i];
+		// check if pruned by "pruneExtraTokens"
+		if (token->iNode == -1) {	
+			continue;
+		}		
 		DNode *node = m_nodes+token->iNode;
-		// only tokens in word-end nodes
+		// only tokens at word-end nodes
 		if (node->bWordEnd == false) {
 			continue;
 		}
@@ -2077,20 +2097,18 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 					continue;
 				}					
 				// create a history item for the token
-				// (IMP: newWGToken must be called before newHistoryItem, since otherwise it could invalidate the historyItem)	
 				int iWGTokenAux = newWGToken(token->iWGToken,fScoreLM1+fScoreLM2);	// add the lm-score
-				HistoryItem *historyItem = m_historyItems+newHistoryItem();
+				int iHistoryItem = newHistoryItem();
+				HistoryItem *historyItem = m_historyItems+iHistoryItem;
 				historyItem->iLexUnitPron = (*it)->iLexUnitPron;
 				historyItem->iEndFrame = m_iFeatureVectorsUtterance-1;
 				historyItem->fScore = fScoreToken;
 				historyItem->iPrev = token->iHistoryItem;
 				historyItem->iActive = m_iTimeCurrent;
 				historyItem->iWGToken = iWGTokenAux;
-				lHistoryItem.push_back(historyItem-m_historyItems);
-				//printHistoryItem(historyItem);
-				//printWGToken(m_wgTokens+historyItem->iWGToken);
+				m_lHistoryItem.push_back(historyItem-m_historyItems);
 				// keep the best history-item for each word-sequence
-				keepBestHistoryItem(mWSHistoryItem,historyItem-m_historyItems);
+				keepBestHistoryItem(historyItem-m_historyItems);
 			}
 		}
 		// (b) multi-phones 
@@ -2103,26 +2121,24 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 			} else if (fScoreToken < (fScoreBest-m_fBeamWidthNodesWE)) {
 				continue;
 			}	
-			// create a history item for the token
-			// (IMP: newWGToken must be called before newHistoryItem, since otherwise it could invalidate the historyItem)	
+			// create a history item for the token	
 			int iWGTokenAux = newWGToken(token->iWGToken,fScoreLM1);		// add the lm-score
-			HistoryItem *historyItem = m_historyItems+newHistoryItem();
+			int iHistoryItem = newHistoryItem();
+			HistoryItem *historyItem = m_historyItems+iHistoryItem;
 			historyItem->iLexUnitPron = token->iLexUnitPron;
 			historyItem->iEndFrame = m_iFeatureVectorsUtterance-1;
 			historyItem->fScore = fScoreToken;
 			historyItem->iPrev = token->iHistoryItem;
 			historyItem->iActive = m_iTimeCurrent;
 			historyItem->iWGToken = iWGTokenAux;
-			lHistoryItem.push_back(historyItem-m_historyItems);
-			//printHistoryItem(historyItem);
-			//printWGToken(m_wgTokens+historyItem->iWGToken);
+			m_lHistoryItem.push_back(historyItem-m_historyItems);
 			// keep the best history-item for each word-sequence
-			keepBestHistoryItem(mWSHistoryItem,historyItem-m_historyItems);
+			keepBestHistoryItem(historyItem-m_historyItems);
 		}
 	}
 	
 	// if the map is empty the lattice cannot be built
-	if (mWSHistoryItem.empty()) {
+	if (m_mWSHistoryItem.empty()) {
 		BVC_WARNING << "unable to create the lattice, no history items were collected at terminal nodes";
 		return NULL;
 	}
@@ -2138,7 +2154,7 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 	int iEdges = 0;
 	
 	// disable wg-token entries that do not keep the best score for their word sequence
-	for(list<int>::iterator it = lHistoryItem.begin() ; it != lHistoryItem.end() ; ) {
+	for(list<int>::iterator it = m_lHistoryItem.begin() ; it != m_lHistoryItem.end() ; ) {
 		
 		int iHistoryItem = *it;	
 		HistoryItem *historyItem = (*it)+m_historyItems;
@@ -2156,8 +2172,8 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 				// get the word-sequence by moving the pointer
 				historyItem->iPrev = wgToken[i].iHistoryItem;
 				int iWordSequence = hashWordSequence(historyItem);
-				map<int,pair<float,int> >::iterator it = mWSHistoryItem.find(iWordSequence);
-				assert(it != mWSHistoryItem.end());
+				map<int,pair<float,int> >::iterator it = m_mWSHistoryItem.find(iWordSequence);
+				assert(it != m_mWSHistoryItem.end());
 				// invalidate it if necessary
 				if (it->second.second != iHistoryItem) {
 					wgToken[i].iWordSequence = INT_MIN; 
@@ -2176,15 +2192,16 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 			mHistoryItemLNode.insert(MHistoryItemLNode::value_type(historyItem,lnodeFinal));
 			++it;
 		} else {
-			it = lHistoryItem.erase(it);
+			it = m_lHistoryItem.erase(it);
 		}
 	}
+	m_mWSHistoryItem.clear();
 	
 	// process all the history items
-	while(lHistoryItem.empty() == false) {
+	while(m_lHistoryItem.empty() == false) {
 		
-		HistoryItem *historyItemAux = lHistoryItem.back()+m_historyItems;
-		lHistoryItem.pop_back();
+		HistoryItem *historyItemAux = m_lHistoryItem.back()+m_historyItems;
+		m_lHistoryItem.pop_back();
 		
 		// get the graph node for this history item
 		MHistoryItemLNode::iterator it = mHistoryItemLNode.find(historyItemAux);
@@ -2227,7 +2244,7 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 				lnodePrev = HypothesisLattice::newNode(historyItemPrev->iEndFrame);
 				ledgePrev = HypothesisLattice::newEdge(historyItemPrev->iEndFrame+1,historyItemAux->iEndFrame,lexUnit,0.0,0.0,0.0);
 				mHistoryItemLNode.insert(MHistoryItemLNode::value_type(historyItemPrev,lnodePrev));
-				lHistoryItem.push_back(historyItemPrev-m_historyItems);
+				m_lHistoryItem.push_back(historyItemPrev-m_historyItems);
 				++iNodes;
 			}
 			// the history item is in the graph: create a link
@@ -2256,7 +2273,7 @@ HypothesisLattice *DynamicDecoderX::getHypothesisLattice() {
 }
 
 // keeps the best history item for each unique word-sequence (auxiliar method)
-void DynamicDecoderX::keepBestHistoryItem(map<int,pair<float,int> > &mWSHistoryItem, int iHistoryItem) {
+void DynamicDecoderX::keepBestHistoryItem(int iHistoryItem) {
 		
 	// multiple tokens at the last time frame may hold the same lexical unit and share the same history-items
 	// in their wg-token, thus it is necessary to disable those with lower scores
@@ -2267,9 +2284,9 @@ void DynamicDecoderX::keepBestHistoryItem(map<int,pair<float,int> > &mWSHistoryI
 		// get the word-sequence by moving the pointer
 		(m_historyItems+iHistoryItem)->iPrev = wgToken[i].iHistoryItem;
 		int iWordSequence = hashWordSequence(m_historyItems+iHistoryItem);
-		map<int,pair<float,int> >::iterator it = mWSHistoryItem.find(iWordSequence);
-		if (it == mWSHistoryItem.end()) {
-			mWSHistoryItem.insert(map<int,pair<float,int> >::value_type(iWordSequence,
+		map<int,pair<float,int> >::iterator it = m_mWSHistoryItem.find(iWordSequence);
+		if (it == m_mWSHistoryItem.end()) {
+			m_mWSHistoryItem.insert(map<int,pair<float,int> >::value_type(iWordSequence,
 				pair<float,int>(wgToken[i].fScore,iHistoryItem)));	
 		} else if (it->second.first < wgToken[i].fScore) {
 			it->second.first = wgToken[i].fScore;
@@ -2461,7 +2478,7 @@ void DynamicDecoderX::pruneExtraTokens(DNode *node) {
 	float fBinSize = fLength/((float)iNumberBins);
 	assert(fBinSize > 0);
 			
-	float fThresholdNode = fScoreBestNode-m_fBeamWidthTokensNode;
+	float fThresholdLikelihood = fScoreBestNode-m_fBeamWidthTokensNode;
 
 	// compute the size of each bin and initialize them
 	for(int j = 0 ; j < iNumberBins ; ++j) {
@@ -2471,7 +2488,7 @@ void DynamicDecoderX::pruneExtraTokens(DNode *node) {
 	ActiveToken *activeTokensNext = m_activeTokenNext+node->iActiveTokensNextBase;
 	for(int j=0 ; j < node->iActiveTokensNext ; ++j) {
 		Token *token = m_tokensNext+activeTokensNext[j].iToken;
-		if (token->fScore > fThresholdNode) {
+		if (token->fScore >= fThresholdLikelihood) {
 			iBin = (int)(fabs(token->fScore-fScoreBestNode)/fBinSize);
 			assert((iBin >= 0) && (iBin < iNumberBins));
 			iBins[iBin]++;
@@ -2479,16 +2496,17 @@ void DynamicDecoderX::pruneExtraTokens(DNode *node) {
 	}
 	// get the threshold
 	int iSurvivors = 0;
-	float fThresholdHistogram = fThresholdNode;
-	for(int j = 0 ; j < iNumberBins-1 ; ++j) {
-		iSurvivors += iBins[j];
+	float fThresholdHistogram = -FLT_MAX;
+	for(int j = 0 ; j < iNumberBins ; ++j) {
+		int iSum = iSurvivors+iBins[j];
 		// this is the cut-off
-		if (iSurvivors >= m_iMaxActiveTokensNode) {
-			fThresholdHistogram = fScoreBestNode-((j+1)*fBinSize);
+		if (iSum > m_iMaxActiveTokensNode) {	
+			fThresholdHistogram = fScoreBestNode-(j*fBinSize);
 			break;
 		}
+		iSurvivors = iSum;
 	}
-	fThresholdNode = max(fThresholdNode,fThresholdHistogram);
+	float fThresholdNode = max(fThresholdLikelihood,fThresholdHistogram);
 	
 	// actual pruning
 	int iPruned = 0;
@@ -2499,19 +2517,17 @@ void DynamicDecoderX::pruneExtraTokens(DNode *node) {
 			if (iAvailable == -1) {
 				iAvailable = j;	
 			}
-			++iPruned;
+			token->iNode = -1;
+			++iPruned;	
 		} else if (iAvailable != -1) {
 			activeTokensNext[iAvailable] = activeTokensNext[j];
+			++iAvailable;
 		}
 	}
-	/*int iSurvivors2 = node->iActiveTokensNext-iPruned;
-	if (iSurvivors != iSurvivors2) {
-		printf("%f %f\n",fThresholdHistogram,fThresholdNode);
-	}
-	assert(iSurvivors == iSurvivors2);*/
 	node->iActiveTokensNext = node->iActiveTokensNext-iPruned;
 	
-	if (node->iActiveTokensNext >= m_iTokensNodeMax) {
+	// this should never happen
+	if ((node->iActiveTokensNext >= m_iTokensNodeMax) || (node->iActiveTokensNext == 0)) {
 		for(int i=0 ; i < iNumberBins ; ++i) {
 			BVC_VERB << setw(3) << i << " -> " << setw(4) << iBins[i];
 		}

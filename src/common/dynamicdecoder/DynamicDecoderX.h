@@ -175,7 +175,9 @@ class DynamicDecoderX {
 		// word-graph generation
 		bool m_bLatticeGeneration;				// whether to generate a word-graph	
 		int m_iMaxWordSequencesState;			// maximum number of word sequences arriving at any state	
-		
+		map<int,pair<float,int> > m_mWSHistoryItem;
+		list<int> m_lHistoryItem;
+			
 		// word-graph token management (lattice generation)
 		unsigned int m_iWGTokens;						// number of word-graph tokens allocated
 		WGToken *m_wgTokens;								// word-graph tokens allocated
@@ -222,10 +224,10 @@ class DynamicDecoderX {
 				if (m_bLatticeGeneration == false) {
 					historyItemGarbageCollection();
 				} else {
-					historyItemGarbageCollectionLattice();
+					historyItemGarbageCollectionLattice(true,false);
 				}
+				assert(m_iHistoryItemAvailable != -1);
 			}
-			assert(m_iHistoryItemAvailable != -1);
 			
 			int iReturn = m_iHistoryItemAvailable;
 			m_historyItems[m_iHistoryItemAvailable].iWGToken = -1;
@@ -287,7 +289,7 @@ class DynamicDecoderX {
 		void historyItemGarbageCollection();
 				
 		// marks unused history items as available (lattice generation)
-		void historyItemGarbageCollectionLattice();
+		void historyItemGarbageCollectionLattice(bool bRecycleHistoryItems, bool bRecycleWGTokens);
 		
 		// get the destination lexical units
 		void getDestinationMonophoneLexUnits(DNode *node, VLexUnit &vLexUnitDest);
@@ -301,9 +303,9 @@ class DynamicDecoderX {
 		inline int newWGToken() {
 		
 			if (m_iWGTokenAvailable == -1) {
-				historyItemGarbageCollectionLattice();
+				historyItemGarbageCollectionLattice(false,true);
+				assert(m_iWGTokenAvailable != -1);
 			} 
-			assert(m_iWGTokenAvailable != -1);
 			
 			int iWGTokenAux = m_iWGTokenAvailable;
 			m_iWGTokenAvailable = (m_iWGTokenAvailable+m_wgTokens)->iPrev;
@@ -393,7 +395,7 @@ class DynamicDecoderX {
 		// hash a word sequence and returns a pointer to the bucket
 		inline int hashWordSequence(HistoryItem *historyItem) {
 		
-			assert(historyItem != NULL);
+			assert(historyItem);
 		
 			// apply the hash function and get the bucket (xor is commutative)
 			int i = 0;
@@ -588,7 +590,7 @@ class DynamicDecoderX {
 		void printHashContents();	
 		
 		// keeps the best history item for each unique word-sequence (auxiliar method)
-		void keepBestHistoryItem(map<int,pair<float,int> > &mWSHistoryItem, int iHistoryItem);	
+		void keepBestHistoryItem(int iHistoryItem);	
 		
 
 	public:
