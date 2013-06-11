@@ -121,6 +121,36 @@ bool MatrixBase<Real>::equal(MatrixBase<Real> &m, Real rEpsilon) {
 	return true;
 }
 
+// return whether all the elements in the matrix are actual finite numbers  
+template<>
+bool MatrixBase<float>::finite() {
+	
+	for(unsigned int i=0; i < m_iRows; ++i) {
+		for(unsigned int j=0; j < m_iCols ; ++j) {
+			if (finitef((*this)(i,j)) == 0) {
+				return false;
+			}
+		}
+	}
+	
+	return true;
+}
+
+// return whether all the elements in the matrix are actual finite numbers  
+template<>
+bool MatrixBase<double>::finite() {
+	
+	for(unsigned int i=0; i < m_iRows; ++i) {
+		for(unsigned int j=0; j < m_iCols ; ++j) {
+			if (::finite((*this)(i,j)) == 0) {
+				return false;
+			}
+		}
+	}
+	
+	return true;
+}
+
 // add a matrix
 template<typename Real>
 void MatrixBase<Real>::add(Real r, MatrixBase<Real> &matrix) {

@@ -325,6 +325,9 @@ void FeatureExtractor::extractFeaturesSession(VUtteranceData &vUtteranceData, bo
 				continue;
 			}
 			
+			if (it->mFeatures->finite() == false) {
+				BVC_ERROR << "invalid MFCC features";
+			}
 			Matrix<float> *mFeatures = computeDerivatives(*it->mFeatures);
 			if (mFeatures == NULL) {
 				if (bHaltOnFailure) {
@@ -332,6 +335,9 @@ void FeatureExtractor::extractFeaturesSession(VUtteranceData &vUtteranceData, bo
 				} else {
 					BVC_WARNING << "unable to compute derivatives";		
 				}
+			}
+			if (mFeatures->finite() == false) {
+				BVC_ERROR << "invalid MFCC features";
 			}
 			
 			delete it->mFeatures;
@@ -584,7 +590,9 @@ Matrix<float> *FeatureExtractor::extractStaticFeaturesMFCC(short *sSamplesOrigin
 	delete [] dSamplesFrame;
 	delete [] sSamples;
 	
-	//mMFCC->print();
+	if (mMFCC->finite() == false) {		
+		BVC_ERROR << "invalid MFCC features";
+	}
 
 	return mMFCC;
 }
@@ -912,7 +920,7 @@ void FeatureExtractor::applyCMVN(VUtteranceFeatures &vUtteranceFeatures, unsigne
 	for(VUtteranceFeatures::iterator it = vUtteranceFeatures.begin() ; it != vUtteranceFeatures.end() ; ++it) {
 		if (*it) {
 			vObservation.addRows(*(*it));
-			vObservation.addRowsSquare(*(*it));
+			vObservationSquare.addRowsSquare(*(*it));
 			iFeatures += (*it)->getRows();
 		}
 	}	

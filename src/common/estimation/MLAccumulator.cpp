@@ -16,6 +16,7 @@
  * limitations under the License.                                                              *
  *---------------------------------------------------------------------------------------------*/
 
+#include <stdexcept>
 
 #include "ConfigurationFeatures.h"
 #include "FeatureFile.h"
@@ -155,9 +156,6 @@ void MLAccumulator::initialize() {
 	} else {
 		m_vLexUnitOptional.push_back(m_lexiconManager->getLexUnitSilence());
 	}
-		
-	// global distribution of the data
-	//initializeGlobalDistribution();	
 }
 		
 // accumulate statistics
@@ -176,9 +174,6 @@ void MLAccumulator::accumulate() {
 	// empty the accumulators
 	m_hmmManagerAccumulation->resetAccumulators();
 	
-	// reset the global distribution of the data	
-	//resetGlobalDistribution();
-	
 	// precompute constants used to speed-up emission probability computation
 	m_hmmManagerAlignment->precomputeConstants();
 
@@ -195,23 +190,33 @@ void MLAccumulator::accumulate() {
 		strFileFeatures << m_strFolderFeaturesAlignment << PATH_SEPARATOR << (*it)->strFilePattern;
 		FeatureFile featureFileAlignment(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,
 			m_iFeatureDimensionalityAlignment);
-		featureFileAlignment.load();
+		try {
+			featureFileAlignment.load();
+		} catch (std::runtime_error &e) {
+			std::cerr << e.what() << std::endl;
+			BVC_WARNING << "unable to load the features file: " << strFileFeatures.str();
+			continue;
+		}	
+			
 		Matrix<float> *mFeaturesAlignment = featureFileAlignment.getFeatureVectors();
 		
 		// load the features for the accumulation (if necessary)
-		Matrix<float> *mFeaturesAcc = NULL;
+		Matrix<float> *mFeaturesAcc = mFeaturesAlignment;
 		if (m_bSingleFeatureStream == false) {
 			ostringstream strFileFeatures;
 			strFileFeatures << m_strFolderFeaturesAcc << PATH_SEPARATOR << (*it)->strFilePattern;
 			FeatureFile featureFileAcc(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,
 				m_iFeatureDimensionalityAcc);
-			featureFileAcc.load();
+			try {
+				featureFileAcc.load();
+			} catch (std::runtime_error &e) {
+				std::cerr << e.what() << std::endl;
+				BVC_WARNING << "unable to load the features file: " << strFileFeatures.str();
+				delete mFeaturesAlignment;
+				continue;
+			}	
 			mFeaturesAcc = featureFileAcc.getFeatureVectors();
 		} 
-		// same feature stream for estimation and parameter update (default behaviour)
-		else {
-			mFeaturesAcc = mFeaturesAlignment;
-		}
 		
 		iFeatureVectorsTotal += mFeaturesAlignment->getRows();	
 		
@@ -224,8 +229,6 @@ void MLAccumulator::accumulate() {
 			// count the audio actually used for training
 			dLikelihoodTotal += dUtteranceLikelihood;
 			iFeatureVectorsUsedTotal += mFeaturesAlignment->getRows();
-			// accumulate the statistics to compute the global distribution of the data
-			//accumulateGlobalDistribution(fFeaturesAcc,iFeatureVectorsAcc);
 		}
 		// utterance discarded: show a message
 		else {
@@ -238,10 +241,6 @@ void MLAccumulator::accumulate() {
 			delete mFeaturesAcc;
 		}
 		delete mFeaturesAlignment;
-	
-		if (iFeatureVectorsTotal >= 100*60*30) {
-			//break;
-		}
 		
 		// update the progress bar if necessary
 		float fPercentage = (((float)iUtterance)*100)/((float)iUtterancesTotal);

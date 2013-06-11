@@ -167,6 +167,9 @@ class MatrixBase {
 		// test two matrices for equality
 		bool equal(MatrixBase<Real> &m, Real rEpsilon = 0.0);
 		
+		// return whether all the elements in the matrix are actual finite numbers  
+		bool finite();		
+		
 		void setDiagonal(Real r) {
 		
 			assert(isSquare());

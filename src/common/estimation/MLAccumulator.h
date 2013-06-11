@@ -81,9 +81,6 @@ class MLAccumulator {
 		// accumulators
 		MAccumulatorPhysical mAccumulatorPhysical;
 		MAccumulatorLogical mAccumulatorLogical;
-		
-		// dump the global distribution to a file
-		//bool dumpGlobalDistribution(const char *strFile);	
 
 	public:
 

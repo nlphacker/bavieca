@@ -182,7 +182,13 @@ void DTAccumulator::accumulate() {
 		ostringstream strFileFeatures;
 		strFileFeatures << m_strFolderFeatures << PATH_SEPARATOR << (*it)->strFilePattern;
 		FeatureFile featureFile(strFileFeatures.str().c_str(),MODE_READ,FORMAT_FEATURES_FILE_DEFAULT,m_iFeatureDimensionality);
-		featureFile.load();
+		try {
+			featureFile.load();
+		} catch (std::runtime_error &e) {
+			std::cerr << e.what() << std::endl;
+			BVC_WARNING << "unable to load the features file: " << strFileFeatures.str();
+			continue;
+		}	
 		Matrix<float> *mFeatures = featureFile.getFeatureVectors();
 		
 		// process the utterance using Forward-Backward (get the occupation counts)
