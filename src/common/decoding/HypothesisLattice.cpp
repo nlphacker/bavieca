@@ -578,9 +578,6 @@ void HypothesisLattice::loadBinaryFormat(const char *strFile) {
 	file.close();
 }
 
-
-
-
 // check lattice correctness
 // it performs the following checks:
 // - time alignment is consistent
@@ -1114,8 +1111,6 @@ void HypothesisLattice::resetAuxEdges() {
 		m_ledges[i]->edgePrevAux = NULL;
 	}
 }
-
-
 
 // compute posterior-probability based confidence estimates
 void HypothesisLattice::computeConfidenceScore(unsigned char iConfidenceMeasure) {
@@ -2206,7 +2201,7 @@ void HypothesisLattice::attachLMProbabilities(LMFSM *lmFSM) {
 	int iLMStateInitial = lmFSM->getInitialState();
 	
 	// put initial edges in the queue
-	for(LEdge *edge = m_lnodeInitial->edgeNext ; edge != NULL ; edge = edge->edgePrev) {
+	for(LEdge *edge = m_lnodeInitial->edgeNext ; edge ; edge = edge->edgePrev) {
 		// regular word: update lm-state 
 		if (m_lexiconManager->isStandard(edge->lexUnit)) {		
 			edge->iLMState = lmFSM->updateLMState(iLMStateInitial,edge->lexUnit->iLexUnit,&edge->fScoreLM);
@@ -2217,7 +2212,7 @@ void HypothesisLattice::attachLMProbabilities(LMFSM *lmFSM) {
 		lEdge.push_back(edge);
 	}
 	
-	// process edges one by one
+	// process edges one by one (edges in the list already have a lm-score attached)
 	while(lEdge.empty() == false) {
 	
 		LEdge *edge = lEdge.front();
@@ -2226,17 +2221,20 @@ void HypothesisLattice::attachLMProbabilities(LMFSM *lmFSM) {
 		
 		// edge goes to final node: add the lm-score resulting from transitioning to the final state
 		if (edge->nodeNext == m_lnodeFinal) {
+			// this is a hack since the lm-score should only be attached to a standard lexical unit, however it
+			// makes the lattice smaller and the path scores remain the same
 			edge->fScoreLM += lmFSM->toFinalState(edge->iLMState);
 			continue;
 		}
 		
-		//either all the next edges have a lm-state or none of them have, if they have then check that all the destination //edges have the right word-context, otherwise make a copy of all of them and create a new destination node too
+		//either all the next edges have a lm-state or none of them have, if they have then check that all the destination
+		//edges have the right word-context, otherwise make a copy of all of them and create a new destination node too
 		
 		assert(edge->nodeNext->edgeNext != NULL);
 		// successor edges do not have word-context:	attach lm-state and score to them
 		if (edge->nodeNext->edgeNext->iLMStatePrev == -1) {
 			// attach lm-state and score to successor edges
-			for(LEdge *edge2 = edge->nodeNext->edgeNext ; edge2 != NULL ; edge2 = edge2->edgePrev) {
+			for(LEdge *edge2 = edge->nodeNext->edgeNext ; edge2 ; edge2 = edge2->edgePrev) {
 				// regular word: update lm-state 
 				if (m_lexiconManager->isStandard(edge2->lexUnit)) {
 					edge2->iLMState = lmFSM->updateLMState(edge->iLMState,edge2->lexUnit->iLexUnit,&edge2->fScoreLM);	
@@ -2254,7 +2252,7 @@ void HypothesisLattice::attachLMProbabilities(LMFSM *lmFSM) {
 		// (a) same previous lm-state: do nothing
 		else if (edge->nodeNext->edgeNext->iLMStatePrev == edge->iLMState) {
 			// sanity check
-			for(LEdge *edge2 = edge->nodeNext->edgeNext ; edge2 != NULL ; edge2 = edge2->edgePrev) {
+			for(LEdge *edge2 = edge->nodeNext->edgeNext ; edge2 ; edge2 = edge2->edgePrev) {
 				assert(edge2->iLMStatePrev == edge->iLMState);
 			}
 		} 
@@ -2266,15 +2264,16 @@ void HypothesisLattice::attachLMProbabilities(LMFSM *lmFSM) {
 			while(*edgeAux != edge) {	
 				edgeAux = &((*edgeAux)->edgeNext);
 			}
-			*edgeAux = (*edgeAux)->edgeNext;	
+			*edgeAux = (*edgeAux)->edgeNext;
 			// copy successors
 			LNode *node = newNode(edge->nodeNext->iFrame);
 			++iNodesAdded;
-			for(LEdge *edge2 = edge->nodeNext->edgeNext ; edge2 != NULL ; edge2 = edge2->edgePrev) {
+			for(LEdge *edge2 = edge->nodeNext->edgeNext ; edge2 ; edge2 = edge2->edgePrev) {
 				assert(edge2 != edge);
 				LEdge *edgeDup = newEdge(edge2);
 				connectEdge(node,edgeDup,edge2->nodeNext);	
 				edgeDup->lexUnit = edge2->lexUnit;
+				edgeDup->iLMStatePrev = edge->iLMState;
 				// attach lm-state and lm-score
 				// - regular word: update lm-state 
 				if (m_lexiconManager->isStandard(edgeDup->lexUnit)) {
@@ -2285,13 +2284,23 @@ void HypothesisLattice::attachLMProbabilities(LMFSM *lmFSM) {
 					edgeDup->iLMState = edge->iLMState;
 					edgeDup->fScoreLM = 0.0;
 				}	
-				assert((edgeDup->edgePrev != NULL) || (edgeDup->edgeNext != NULL));
 				lEdge.push_back(edgeDup);
 				++iEdgesAdded;
 			}
+			LNode *nodeOriginal = edge->nodeNext;
 			edge->nodeNext = node;
 			node->edgePrev = edge;
-			edge->edgeNext = NULL;	
+			edge->edgeNext = NULL;
+				
+			// look for edges with same lm-id, their destination node can be changed to the newly created one
+			for(LEdge *edge2 = nodeOriginal->edgePrev ; edge2 ; ) {
+				LEdge *edgeNextIt = edge2->edgeNext; 
+				assert(edge2 != edge);
+				if (edge2->iLMState == edge->iLMState) {
+					replaceNodeDest(edge2,node);
+				}
+				edge2 = edgeNextIt;
+			}	
 		}
 	}
 	

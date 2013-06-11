@@ -400,7 +400,7 @@ class HypothesisLattice {
 		}	
 		
 		// connect an edge
-		static void connectEdge(LNode *lnode1, LEdge *ledge, LNode *lnode2) {
+		inline static void connectEdge(LNode *lnode1, LEdge *ledge, LNode *lnode2) {
 		
 			ledge->nodePrev = lnode1;
 			ledge->nodeNext = lnode2;
@@ -409,6 +409,22 @@ class HypothesisLattice {
 			lnode1->edgeNext = ledge;
 			ledge->edgeNext = lnode2->edgePrev;
 			lnode2->edgePrev = ledge;	
+		}
+		
+		// replace an edge's destination node
+		inline static void replaceNodeDest(LEdge *edge, LNode *nodeDest) {
+		
+			// extract the edge from the node's list of incoming edges 
+			LEdge **edgeAux = &(edge->nodeNext->edgePrev);
+			while(*edgeAux != edge) {	
+				edgeAux = &((*edgeAux)->edgeNext);
+			}
+			*edgeAux = (*edgeAux)->edgeNext;	
+			// change the edge's destination node
+			edge->nodeNext = nodeDest;
+			// insert the edge into the new dest node's list of incoming edges
+			edge->edgeNext = nodeDest->edgePrev;
+			nodeDest->edgePrev = edge;
 		}
 		
 		// delete an edge

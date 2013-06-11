@@ -244,6 +244,11 @@ bool FeatureExtractor::extractFeaturesBatch(const char *strFileBatch, bool bHalt
 		// write the features to file
 		const char *strFileFeatures = batchFile.getField(iUtterance,"features");
 		FeatureFile featureFile(strFileFeatures,MODE_WRITE,FORMAT_FEATURES_FILE_DEFAULT,m_iCoefficientsTotal);
+		if (vUtteranceData[iUtterance].mFeatures == NULL) {
+			delete [] vUtteranceData[iUtterance].samples.sSamples;
+			vUtteranceData[iUtterance].samples.sSamples = NULL;
+			continue;
+		}
 		try {
 			featureFile.store(*vUtteranceData[iUtterance].mFeatures);
 		} catch(std::runtime_error) {	

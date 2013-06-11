@@ -29,17 +29,7 @@ OS   := $(shell uname -s)
 # ---------------------------------------
 
 XCC          = g++
-
-# SIMD flags (vector based arithmetic operations)
-#SIMD_FLAGS =
-# SSE is enabled by default on gcc-4.0 and higher. If SSE is enabled, the C preprocessor symbol __SSE__ is defined
-SIMD_FLAGS = -msse3
-# AVX is available on Sandy Bridge and later Intel and AMD architectures. If AVX is enabled the C preprocessor symbol __AVX__ is defined
-#SIMD_FLAGS = -march=corei7-avx
-
-
-#CPPFLAGS     = -g -Wno-deprecated -Wall -O2 -finline-functions $(SIMD_FLAGS)
-CPPFLAGS     = -g -Wno-deprecated -O2 -finline-functions $(SIMD_FLAGS)
+CPPFLAGS     = -g -Wno-deprecated -msse3 -Wall -O2 -finline-functions
 # -fPIC generates Position Independent Code, which is needed to build shared libraries 
 # so they can be dynamically relocated, however it may slowdown the code, for this reason
 # it should be avoided for object files that build executables or static libraries
