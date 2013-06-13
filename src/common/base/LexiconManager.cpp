@@ -488,7 +488,9 @@ LexUnit *LexiconManager::getLexUnitSilence() {
 
 	// find the silence lexical unit
 	LexUnitX *lexUnitXSilence = getLexUnit(LEX_UNIT_SILENCE_SYMBOL);
-	assert(lexUnitXSilence->vLexUnitPronunciations.size() == 1);
+	if (lexUnitXSilence->vLexUnitPronunciations.size() != 1) {
+		BVC_ERROR << "no lexical unit for silence was defined in the lexicon, <SIL> must be defined";
+	}
 	
 	return lexUnitXSilence->vLexUnitPronunciations.front();
 }

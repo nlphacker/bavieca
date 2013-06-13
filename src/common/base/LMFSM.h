@@ -50,6 +50,7 @@ typedef list<_LMArcTemp*> LLMArcTemp;
 typedef struct {
 	int iState;	
 	LLMArcTemp lArc;
+	//NGram *ngram;
 } LMStateTemp;
 
 typedef list<LMStateTemp*> LLMStateTemp;
@@ -171,7 +172,8 @@ class LMFSM {
 		void build(LMARPA *lmARPA);
 		
 		// perform sanity checks to make sure that all the states/transitions created are connected
-		void checkConnected(LMStateTemp *states, int iStates, int iArcs);	
+		void checkConnected(LMStateTemp *stateInitial, LMStateTemp *stateFinal, 
+			LMStateTemp *stateBackoffZerogram, int iStates, int iArcs);	
 		
 		// compact the FSM to use less memory and speed-up lookups (better locality)
 		void compact(LMStateTemp *states, int iStates, int iArcs, LMStateTemp *stateInitial, LMStateTemp *stateFinal);

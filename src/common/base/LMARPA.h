@@ -104,14 +104,18 @@ class LMARPA {
 		void printNGram(int *iId, int n);
 		
 		// print a ngram
-		void print(NGram *ngram) {
+		void print(NGram *ngram, bool bText = true) {
 		
 			assert(ngram);
 			ostringstream oss;
 			oss << "( ";
 			NGram *ngramAux = ngram;
 			while(ngramAux->ngramBase != NULL) {
-				oss << m_lexiconManager->getStrLexUnit(ngramAux->iLexUnit);
+				if (bText) {
+					oss << m_lexiconManager->getStrLexUnit(ngramAux->iLexUnit);
+				} else {
+					oss << ngramAux->iLexUnit;
+				}
 				oss << " ";
 				ngramAux = ngramAux->ngramBase;
 			}

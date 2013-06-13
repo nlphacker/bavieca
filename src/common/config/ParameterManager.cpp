@@ -499,7 +499,7 @@ bool ParameterManager::isFloat(const char *strSource) {
 
 	errno = 0;
 	char *strAux = (char*)strSource;	
-	float fValue = strtof(strSource,&strAux);
+	/*float fValue = */strtof(strSource,&strAux);
 	if ((errno != 0) ||					// conversion failed (EINVAL, ERANGE)
 		(strSource == strAux) ||		// conversion failed (no characters consumed)
 		(*strAux != 0))					// conversion failed (trailing data)
@@ -515,7 +515,7 @@ bool ParameterManager::isInteger(const char *strSource) {
 
 	errno = 0;
 	char *strAux = (char*)strSource;	
-	long int lValue = strtol(strSource,&strAux,10);
+	/*long int lValue = */strtol(strSource,&strAux,10);
 	if ((errno != 0) ||					// conversion failed (EINVAL, ERANGE)
 		(strSource == strAux) ||		// conversion failed (no characters consumed)
 		(*strAux != 0))					// conversion failed (trailing data)

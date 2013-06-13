@@ -135,7 +135,7 @@ void LMFSM::build(LMARPA *lmARPA) {
 	MNGramState mNGramState;
 	
 	LMStateTemp *statesPrev = states;		// points to single back-off state
-	statesPrev->iState = iStateID++;
+	statesPrev->iState = iStateID++;			// zerogram backoff state
 	LMStateTemp *stateDest = states+1;		// points to unigram states
 	
 	int iNGramsPrev = -1;	
@@ -143,21 +143,29 @@ void LMFSM::build(LMARPA *lmARPA) {
 	mNGramState.insert(MNGramState::value_type(hashKey(ngramsPrev),statesPrev));
 	for(int iOrder = 1 ; iOrder <= m_iNGramOrder ; ++iOrder) {
 		
-		for(int i=0 ; i < iNGramsPrev ; ++i) {		// there is one FSM state for each previous n-gram			
+		for(int i=0 ; i < iNGramsPrev ; ++i) {		// there is one FSM state for each previous n-gram
 		
 			// standard arcs
-			LMStateTemp *statePrev = statesPrev+i;
+			//LMStateTemp *statePrev = statesPrev+i;
 			NGram *prev = ngramsPrev+i;
 			assert(prev->iNGrams >= 0);
+			MNGramState::iterator it = mNGramState.find(hashKey(prev));
+			if (it == mNGramState.end()) {
+				iIgnoredNGrams[iOrder] += prev->iNGrams;
+				continue;
+			}
+			LMStateTemp *statePrev = it->second;
+			
 			// skip unreachable states (also, no transitions from final state)
-			if ((statePrev->iState == -1) || (prev->iLexUnit == iLexUnitEndSentence)) {
+			assert(statePrev->iState != -1);
+			if (prev->iLexUnit == iLexUnitEndSentence) {
 				iIgnoredNGrams[iOrder] += prev->iNGrams;
 				stateDest += prev->iNGrams;
 				continue;	
 			}
 			for(int j=0 ; j < prev->iNGrams ; ++j, ++stateDest) {
 				int iLexUnit = prev->ngrams[j].iLexUnit;
-				if (iLexUnit == iLexUnitUnknown) {
+				if ((iLexUnit == iLexUnitUnknown) /*|| ((iLexUnit == iLexUnitBegSentence) && (iOrder > 1))*/) {
 					//lmARPA->print(&prev->ngrams[j]);
 					++iIgnoredNGrams[iOrder];
 					continue;
@@ -167,13 +175,14 @@ void LMFSM::build(LMARPA *lmARPA) {
 					MNGramState::iterator it = mNGramState.find(hashKey(ngramFinal));
 					assert(it != mNGramState.end());
 					statePrev->lArc.push_back(newArc(iLexUnit,prev->ngrams[j].fProbability,it->second));
-					continue;	
+					continue;
 				}
 				if (iOrder < m_iNGramOrder) {
 					mNGramState.insert(MNGramState::value_type(hashKey(&prev->ngrams[j]),stateDest));
 					stateDest->iState = iStateID++;
 					statePrev->lArc.push_back(newArc(iLexUnit,prev->ngrams[j].fProbability,stateDest));	
 				} else {
+					//lmARPA->print(&prev->ngrams[j]);
 					assert(iOrder == m_iNGramOrder);	
 					MNGramState::iterator it = mNGramState.find(hashKey(prev,true,(m_iNGramOrder > 1) ? iLexUnit : -1));	
 					if (it != mNGramState.end()) {
@@ -223,7 +232,7 @@ void LMFSM::build(LMARPA *lmARPA) {
 	double dTimeEndBuilding = TimeUtils::getTimeMilliseconds();
 	
 	// sanity check
-	checkConnected(stateInitial,iStateID,m_iArcs);
+	checkConnected(stateInitial,stateFinal,states,iStateID,m_iArcs);
 	
 	double dTimeEndChecks = TimeUtils::getTimeMilliseconds();
 	
@@ -262,7 +271,8 @@ void LMFSM::build(LMARPA *lmARPA) {
 }
 
 // perform sanity checks to make sure that all the states/arcs created are connected
-void LMFSM::checkConnected(LMStateTemp *stateInitial, int iStates, int iArcs) {
+void LMFSM::checkConnected(LMStateTemp *stateInitial, LMStateTemp *stateFinal, 
+	LMStateTemp *stateBackoffZerogram, int iStates, int iArcs) {
 	
 	bool *bStateProcessed = new bool[iStates];
 	for(int i=0 ; i<iStates ; ++i) {
@@ -279,7 +289,10 @@ void LMFSM::checkConnected(LMStateTemp *stateInitial, int iStates, int iArcs) {
 		LMStateTemp *stateFrom = lState.front();
 		lState.pop_front();
 		
+		bool bBackoff = false;
 		for(LLMArcTemp::iterator it = stateFrom->lArc.begin() ; it != stateFrom->lArc.end() ; ++it) {
+		
+			if ((*it)->iLexUnit == BACKOFF_ARC) { bBackoff = true; }
 		
 			// insert G destination states into the queue (if not already processed)
 			if (bStateProcessed[(*it)->stateDest->iState] == false) {
@@ -288,14 +301,20 @@ void LMFSM::checkConnected(LMStateTemp *stateInitial, int iStates, int iArcs) {
 			}
 			// make sure the transition has a valid symbol
 			if ((*it)->iLexUnit != BACKOFF_ARC) {
+			
 				if (!m_lexiconManager->isStandard((*it)->iLexUnit) && 
-					((*it)->iLexUnit != m_lexiconManager->m_lexUnitEndSentence->iLexUnit)) {
-					BVC_VERB << "unexpected lexical unit: " << m_lexiconManager->getStrLexUnit((*it)->iLexUnit) << " !!";
+					((*it)->iLexUnit != m_lexiconManager->m_lexUnitEndSentence->iLexUnit) &&
+					((stateFrom != stateBackoffZerogram) || ((*it)->stateDest != stateInitial) || ((*it)->iLexUnit != m_lexiconManager->m_lexUnitBegSentence->iLexUnit))) {
+					BVC_WARNING << "unexpected lexical unit: " << m_lexiconManager->getStrLexUnit((*it)->iLexUnit) << " !!";
 				}
 			}
 			
 			++iArcsSeen;
 		}
+		if ((bBackoff == false) && (stateFrom != stateFinal) && (stateFrom != stateBackoffZerogram)) {
+			BVC_ERROR << "backoff-arc expected but not found, lm is not well formed";
+		}
+		
 		++iStatesSeen;	
 	}
 	for(int i=0 ; i<iStates ; ++i) {

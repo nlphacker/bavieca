@@ -932,6 +932,7 @@ void FeatureExtractor::applyCMVN(VUtteranceFeatures &vUtteranceFeatures, unsigne
 	vStandardDeviation.sqrt();	
 	
 	// not all coeff will be normalized
+	assert((iCoeffNorm >= 0) && (iCoeffNorm <= m_iCoefficients));
 	for(unsigned int i=iCoeffNorm ; i < (unsigned int)m_iCoefficients ; ++i) {
 		vMean(i) = 0.0;
 		vStandardDeviation(i) = 1.0;

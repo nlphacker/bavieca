@@ -535,8 +535,8 @@ class ActiveStateTable {
 		
 			if (m_iHistoryItemAvailable == -1) {
 				historyItemGarbageCollection();
+				assert(m_iHistoryItemAvailable != -1);
 			}
-			assert(m_iHistoryItemAvailable != -1);
 		
 			int iReturn = m_iHistoryItemAvailable;
 			m_iHistoryItemAvailable = m_historyItems[m_iHistoryItemAvailable].iPrev; 
@@ -549,8 +549,8 @@ class ActiveStateTable {
 		
 			if (m_iWGTokenAvailable == -1) {
 				historyItemGarbageCollection();
+				assert(m_iWGTokenAvailable != -1);
 			} 
-			assert(m_iWGTokenAvailable != -1);
 			
 			int iWGTokenAux = m_iWGTokenAvailable;
 			m_iWGTokenAvailable = (m_iWGTokenAvailable+m_wgTokens)->iPrev;

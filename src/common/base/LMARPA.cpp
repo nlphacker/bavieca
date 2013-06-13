@@ -199,13 +199,15 @@ void LMARPA::load() {
 						}
 					}
 					if (bDiff) {
-						if (ngramBase != NULL) {
+						if (ngramBase) {
 							ngramBase->iNGrams = iSubNGrams;
 							// sort n-grams by lexUnit-id (needed for binary search)
 							sort(ngramBase->ngrams,ngramBase->iNGrams);
 						}
 						ngramBase = getNGram(iId,i-1);
-						if (!ngramBase) printNGram(iId,i-1);
+						if (!ngramBase) {
+							printNGram(iId,i-1);
+						}
 						assert(ngramBase);	
 						ngramBase->ngrams = ngrams+iNGram;
 						iSubNGrams = 0;
@@ -285,7 +287,9 @@ void LMARPA::load() {
 }
 
 // sort the n-grams by lexUnit-id
-// not-very efficient: O(n^2), not good for very large vocabularies
+// it is not efficient: O(n^2), not good for very large vocabularies
+// however is lexicon and language model entries are sorted alphabetically
+// the time spent in sorting is minimal
 void LMARPA::sort(NGram *ngrams, int n) {
 
 	bool bSwapped;
@@ -302,7 +306,6 @@ void LMARPA::sort(NGram *ngrams, int n) {
 		}
 	} while(bSwapped);
 }
-
 
 // print a ngram
 void LMARPA::printNGram(int *iId, int n) {

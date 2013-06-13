@@ -86,6 +86,7 @@ void HMMState::store(FileOutput &file) {
 	
 	// phonetic symbol
 	char strPhone[MAX_PHONETIC_SYMBOL_LENGTH+1];
+	memset(strPhone,0,MAX_PHONETIC_SYMBOL_LENGTH+1);
 	strcpy(strPhone,m_phoneSet->getStrPhone(m_iPhone));	
 	IOBase::writeBytes(file.getStream(),reinterpret_cast<char*>(strPhone),MAX_PHONETIC_SYMBOL_LENGTH+1);
 	
