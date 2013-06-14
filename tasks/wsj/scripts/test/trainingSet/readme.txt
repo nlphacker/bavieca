@@ -1,0 +1,1 @@
+recognition of training set, needed for discriminative training
