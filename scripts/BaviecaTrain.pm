@@ -5,7 +5,6 @@ use warnings;
 use Fcntl;
 use File::Basename;
 
-
 package BaviecaTrain;
 
 my $cpuCores = 8;
@@ -28,6 +27,15 @@ sub extractFeatures {
 	system("run.pl $cpuCores $dirScripts/extractFeatures.pl \"$fileConfigFeatures $dirCorpus $dirMLFSegments $dirFeatures $normMode $normMethod\"");
 }
 
+# align 
+sub alignMLF {
+
+	if ((scalar @_) ne 7) { die("wrong number of parameters"); }
+	my ($filePhoneSet,$fileLexicon,$fileHMM,$dirFeatures,$dirMLFSegments,$format,$dirAlignments) = @_;
+
+	system("run.pl $cpuCores $dirScripts/align.pl \"$filePhoneSet $fileLexicon $fileHMM $dirFeatures $dirMLFSegments $format $dirAlignments\"");
+}
+
 # initialize acoustic model parameters
 sub initialize {
 
@@ -36,7 +44,6 @@ sub initialize {
 
 	system("hmminitializer -fea $dirFeatures -cfg $fileConfigFeatures -pho $filePhoneSet -lex $fileLexicon -mlf $fileMLF -met flatStart -mod $fileHMMInitial");	
 }
-
 
 # reestimate acoustic model parameters (iterative reestimation)
 sub reestimate {
@@ -95,6 +102,7 @@ sub estimate {
 
 	# estimate model parameters from the accumulators
 	system("mlestimator -pho $filePhoneSet -mod $fileHMMInput -acc $fileAccumulatorList -cov 0.05 -out $fileHMMOutput");
+	print("mlestimator -pho $filePhoneSet -mod $fileHMMInput -acc $fileAccumulatorList -cov 0.05 -out $fileHMMOutput\n");
 }
 
 # cluster logical HMM-states using phonetic contexts
@@ -156,6 +164,42 @@ sub multipleGaussianTrainingIncrement {
 	if ($dirAcc ne $dirAccBase) {
 		&removeAccumulators("$dirAcc/list.txt");
 	}	
+}
+
+# performs model-space discriminative training
+sub discriminativeTraining {
+
+	if ((scalar @_) ne 16) { die("wrong number of parameters"); }
+	my ($filePhoneSet,$fileLexicon,$fileHMM,$dirFeatures,$fileConfigFeatures,$dirMLF,
+		$dirLattices,$objectiveFunction,$boostingFactor,$cancelation,
+		$ismoothing,$learningRate,$tau,$amScaling,$iterations,$dirOutput) = @_;
+
+	# iterative reestimation
+	my $fileHMMPrev = $fileHMM;
+	my $fileOutputEstimation = "$dirOutput/estimation.txt";
+	
+	# iterative reestimation	
+	for(my $i = 1 ; $i <= $iterations ; ++$i) {
+	
+		my $dirIteration = "$dirOutput/$i";
+	
+		# accumulate stats
+		system("run.pl $cpuCores $dirScripts/accumulateDT.pl \"$filePhoneSet $fileLexicon $fileHMMPrev physical $dirFeatures $fileConfigFeatures $dirLattices $objectiveFunction $boostingFactor $cancelation $amScaling $dirMLF $dirIteration\"");
+		
+		# get the value of the objective function
+		my $line = &getObjectiveFunction("$dirIteration/out");
+		system("echo \"$line\" >> $fileOutputEstimation");
+	
+		# dt-estimation
+		my $fileModels = "$dirIteration/models.bin";
+		my $fileAccNum = "$dirIteration/acc/listNum.txt";
+		my $fileAccDen = "$dirIteration/acc/listDen.txt";
+		&listAccumulators("$dirIteration/acc/num",$fileAccNum);
+		&listAccumulators("$dirIteration/acc/den",$fileAccDen);
+		system("dtestimator -pho $filePhoneSet -mod $fileHMMPrev -accNum $fileAccNum -accDen $fileAccDen -cov 0.05 -out $fileModels -E $learningRate -I $ismoothing -tau $tau");
+	
+		$fileHMMPrev = $fileModels;	
+	}
 }
 
 # create a list with the accumulators in the given folder
@@ -238,6 +282,39 @@ sub parseOutput() {
 	$secondsEstimation = int(($secondsEstimation-($hoursEstimation*3600)-($minutesEstimation*60)));	
 	
 	return sprintf("likelihood: %18.4f (%5.2f) Gauss: %7d \[RTF=%.4f\]\[%d:%02d'%2d''\]\[%d:%02d'%2d''\]",$likelihood,$likelihoodFrame,$gaussian,$rtf,$hoursTotal,$minutesTotal,$secondsTotal,$hoursEstimation,$minutesEstimation,$secondsEstimation);	
+}
+
+# get the objective function for each iteration
+sub getObjectiveFunction {
+
+	if ((scalar @_) ne 1) { die("wrong number of parameters"); }
+	my ($dirOutput) = @_;
+
+	my $numeratorAcoustic = 0;
+	my $numerator = 0;
+	my $denominator = 0;
+	my $difference = 0;
+	my $segments = 0;
+
+	opendir(DIR,$dirOutput) || die("unable to open the directory: $dirOutput");	
+	my @files = grep(/[^\.]/,readdir(DIR));
+	foreach my $file (@files) {
+		open(FILE,"$dirOutput/$file") || die("unable to open the file");
+		foreach my $line (<FILE>) {
+			if ($line =~ m/likelihood\=\s+\(([\d\-\.]+)\)\s+([\d\-\.]+)\s+([\d\-\.]+)\s+([\d\-\.]+)/) {
+				$numeratorAcoustic += $1;
+				$numerator += $2;
+				$denominator += $3;
+				$difference += $4;
+				++$segments;
+			}
+		}
+		close(FILE);
+	}
+	close(DIR);
+	
+	my $obj = $numerator-$denominator;
+	return "$segments $numeratorAcoustic $numerator $denominator -> $difference";
 }
 
 

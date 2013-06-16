@@ -1,0 +1,51 @@
+# -----------------------------------------------
+# configuration file for the dynamic decoder
+# -----------------------------------------------
+
+# input
+input.type = audio
+	
+# feature extraction	
+feature.configurationFile = ./config/features.cfg
+feature.cepstralNormalization.method = CMN
+feature.cepstralNormalization.bufferSize = 1000000
+feature.cepstralNormalization.mode = session
+feature.warpFactor = 1.0
+	
+# phonetic symbol set
+phoneticSymbolSet.file = ./config/phoneset.txt
+
+# acoustic models
+acousticModels.file = <undefined>
+
+# language model
+languageModel.file = <undefined>
+languageModel.format = ARPA
+languageModel.type = ngram
+languageModel.scalingFactor = 27.0
+#languageModel.ngram = trigram
+languageModel.crossUtterance = no
+
+# lexicon
+lexicon.file = <undefined>
+
+# insertion penalty
+insertionPenalty.standard = -25.0
+insertionPenalty.filler = 0.0
+insertionPenalty.filler.file = ./config/fillerIP.txt
+
+# pruning 
+pruning.maxActiveArcs = 15000
+pruning.maxActiveArcsWE = 1000
+pruning.maxActiveTokensArc = 20
+pruning.likelihoodBeam = 250.0
+pruning.likelihoodBeamWE = 150.0
+pruning.likelihoodBeamTokensArc = 100.0
+
+# decoder output
+output.bestSinglePath = yes
+#output.lattice.folder = <undefined>
+#output.lattice.maxWordSequencesState = 10
+#output.audio.folder = <undefined>
+#output.features.folder = <undefined>
+#output.alignment.folder = <undefined>

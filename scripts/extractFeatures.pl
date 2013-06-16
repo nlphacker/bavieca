@@ -33,7 +33,7 @@ if ((scalar @ARGV) > 6) {
 
 # create the feature directory
 if (-d $dirFeatures) {
-	die("feature directory \"$dirFeatures\" already exists!");
+	#die("feature directory \"$dirFeatures\" already exists!");
 }
 
 my $dirTemp = "$dirFeatures/tmp";

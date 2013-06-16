@@ -1,4 +1,0 @@
-
-
-
-my $cpuCores = 8;

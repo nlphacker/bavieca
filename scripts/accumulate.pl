@@ -77,8 +77,9 @@ foreach my $fileMLF (sort @filesMLF) {
   	}
   	close(FILE);
   	
-	my $fileOutput = "$dirTrainingOutput/$fileMLF"; 	
 	my $base = ($fileMLF =~ m/(.+)\./)[0];
+	my $fileOutput = "$dirTrainingOutput/$base\.out\.txt"; 
+	my $fileError = "$dirTrainingOutput/$base\.err\.txt"; 
 	my $fileMLFPath = "$dirMLF/$fileMLF";
 	my $fileAcc = "$dirAccumulators/$base\.bin";
 
@@ -97,11 +98,11 @@ foreach my $fileMLF (sort @filesMLF) {
 	
 	# single-stream accumulation
 	if ($mode eq "single") {	
-		system("mlaccumulator -pho \"$filePhoneSet\" -mod \"$fileHMMInput\" -lex \"$fileLexicon\" -fea \"$dirFeatures\" -cfg \"$fileFeaturesConfig\" -mlf \"$fileMLFPath\" $context $fillersPron -dAcc \"$fileAcc\" > $fileOutput");		
+		system("mlaccumulator -pho \"$filePhoneSet\" -mod \"$fileHMMInput\" -lex \"$fileLexicon\" -fea \"$dirFeatures\" -cfg \"$fileFeaturesConfig\" -mlf \"$fileMLFPath\" $context $fillersPron -dAcc \"$fileAcc\" 1> $fileOutput 2> $fileError");		
 	}
 	# double-stream accumulation 
 	elsif ($mode eq "double") {
-		system("mlaccumulator -pho \"$filePhoneSet\" -mod \"$fileHMMInput\" -lex \"$fileLexicon\" -fea \"$dirFeaturesAli\" -feaA \"$dirFeaturesAcc\" -cfg \"$fileFeaturesConfigAli\" -cfgA \"$fileFeaturesConfigAcc\" -covA $covarianceAcc -mlf \"$fileMLFPath\" $context $fillersPron -dAcc \"$fileAcc\" > $fileOutput");	
+		system("mlaccumulator -pho \"$filePhoneSet\" -mod \"$fileHMMInput\" -lex \"$fileLexicon\" -fea \"$dirFeaturesAli\" -feaA \"$dirFeaturesAcc\" -cfg \"$fileFeaturesConfigAli\" -cfgA \"$fileFeaturesConfigAcc\" -covA $covarianceAcc -mlf \"$fileMLFPath\" $context $fillersPron -dAcc \"$fileAcc\" 1> $fileOutput 2> $fileError");	
 	}
 }
 closedir(DIR_MLF);

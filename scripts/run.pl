@@ -4,7 +4,7 @@ use warnings;
 use strict;
 
 # input parameters
-my $times = $ARGV[0];
+my $times = $ARGV[0];					# number of times the script will be launched
 my $script = $ARGV[1];	     			# perl script 
 my $parameters = $ARGV[2];				# parameters passed to the script
 if ((scalar @ARGV) != 3) {
