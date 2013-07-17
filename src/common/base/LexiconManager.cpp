@@ -29,6 +29,8 @@ namespace Bavieca {
 // constructor
 LexiconManager::LexiconManager(const char *strFile, PhoneSet *phoneSet)
 {
+   assert(phoneSet);
+   
    m_strFile = strFile;
    m_phoneSet = phoneSet;
    m_mLexUnit = new MLexUnit;
@@ -283,6 +285,11 @@ LexUnit *LexiconManager::processLine(const char *strLine, int iLine, char *strLe
 			" at line " << iLine << " of the lexicon";
 	}
 	
+	// check redundancy
+	if (isRedundant(lexUnit,strLexUnit)) {
+		BVC_ERROR << "redundant lexical unit \"" << strLexUnit << "\" at line " << iLine << " of the lexicon (same word and sequence of phonemes)";	
+	}
+	
 	// extract the pronunciation number from the lexical unit
 	int iPronunciation = 0;
 	char *cAlternative = strrchr(strLexUnit,'(');
@@ -307,19 +314,17 @@ LexUnit *LexiconManager::processLine(const char *strLine, int iLine, char *strLe
 		}
 		
 		// make sure alternative pronunciations of this lexical unit were already seen
-		bool bCorrectId = true;
+		bool bCorrectId = false;
 		int iSize = 0;
 		MLexUnit::iterator it = m_mLexUnit->find(strLexUnit);
 		if (it != m_mLexUnit->end()) {
 			iSize = (int)it->second->vLexUnitPronunciations.size();
-			if (iSize != iPronunciation) {
-				bCorrectId = false;
+			if (iSize == iPronunciation) {
+				bCorrectId = true;
 			}
-		} else {
-			bCorrectId = false;
 		}
 		if (bCorrectId == false) {
-			int iPronunciationOld = iPronunciation+1;			
+			int iPronunciationOld = iPronunciation+1;
 			iPronunciation = iSize;
 			BVC_WARNING << "lexical unit \"" << strLexUnit << "(" << iPronunciationOld << ")\" at line " << iLine
 				 << " has an incorrect pronunciation id, renamed to: \"" << strLexUnit << "(" << iPronunciation+1 << ")\"";
@@ -376,6 +381,35 @@ LexUnit *LexiconManager::processLine(const char *strLine, int iLine, char *strLe
 	}
 	
 	return lexUnit;
+}
+
+// return whether the lexical unit is redundant
+bool LexiconManager::isRedundant(LexUnit *lexUnit, const char *strLexUnit) {
+
+	assert(strLexUnit);
+	assert(lexUnit->vPhones.empty() == false);
+	MLexUnit::iterator it = m_mLexUnit->find(strLexUnit);
+	if (it != m_mLexUnit->end()) {	
+		assert(strcmp(strLexUnit,it->second->strLexUnit) == 0);	
+		for(VLexUnit::iterator jt = it->second->vLexUnitPronunciations.begin() ; jt != it->second->vLexUnitPronunciations.end() ; ++jt) {
+			if ((*jt)->vPhones.size() != lexUnit->vPhones.size()) {
+				continue;
+			}
+			bool bEqual = true;
+			vector<int>::iterator lt = (*jt)->vPhones.begin();
+			for(vector<int>::iterator kt = lexUnit->vPhones.begin() ; kt != lexUnit->vPhones.end() ; ++kt, ++lt) {
+				if (*kt != *lt) {
+					bEqual = false;
+					break;
+				}
+			}
+			if (bEqual) {
+				return true;
+			}
+		}	
+	}
+
+	return false;
 }
 
 // attach insertion-penalties to lexical units in the lexicon (needed for decoding)
@@ -487,9 +521,9 @@ float LexiconManager::computeAveragePronunciationVariations() {
 LexUnit *LexiconManager::getLexUnitSilence() {
 
 	// find the silence lexical unit
-	LexUnitX *lexUnitXSilence = getLexUnit(LEX_UNIT_SILENCE_SYMBOL);
-	if (lexUnitXSilence->vLexUnitPronunciations.size() != 1) {
-		BVC_ERROR << "no lexical unit for silence was defined in the lexicon, <SIL> must be defined";
+	LexUnitX *lexUnitXSilence = getLexUnit(LEX_UNIT_SILENCE_SYMBOL);	
+	if ((!lexUnitXSilence) || (lexUnitXSilence->vLexUnitPronunciations.size() != 1)) {
+		BVC_ERROR << "no lexical unit for silence was defined in the lexicon, " << LEX_UNIT_SILENCE_SYMBOL << " must be defined";
 	}
 	
 	return lexUnitXSilence->vLexUnitPronunciations.front();

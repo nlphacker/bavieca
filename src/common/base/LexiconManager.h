@@ -71,7 +71,7 @@ namespace Bavieca {
 
 // lexical unit transcription
 typedef struct {
-   int iLexUnit;							// lexical unit id (unique correspondence id <> lexical unit in str format) 
+   int iLexUnit;							// lexical unit id (unique correspondence id <> lexical unit in str format)
    int iLexUnitPron;						// lexical unit id (unique correspondence id <> lexical unit + pronunciation)
    int iIndex;								// index of the lexical unit within the lexicon file
    vector<int> vPhones;					// phonetic transciption 
@@ -180,6 +180,12 @@ class LexiconManager {
 			lexUnit->iIndex = (int)m_vLexUnitLexiconFile.size();
 			m_vLexUnitLexiconFile.push_back(lexUnit);
 		}
+   
+		// process a line in the lexicon and extract the lexical unit and its phonetic transcription
+		LexUnit *processLine(const char *strLine, int iLine, char *strLexUnit);
+		
+		// return whether the lexical unit is redundant
+		bool isRedundant(LexUnit *lexUnit, const char *strLexUnit);	
    
    public:
    
@@ -381,9 +387,6 @@ class LexiconManager {
 			assert(m_lexicon.size() > iLexUnitPron);
 			return m_lexiconX[m_lexicon[iLexUnitPron]->iLexUnit]->strLexUnit;
 		}
-		
-		// process a line in the lexicon and extract the lexical unit and its phonetic transcription
-		LexUnit *processLine(const char *strLine, int iLine, char *strLexUnit);		
 		
 		// return the type of lexical unit
 		unsigned char getLexicalUnitType(const char *strLexUnit);

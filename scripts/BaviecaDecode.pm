@@ -38,56 +38,47 @@ sub si {
 	system("mkdir -p $dirHypotheses");
 	system("mkdir -p $dirTemp");
 	system("mkdir -p $dirOutput");
-
-	# process each session
-	open(FILE_LIST, $fileList) || die("unable to open the directory: $fileList");
-	foreach my $line (<FILE_LIST>) {
-		
-		chomp($line);
-		
-		# get the control file and the speaker
-		my $fileControl;
-		my $speaker;
-		my $controlID;
-		if (! ($line =~ m/^([^\s]+)\s+([^\s]+)\s*/)) {
-			next;
-		} else {
-			$fileControl = $1; 
-			$speaker = $2;
-			$controlID = $speaker;
-		}
-		
-		# semaphore for exclusive processing of the given control file 
-		my $fileTemp = "$dirTemp/$controlID\.txt";
-	  	if (!defined(sysopen(FILE, $fileTemp, O_WRONLY|O_CREAT|O_EXCL))) {
-	  		next;
-	  	}
-	  	close(FILE);
-	   	
-      # create speaker dependent directories
-		my $dirLattices = "$dirSI/lattices/$controlID";         # folder to store the lattices
-		my $dirFeatures = "$dirSI/features/$controlID";         # folder to store the features
-		my $dirAlignments = "$dirSI/alignments/$controlID";     # folder to store the alignments
-		system("mkdir -p $dirLattices");
-		system("mkdir -p $dirFeatures");
-		system("mkdir -p $dirAlignments");      
-
-		my $fileConfigurationSpecific = "$dirConfig/$controlID\.txt";	
-
-		# create a suitable copy of the configuration file (with the appropiate language model/lexicon)
-		$paramValue{"output.features.folder"} = $dirFeatures;
-		$paramValue{"output.alignment.folder"} = $dirAlignments;
-		$paramValue{"output.lattice.folder"} = $dirLattices;
-				
-		Configuration::setConfigurationParameters($fileConfiguration,$fileConfigurationSpecific,\%paramValue);   
-	   
-		my $fileHypothesis = "$dirHypotheses/$controlID\.trn";  
-	  	my $fileControlPath = "$dirControl/$fileControl";   
-		my $fileOutput = "$dirOutput/$controlID\.out\.txt";
-		my $fileError = "$dirOutput/$controlID\.err\.txt";
 	
-	  	# actual decoding
-		system("dynamicdecoder -cfg $fileConfigurationSpecific -hyp $fileHypothesis -bat $fileControlPath 1> $fileOutput 2> $fileError");
+	# process each session
+  	my %speakerSessions = getSpeakerSessionsMap($fileList);  # get the session <-> speaker mapping	
+	foreach my $speaker (keys %speakerSessions) {
+		foreach my $fileControl (@{$speakerSessions{$speaker}}) {
+
+			my	$session = $fileControl;
+			$session =~ s/\.ctl$//;
+			
+			# semaphore for exclusive processing of the given control file 
+			my $fileTemp = "$dirTemp/$session\.txt";
+		  	if (!defined(sysopen(FILE, $fileTemp, O_WRONLY|O_CREAT|O_EXCL))) {
+		  		next;
+		  	}
+		  	close(FILE);
+		   	
+	      # create speaker dependent directories
+			my $dirLattices = "$dirSI/lattices/$session";         # folder to store the lattices
+			my $dirFeatures = "$dirSI/features/$session";         # folder to store the features
+			my $dirAlignments = "$dirSI/alignments/$session";     # folder to store the alignments
+			system("mkdir -p $dirLattices");
+			system("mkdir -p $dirFeatures");
+			system("mkdir -p $dirAlignments");      
+	
+			my $fileConfigurationSpecific = "$dirConfig/$session\.txt";	
+	
+			# create a suitable copy of the configuration file (with the appropiate language model/lexicon)
+			$paramValue{"output.features.folder"} = $dirFeatures;
+			$paramValue{"output.alignment.folder"} = $dirAlignments;
+			$paramValue{"output.lattice.folder"} = $dirLattices;
+					
+			Configuration::setConfigurationParameters($fileConfiguration,$fileConfigurationSpecific,\%paramValue);   
+		   
+			my $fileHypothesis = "$dirHypotheses/$session\.trn";  
+		  	my $fileControlPath = "$dirControl/$fileControl";   
+			my $fileOutput = "$dirOutput/$session\.out\.txt";
+			my $fileError = "$dirOutput/$session\.err\.txt";
+		
+		  	# actual decoding
+			system("dynamicdecoder -cfg $fileConfigurationSpecific -hyp $fileHypothesis -bat $fileControlPath 1> $fileOutput 2> $fileError");
+		}
 	}  	
 	close(FILE_LIST);
 }
@@ -119,91 +110,70 @@ sub fmllr {
 	system("mkdir -p $dirOutput");
 	system("mkdir -p $dirTransforms");	
 	system("mkdir -p $dirModels");	
-	system("mkdir -p $dirBatch");	
-
+	system("mkdir -p $dirBatch");	 	
+	
 	# process each session
-	open(FILE_LIST, $fileList) || die("unable to open the directory: $fileList");
-	foreach my $line (<FILE_LIST>) {
-		
-		chomp($line);
-		
-		# get the control file and the speaker
-		my $fileControl;
-		my $speaker;
-		my $controlID;
-		if (! ($line =~ m/^([^\s]+)\s+([^\s]+)\s*/)) {
-			next;
-		} else {
-			$fileControl = $1; 
-			$speaker = $2;
-			$controlID = $speaker;
-		}		
-		
-		# semaphore for exclusive processing of the given control file 
-		my $fileTemp = "$dirTemp/$controlID\.txt";
-	  	if (!defined(sysopen(FILE, $fileTemp, O_WRONLY|O_CREAT|O_EXCL))) {
-	  		next;
-	  	}
-	  	close(FILE);		
-  	
-  		# create the batch file for fMLLR
-  		my $fileBatchFMLLR = "$dirBatch/$speaker\.fmllr.txt";
-	  	open(FILE_BATCH,">$fileBatchFMLLR") || die("unable to create the batch file for the speaker: $fileBatchFMLLR");
-	  	my $dirAlignmentsInput = "$dirBase/alignments";
-	  	my $dirFeaturesInput = "$dirBase/features";
-		opendir(INPUT_DIR, $dirFeaturesInput) || die("unable to open the directory: $dirFeaturesInput");
-		my @subdirs = grep(/$speaker/,readdir(INPUT_DIR));
-		foreach my $dirSession (@subdirs) {
-			opendir(SESSION_DIR, "$dirFeaturesInput/$dirSession") || die("unable to open the directory: $dirFeaturesInput/$dirSession");
+  	my %speakerSessions = getSpeakerSessionsMap($fileList);  # get the session <-> speaker mapping	
+	foreach my $speaker (keys %speakerSessions) {
+		foreach my $fileControl (@{$speakerSessions{$speaker}}) {
+
+			my	$session = $fileControl;
+			$session =~ s/\.ctl$//;				  	
+
+			# semaphore for exclusive processing of the given control file 
+			# note: the session's speaker is extracted and all sessions for that speaker are processed
+			my $fileTemp = "$dirTemp/$session\.txt";
+		  	if (!defined(sysopen(FILE, $fileTemp, O_WRONLY|O_CREAT|O_EXCL))) {
+		  		next;
+		  	}
+		  	close(FILE);		  	
+	  	
+	  		# create the batch file for fMLLR
+	  		my $fileBatchFMLLR = "$dirBatch/$session\.fmllr.txt";
+		  	open(FILE_BATCH,">$fileBatchFMLLR") || die("unable to create the batch file for the speaker: $fileBatchFMLLR");
+		  	my $dirAlignmentsInput = "$dirBase/alignments";
+		  	my $dirFeaturesInput = "$dirBase/features";	
+			opendir(SESSION_DIR, "$dirFeaturesInput/$session") || die("unable to open the directory: $dirFeaturesInput/$session");
 			my @filesFea = grep(/\.fea$/,readdir(SESSION_DIR));
 			foreach my $fileFea (@filesFea) {
-				my $fileAli = "$dirAlignmentsInput/$dirSession/$fileFea";
+				my $fileAli = "$dirAlignmentsInput/$session/$fileFea";
 				$fileAli =~ s/\.fea$/\.ali/g;
-				$fileFea = "$dirFeaturesInput/$dirSession/$fileFea";
+				$fileFea = "$dirFeaturesInput/$session/$fileFea";
 				if (-e $fileAli) {
 					print FILE_BATCH "$fileFea $fileAli\n";
 				}
 			}			
-			closedir(SESSION_DIR);
-		}
-		closedir(INPUT_DIR);	  
-		close(FILE_BATCH);	
-		
-		if ((-s $fileBatchFMLLR) == 0) {
-			die("empty batch file!");
-		}		
-
-		# compute the fMLLR transform
-		my $fileOutputFMLLR = "$dirOutput/$speaker\.fmllr\.txt";   	
-		my $fileTransformFMLLR = "$dirTransforms/$speaker\.fmllr.bin";
-		my $filePhoneSet = $paramValue{"phoneticSymbolSet.file"};
-		system("fmllrestimator -pho $filePhoneSet -for text -mod $fileHMM -tra $fileTransformFMLLR -bat $fileBatchFMLLR > $fileOutputFMLLR");
-		my $fileFeatureTransformList = "$dirTransforms/$speaker\.fmllr.list.txt";
-		system("echo \"$fileTransformFMLLR\" > $fileFeatureTransformList");		
-		
-		# get the warping factor if needed
-		my $warpingFactor;
-		if ($dirWarping ne "") {
-			my $fileWarpingFactor = "$dirWarping/$speaker\.warpingFactor\.txt";		
-			$warpingFactor = &getWarpingFactor($fileWarpingFactor);		
-		}
-		
-		# decode each of the sessions independently
-		opendir(INPUT_DIR, $dirFeaturesInput) || die("unable to open the directory: $dirFeaturesInput");		
-		@subdirs = grep(/$speaker/,readdir(INPUT_DIR));
-		foreach my $dirSession (@subdirs) {	
-		
-			my $controlID = $dirSession;			
-	   	
-	      # create speaker dependent directories
-			my $dirLattices = "$dirFMLLR/lattices/$controlID";         # folder to store the lattices
-			my $dirFeatures = "$dirFMLLR/features/$controlID";         # folder to store the features
-			my $dirAlignments = "$dirFMLLR/alignments/$controlID";     # folder to store the alignments
+			closedir(SESSION_DIR);			
+			close(FILE_BATCH);	
+				
+			if ((-s $fileBatchFMLLR) == 0) {
+				die("empty batch file!");
+			}		
+	
+			# compute the fMLLR transform
+			my $fileOutputFMLLR = "$dirOutput/$session\.fmllr\.txt";   	
+			my $fileTransformFMLLR = "$dirTransforms/$session\.fmllr.bin";
+			my $filePhoneSet = $paramValue{"phoneticSymbolSet.file"};
+			system("fmllrestimator -pho $filePhoneSet -for text -mod $fileHMM -tra $fileTransformFMLLR -bat $fileBatchFMLLR > $fileOutputFMLLR");
+			my $fileFeatureTransformList = "$dirTransforms/$session\.fmllr.list.txt";
+			system("echo \"$fileTransformFMLLR\" > $fileFeatureTransformList");		
+			
+			# get the warping factor if needed
+			my $warpingFactor;
+			if ($dirWarping ne "") {
+				my $fileWarpingFactor = "$dirWarping/$session\.warpingFactor\.txt";		
+				$warpingFactor = &getWarpingFactor($fileWarpingFactor);		
+			}
+			   	
+	      # create session directories
+			my $dirLattices = "$dirFMLLR/lattices/$session";         # folder to store the lattices
+			my $dirFeatures = "$dirFMLLR/features/$session";         # folder to store the features
+			my $dirAlignments = "$dirFMLLR/alignments/$session";     # folder to store the alignments
 			system("mkdir -p $dirLattices");
 			system("mkdir -p $dirFeatures");
 			system("mkdir -p $dirAlignments");      
 	
-			my $fileConfigurationSpecific = "$dirConfig/$controlID\.txt";	
+			my $fileConfigurationSpecific = "$dirConfig/$session\.txt";	
 	
 			# create a suitable copy of the configuration file (with the appropiate language model/lexicon)
 			$paramValue{"feature.transformFile"} = $fileFeatureTransformList;			
@@ -213,17 +183,15 @@ sub fmllr {
 			
 			Configuration::setConfigurationParameters($fileConfiguration,$fileConfigurationSpecific,\%paramValue);   
 		   
-			my $fileHypothesis = "$dirHypotheses/$controlID\.trn";  
+			my $fileHypothesis = "$dirHypotheses/$session\.trn";  
 		  	my $fileControlPath = "$dirControl/$fileControl";   
-			my $fileOutput = "$dirOutput/$controlID\.out\.txt";
-			my $fileError = "$dirOutput/$controlID\.err\.txt";
+			my $fileOutput = "$dirOutput/$session\.out\.txt";
+			my $fileError = "$dirOutput/$session\.err\.txt";
 		
 		  	# actual decoding
 			system("dynamicdecoder -cfg $fileConfigurationSpecific -hyp $fileHypothesis -bat $fileControlPath 1> $fileOutput 2> $fileError");
-		}
-		closedir(INPUT_DIR);		
+		}	
 	}  	
-	close(FILE_LIST);
 }
 
 # speaker independent decoding
@@ -269,103 +237,83 @@ sub mllr {
 		system("regtree -pho $filePhoneSet -mod $fileHMM -met kMeans -rgc 50 -gau 50 -out \"$fileRegTree\" > $fileRegTreeOutput");			
 		system("echo \"created\" > $fileAfter");
   	}
-  	close(FILE);  	
-
+  	close(FILE);
+  	
 	# process each session
-	open(FILE_LIST, $fileList) || die("unable to open the directory: $fileList");
-	foreach my $line (<FILE_LIST>) {
-		
-		chomp($line);
-		
-		# get the control file and the speaker
-		my $fileControl;
-		my $speaker;
-		my $controlID;
-		if (! ($line =~ m/^([^\s]+)\s+([^\s]+)\s*/)) {
-			next;
-		} else {
-			$fileControl = $1; 
-			$speaker = $2;
-			$controlID = $speaker;
-		}
-		
-		# semaphore for exclusive processing of the given control file 
-		my $fileTemp = "$dirTemp/$controlID\.txt";
-	  	if (!defined(sysopen(FILE, $fileTemp, O_WRONLY|O_CREAT|O_EXCL))) {
-	  		next;
-	  	}
-	  	close(FILE);
-	  	
-  		# create the batch file 
-  		my $fileBatchMLLR = "$dirBatch/$speaker\.mllr.txt";
-	  	open(FILE_BATCH,">$fileBatchMLLR") || die("unable to create the batch file for the speaker: $fileBatchMLLR");
-	  	my $dirAlignmentsInput = "$dirBase/alignments";
-	  	my $dirFeaturesInput = "$dirBase/features";
-		opendir(INPUT_DIR, $dirFeaturesInput) || die("unable to open the directory: $dirFeaturesInput");
-		my @subdirs = grep(/$speaker/,readdir(INPUT_DIR));
-		foreach my $dirSession (@subdirs) {
-			opendir(SESSION_DIR, "$dirFeaturesInput/$dirSession") || die("unable to open the directory: $dirFeaturesInput/$dirSession");
+  	my %speakerSessions = getSpeakerSessionsMap($fileList);  # get the session <-> speaker mapping	
+	foreach my $speaker (keys %speakerSessions) {
+		foreach my $fileControl (@{$speakerSessions{$speaker}}) {
+
+			my	$session = $fileControl;
+			$session =~ s/\.ctl$//;
+  	
+			# semaphore for exclusive processing of the given control file 
+			my $fileTemp = "$dirTemp/$session\.txt";
+		  	if (!defined(sysopen(FILE, $fileTemp, O_WRONLY|O_CREAT|O_EXCL))) {
+		  		next;
+		  	}
+		  	close(FILE);
+		  	
+	  		# create the batch file 
+	  		my $fileBatchMLLR = "$dirBatch/$session\.mllr.txt";
+		  	open(FILE_BATCH,">$fileBatchMLLR") || die("unable to create the batch file for the speaker: $fileBatchMLLR");
+		  	my $dirAlignmentsInput = "$dirBase/alignments";
+		  	my $dirFeaturesInput = "$dirBase/features";	  	
+			opendir(SESSION_DIR, "$dirFeaturesInput/$session") || die("unable to open the directory: $dirFeaturesInput/$session");
 			my @filesFea = grep(/\.fea$/,readdir(SESSION_DIR));
 			foreach my $fileFea (@filesFea) {
-				my $fileAli = "$dirAlignmentsInput/$dirSession/$fileFea";
+				my $fileAli = "$dirAlignmentsInput/$session/$fileFea";
 				$fileAli =~ s/\.fea$/\.ali/g;
-				$fileFea = "$dirFeaturesInput/$dirSession/$fileFea";
+				$fileFea = "$dirFeaturesInput/$session/$fileFea";
 				if (-e $fileAli) {
 					print FILE_BATCH "$fileFea $fileAli\n";
 				}
 			}			
 			closedir(SESSION_DIR);
-		}
-		closedir(INPUT_DIR);	  
-		close(FILE_BATCH);	
-		
-		if ((-s $fileBatchMLLR) == 0) {
-			die("empty batch file!");
-		}
-
-		# get the fMLLR transform
-		my $fileTransformFMLLR = "$dirBase/transforms/$speaker\.fmllr.bin";
-		my $fileFeatureTransformList = "$dirTransforms/$speaker\.fmllr.list.txt";
-		system("echo \"$fileTransformFMLLR\" > $fileFeatureTransformList");
-		
-		my $fileOutputMLLR = "$dirOutput/$speaker\.mllr\.txt";   	
-		my $fileTransformMLLR = "$dirTransforms/$speaker\.mllr.bin";
-		my $fileModelsOutput = "$dirTransforms/$speaker\.models.bin";
-		
-		system("mllrestimator -pho $filePhoneSet -mod $fileHMM -tra $fileTransformMLLR -rgt $fileRegTree -bat $fileBatchMLLR -for text -occ 3500 -gau 50 -cov no -bst no > $fileOutputMLLR");		
-		
-		# get the likelihood before and after adaptation		
-		my $likelihoodIncrease = &getLikelihoodIncrease($fileOutputMLLR);
-		my $str = sprintf("%-14s %s",$speaker,$likelihoodIncrease);		
-		system("echo \"$str\" >> $dirOutput/increase.txt");
-		
-		# create the transformed HMMs
-		my $fileHMM_MLLR = "$dirModels/$speaker\.models\.bin";
-		system("hmmx -pho $filePhoneSet -tra $fileTransformMLLR -rgt $fileRegTree -in $fileHMM -out $fileHMM_MLLR");		
-		
-		# get the warping factor if needed
-		my $warpingFactor;
-		if ($dirWarping ne "") {
-			my $fileWarpingFactor = "$dirWarping/$speaker\.warpingFactor\.txt";		
-			$warpingFactor = &getWarpingFactor($fileWarpingFactor);		
-		}	  	
-		
-		# decode each of the sessions independently
-		opendir(INPUT_DIR, $dirFeaturesInput) || die("unable to open the directory: $dirFeaturesInput");		
-		@subdirs = grep(/$speaker/,readdir(INPUT_DIR));
-		foreach my $dirSession (@subdirs) {	
-		
-			my $controlID = $dirSession;			
-	   	
+			close(FILE_BATCH);	
+			
+			if ((-s $fileBatchMLLR) == 0) {
+				die("empty batch file!");
+			}
+	
+			# get the fMLLR transform
+			my $fileTransformFMLLR = "$dirBase/transforms/$session\.fmllr.bin";
+			my $fileFeatureTransformList = "$dirTransforms/$session\.fmllr.list.txt";
+			system("echo \"$fileTransformFMLLR\" > $fileFeatureTransformList");
+			
+			my $fileOutputMLLR = "$dirOutput/$speaker\.mllr\.txt";   	
+			my $fileTransformMLLR = "$dirTransforms/$session\.mllr.bin";
+			my $fileModelsOutput = "$dirTransforms/$session\.models.bin";
+			
+			system("mllrestimator -pho $filePhoneSet -mod $fileHMM -tra $fileTransformMLLR -rgt $fileRegTree -bat $fileBatchMLLR -for text -occ 3500 -gau 50 -cov no -bst no > $fileOutputMLLR");		
+			
+			# get the likelihood before and after adaptation		
+			my $likelihoodIncrease = &getLikelihoodIncrease($fileOutputMLLR);
+			my $str = sprintf("%-14s %s",$speaker,$likelihoodIncrease);		
+			system("echo \"$str\" >> $dirOutput/increase.txt");
+			
+			# create the transformed HMMs
+			my $fileHMM_MLLR = "$dirModels/$session\.models\.bin";
+			system("hmmx -pho $filePhoneSet -tra $fileTransformMLLR -rgt $fileRegTree -in $fileHMM -out $fileHMM_MLLR");		
+			
+			# get the warping factor if needed
+			my $warpingFactor;
+			if ($dirWarping ne "") {
+				my $fileWarpingFactor = "$dirWarping/$session\.warpingFactor\.txt";		
+				$warpingFactor = &getWarpingFactor($fileWarpingFactor);		
+			}	  	
+			
+			# decode the session		
+		   	
 	      # create speaker dependent directories
-			my $dirLattices = "$dirMLLR/lattices/$controlID";         # folder to store the lattices
-			my $dirFeatures = "$dirMLLR/features/$controlID";         # folder to store the features
-			my $dirAlignments = "$dirMLLR/alignments/$controlID";     # folder to store the alignments
+			my $dirLattices = "$dirMLLR/lattices/$session";         # folder to store the lattices
+			my $dirFeatures = "$dirMLLR/features/$session";         # folder to store the features
+			my $dirAlignments = "$dirMLLR/alignments/$session";     # folder to store the alignments
 			system("mkdir -p $dirLattices");
 			system("mkdir -p $dirFeatures");
 			system("mkdir -p $dirAlignments");      
 	
-			my $fileConfigurationSpecific = "$dirConfig/$controlID\.txt";	
+			my $fileConfigurationSpecific = "$dirConfig/$session\.txt";	
 	
 			# create a suitable copy of the configuration file (with the appropiate language model/lexicon)
 			$paramValue{"acousticModels.file"} = $fileHMM_MLLR;			
@@ -379,23 +327,22 @@ sub mllr {
 			
 			Configuration::setConfigurationParameters($fileConfiguration,$fileConfigurationSpecific,\%paramValue);   
 		   
-			my $fileHypothesis = "$dirHypotheses/$controlID\.trn";  
+			my $fileHypothesis = "$dirHypotheses/$session\.trn";  
 		  	my $fileControlPath = "$dirControl/$fileControl";   
-			my $fileOutput = "$dirOutput/$controlID\.out\.txt";
-			my $fileError = "$dirOutput/$controlID\.err\.txt";
+			my $fileOutput = "$dirOutput/$session\.out\.txt";
+			my $fileError = "$dirOutput/$session\.err\.txt";
 		
 		  	# actual decoding
 			system("dynamicdecoder -cfg $fileConfigurationSpecific -hyp $fileHypothesis -bat $fileControlPath 1> $fileOutput 2> $fileError");
-		}
-		closedir(INPUT_DIR);
-		
-		system("rm $fileHMM_MLLR");		
+			
+			system("rm $fileHMM_MLLR");
+		}	
 	}  	
 	close(FILE_LIST);
 }
 
 # return the likelihood increase on the adaptation data
-sub getLikelihoodIncrease() {
+sub getLikelihoodIncrease {
 
 	if ((scalar @_) ne 1) { die("wrong number of parameters"); }
 	my ($file) = @_;
@@ -437,8 +384,6 @@ sub getWarpingFactor {
 	
 	return $warpFactor;
 }
-
-
 
 # score a recognition experiment using sclite
 sub score {
@@ -498,7 +443,7 @@ sub score {
 }
 
 # parse sclite output and get WER
-sub extractWERSclite($$) {
+sub extractWERSclite {
 
 	my($fileSclite) = @_;
 
@@ -511,6 +456,26 @@ sub extractWERSclite($$) {
      	} 
 	}	 	
 	close(INFO);
+}
+
+# return the session speaker map
+sub getSpeakerSessionsMap {
+
+	if ((scalar @_) ne 1) { die("wrong number of parameters"); }
+	my ($file) = @_;
+	
+	my %speakerSessions = ();
+	open(FILE,$file) || die("unable to open the file: $file");
+	foreach my $line (<FILE>) {
+		if ($line =~ m/^([^\s]+)\s+([^\s]+)\s*/) {
+			my $fileControl = $1; 
+			my $speaker = $2;
+			push(@{$speakerSessions{$speaker}},$fileControl);
+		}
+	}
+	close(FILE);
+	
+	return %speakerSessions;
 }
 
 
